@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command color-lab is an interactive color mixing and exploration tool.
 //
 // It provides RGB+alpha sliders, a color picker, complementary/analogous/triadic

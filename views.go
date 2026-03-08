@@ -370,6 +370,46 @@ func AnimatedDynamicView(state *IntState, transition Transition, builder func(va
 	return ret
 }
 
+// DynamicBoolView creates a view whose content is rebuilt by a Go callback whenever the observed BoolState changes.
+func DynamicBoolView(state *BoolState, builder func(value bool) View) View {
+	builderID := registerBoolViewBuilder(builder)
+	var ptr uintptr
+	ptr = _SUIDynamicBoolView(state.ptr, builderID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(builderID)
+	return ret
+}
+
+// AnimatedDynamicBoolView creates a BoolState-driven view with animated transitions.
+func AnimatedDynamicBoolView(state *BoolState, transition Transition, builder func(value bool) View) View {
+	builderID := registerBoolViewBuilder(builder)
+	var ptr uintptr
+	ptr = _SUIAnimatedDynamicBoolView(state.ptr, int32(transition), builderID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(builderID)
+	return ret
+}
+
+// DynamicFloatView creates a view whose content is rebuilt by a Go callback whenever the observed FloatState changes.
+func DynamicFloatView(state *FloatState, builder func(value float64) View) View {
+	builderID := registerFloatViewBuilder(builder)
+	var ptr uintptr
+	ptr = _SUIDynamicFloatView(state.ptr, builderID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(builderID)
+	return ret
+}
+
+// AnimatedDynamicFloatView creates a FloatState-driven view with animated transitions.
+func AnimatedDynamicFloatView(state *FloatState, transition Transition, builder func(value float64) View) View {
+	builderID := registerFloatViewBuilder(builder)
+	var ptr uintptr
+	ptr = _SUIAnimatedDynamicFloatView(state.ptr, int32(transition), builderID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(builderID)
+	return ret
+}
+
 // NavigationStack wraps content in a navigation container.
 func NavigationStack(content View) View {
 	ptr := _SUINavigationStack(content.ptr)

@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command calculator demonstrates a working calculator app built with SwiftUI from Go.
 //
 // It renders a 4x5 grid of buttons for digits, operators, and functions,

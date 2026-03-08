@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command dashboard demonstrates a multi-tab live dashboard with real-time
 // Go runtime metrics, navigation, and interactive controls.
 //

@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command timer demonstrates Go goroutines driving reactive SwiftUI updates.
 //
 // A background goroutine ticks every second, updating elapsed time and progress

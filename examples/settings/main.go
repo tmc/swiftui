@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command settings demonstrates a comprehensive macOS settings panel built
 // with SwiftUI from Go. It uses TabView with three tabs (General, Appearance,
 // Advanced), each containing Form sections with various input controls.

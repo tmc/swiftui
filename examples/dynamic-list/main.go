@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command dynamic-list demonstrates reactive list updates with SwiftUI from Go.
 //
 // It maintains a list of items that can be added via a text field and cleared

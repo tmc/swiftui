@@ -1,0 +1,111 @@
+package localauth
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/tmc/swiftui/internal/bridgeutil"
+
+	"github.com/ebitengine/purego"
+)
+
+// libHandle is the handle to the loaded libLocalAuthSwiftUIBridge dylib.
+var libHandle uintptr
+
+// swiftBridgeDir returns the path to the vendored Swift bridge source directory.
+func swiftBridgeDir() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "internal/swift")
+}
+
+// discoverBuiltDylib locates a built bridge dylib across SwiftPM layouts.
+func discoverBuiltDylib() (string, error) {
+	path, err := bridgeutil.DiscoverBuiltDylib(swiftBridgeDir(), "libLocalAuthSwiftUIBridge.dylib")
+	if err != nil {
+		return "", fmt.Errorf("localauth: %w", err)
+	}
+	return path, nil
+}
+
+// buildSwiftBridge builds the vendored Swift bridge dylib if needed.
+func buildSwiftBridge() (string, error) {
+	return bridgeutil.BuildSwiftBridge(swiftBridgeDir(), "localauth", "libLocalAuthSwiftUIBridge.dylib", "localauth")
+}
+
+// tryRegisterLibFunc attempts to register a C function from the dylib.
+func tryRegisterLibFunc(fptr any, handle uintptr, name string) bool {
+	defer func() { recover() }()
+	purego.RegisterLibFunc(fptr, handle, name)
+	return true
+}
+
+// C function variables registered via purego.RegisterLibFunc.
+var (
+	_LAS_LocalAuthViewCreate func(*byte) uintptr
+	_LAS_Retain              func(uintptr) uintptr
+	_LAS_Release             func(uintptr)
+	_LAS_FreeString          func(*byte)
+)
+
+func init() {
+	envKey := "LIB" + strings.ToUpper("LocalAuthSwiftUIBridge") + "_PATH"
+
+	if path := os.Getenv(envKey); path != "" {
+		libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+	}
+
+	if libHandle == 0 {
+		if path, err := discoverBuiltDylib(); err == nil {
+			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		}
+	}
+
+	if libHandle == 0 {
+		if path, err := buildSwiftBridge(); err == nil {
+			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		}
+	}
+
+	if libHandle == 0 {
+		for _, path := range []string{
+			"libLocalAuthSwiftUIBridge.dylib",
+			"/usr/local/lib/libLocalAuthSwiftUIBridge.dylib",
+		} {
+			var err error
+			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			if err == nil {
+				break
+			}
+		}
+	}
+
+	if libHandle == 0 {
+		setUnavailableStubs()
+		return
+	}
+	tryRegisterLibFunc(&_LAS_LocalAuthViewCreate, libHandle, "LAS_LocalAuthViewCreate")
+	tryRegisterLibFunc(&_LAS_Retain, libHandle, "LAS_Retain")
+	tryRegisterLibFunc(&_LAS_Release, libHandle, "LAS_Release")
+	tryRegisterLibFunc(&_LAS_FreeString, libHandle, "LAS_FreeString")
+
+	setUnavailableStubs()
+}
+
+func setUnavailableStubs() {
+	stub := func(name string) { panic("localauth: " + name + ": dylib not loaded") }
+	if _LAS_LocalAuthViewCreate == nil {
+		_LAS_LocalAuthViewCreate = func(*byte) uintptr { stub("LAS_LocalAuthViewCreate"); return 0 }
+	}
+	if _LAS_Retain == nil {
+		_LAS_Retain = func(uintptr) uintptr { stub("LAS_Retain"); return 0 }
+	}
+	if _LAS_Release == nil {
+		_LAS_Release = func(uintptr) { stub("LAS_Release") }
+	}
+	if _LAS_FreeString == nil {
+		_LAS_FreeString = func(*byte) { stub("LAS_FreeString") }
+	}
+}

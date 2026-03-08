@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command quiz demonstrates an interactive Go trivia game with animated
 // transitions, scoring, and results using SwiftUI from Go.
 //
@@ -77,7 +80,7 @@ var questions = []question{
 }
 
 func main() {
-	screen := swiftui.NewIntState(0)     // 0=start, 1=playing, 2=results
+	screen := swiftui.NewIntState(0)      // 0=start, 1=playing, 2=results
 	questionIdx := swiftui.NewIntState(0) // current question
 	score := swiftui.NewIntState(0)       // total correct
 	selected := swiftui.NewIntState(-1)   // selected answer (-1 = none)
@@ -345,7 +348,7 @@ func gradeFor(pct float64) string {
 func scoreColor(pct float64, component int) float64 {
 	// Green for high, orange for mid, red for low
 	colors := [3][3]float64{
-		{0.2, 0.75, 0.3},  // >= 70%
+		{0.2, 0.75, 0.3},   // >= 70%
 		{0.95, 0.65, 0.15}, // >= 40%
 		{0.9, 0.25, 0.2},   // < 40%
 	}

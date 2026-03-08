@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command web-browser demonstrates WebView embedding in SwiftUI from Go.
 //
 // It creates a WebPage, loads a URL, and displays it in a SwiftUI window

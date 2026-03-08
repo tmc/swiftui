@@ -8,9 +8,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"sync"
 
+	"github.com/tmc/swiftui/internal/bridgeutil"
 	embeddedbridge "github.com/tmc/swiftui/internal/embeddedbridge"
 
 	"github.com/ebitengine/purego"
@@ -65,24 +65,42 @@ func (r *retained) release() {
 // swiftBridgeDir returns the path to the vendored Swift bridge source directory.
 func swiftBridgeDir() string {
 	_, file, _, _ := runtime.Caller(0)
-	return filepath.Join(filepath.Dir(file), "swift")
+	return filepath.Join(filepath.Dir(file), "internal/swift")
 }
 
 // discoverBuiltDylib locates a built SwiftUI bridge dylib across SwiftPM layouts.
 func discoverBuiltDylib() (string, error) {
-	dir := swiftBridgeDir()
-	candidates := []string{
-		filepath.Join(dir, ".build", "release", "libSwiftUIBridge.dylib"),
+	path, err := bridgeutil.DiscoverBuiltDylib(swiftBridgeDir(), "libSwiftUIBridge.dylib")
+	if err != nil {
+		return "", fmt.Errorf("swiftui: %w", err)
 	}
-	glob, _ := filepath.Glob(filepath.Join(dir, ".build", "*", "release", "libSwiftUIBridge.dylib"))
-	sort.Strings(glob)
-	candidates = append(candidates, glob...)
-	for _, path := range candidates {
-		if _, err := os.Stat(path); err == nil {
-			return path, nil
+	return path, nil
+}
+
+func embeddedBridgeCacheDir() (string, error) {
+	dir, err := bridgeutil.SwiftUICacheDir("bridge-cache")
+	if err != nil {
+		return "", fmt.Errorf("swiftui: %w", err)
+	}
+	return dir, nil
+}
+
+func embeddedBridgeMatches(path string, want [32]byte) (bool, error) {
+	info, err := os.Lstat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
 		}
+		return false, fmt.Errorf("swiftui: stat embedded bridge cache: %w", err)
 	}
-	return "", fmt.Errorf("swiftui: built dylib not found")
+	if !info.Mode().IsRegular() {
+		return false, fmt.Errorf("swiftui: embedded bridge cache entry %s is not a regular file", path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false, fmt.Errorf("swiftui: read embedded bridge cache: %w", err)
+	}
+	return sha256.Sum256(data) == want, nil
 }
 
 func materializeEmbeddedBridge(data []byte, name string) (string, error) {
@@ -93,27 +111,46 @@ func materializeEmbeddedBridge(data []byte, name string) (string, error) {
 		name = "libSwiftUIBridge.dylib"
 	}
 	sum := sha256.Sum256(data)
-	cacheDir := filepath.Join(os.TempDir(), "swiftui-bridge-cache")
-	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
-		return "", fmt.Errorf("swiftui: create bridge cache: %w", err)
+	cacheDir, err := embeddedBridgeCacheDir()
+	if err != nil {
+		return "", err
 	}
 	path := filepath.Join(cacheDir, hex.EncodeToString(sum[:])+"-"+name)
-	if _, err := os.Stat(path); err == nil {
+	if ok, err := embeddedBridgeMatches(path, sum); err != nil {
+		return "", err
+	} else if ok {
 		return path, nil
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o755); err != nil {
+	tmp, err := os.CreateTemp(cacheDir, name+".*.tmp")
+	if err != nil {
+		return "", fmt.Errorf("swiftui: create embedded bridge temp file: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
 		return "", fmt.Errorf("swiftui: write embedded bridge: %w", err)
 	}
-	if err := os.Rename(tmp, path); err != nil {
-		// Another process may have raced us and created the file first.
-		if _, statErr := os.Stat(path); statErr == nil {
-			_ = os.Remove(tmp)
+	if err := tmp.Close(); err != nil {
+		return "", fmt.Errorf("swiftui: close embedded bridge temp file: %w", err)
+	}
+	if err := os.Chmod(tmpPath, 0o500); err != nil {
+		return "", fmt.Errorf("swiftui: chmod embedded bridge temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		if ok, matchErr := embeddedBridgeMatches(path, sum); matchErr == nil && ok {
 			return path, nil
+		} else if matchErr != nil {
+			return "", matchErr
 		}
 		return "", fmt.Errorf("swiftui: finalize embedded bridge: %w", err)
 	}
-	return path, nil
+	if ok, err := embeddedBridgeMatches(path, sum); err != nil {
+		return "", err
+	} else if ok {
+		return path, nil
+	}
+	return "", fmt.Errorf("swiftui: embedded bridge cache verification failed")
 }
 
 func loadEmbeddedBridge() (uintptr, error) {
@@ -134,24 +171,7 @@ func loadEmbeddedBridge() (uintptr, error) {
 
 // buildSwiftBridge builds the vendored Swift bridge dylib if it doesn't already exist.
 func buildSwiftBridge() (string, error) {
-	if path, err := discoverBuiltDylib(); err == nil {
-		return path, nil
-	}
-	dir := swiftBridgeDir()
-	if _, err := os.Stat(filepath.Join(dir, "Package.swift")); err != nil {
-		return "", fmt.Errorf("swiftui: swift bridge source not found at %s", dir)
-	}
-	cmd := exec.Command("swift", "build", "-c", "release", "--quiet")
-	cmd.Dir = dir
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("swiftui: swift build failed: %w", err)
-	}
-	path, err := discoverBuiltDylib()
-	if err != nil {
-		return "", err
-	}
-	return path, nil
+	return bridgeutil.BuildSwiftBridge(swiftBridgeDir(), "root", "libSwiftUIBridge.dylib", "swiftui")
 }
 
 // tryRegisterLibFunc attempts to register a C function from the dylib.
@@ -165,58 +185,62 @@ func tryRegisterLibFunc(fptr any, handle uintptr, name string) bool {
 // C function variables registered via purego.RegisterLibFunc.
 var (
 	// Views.
-	_SUIText                 func(*byte) uintptr
-	_SUIImage                func(*byte) uintptr
-	_SUISpacer               func() uintptr
-	_SUIDivider              func() uintptr
-	_SUILabel                func(*byte, *byte) uintptr
-	_SUIProgressViewSpinning func() uintptr
-	_SUIProgressViewLinear   func(float64, float64) uintptr
-	_SUIEmptyView            func() uintptr
-	_SUIColor                func(float64, float64, float64, float64) uintptr
-	_SUICircle               func() uintptr
-	_SUIRectangle            func() uintptr
-	_SUIRoundedRectangle     func(float64) uintptr
-	_SUICapsule              func() uintptr
-	_SUILink                 func(*byte, *byte) uintptr
-	_SUIGauge                func(float64, *byte) uintptr
-	_SUIVStack               func(*uintptr, int32) uintptr
-	_SUIVStackSpaced         func(*uintptr, int32, float64) uintptr
-	_SUIHStack               func(*uintptr, int32) uintptr
-	_SUIHStackSpaced         func(*uintptr, int32, float64) uintptr
-	_SUIGroupBox             func(*byte, uintptr) uintptr
-	_SUIScrollView           func(uintptr) uintptr
-	_SUIZStack               func(*uintptr, int32) uintptr
-	_SUILazyVStack           func(*uintptr, int32) uintptr
-	_SUILazyHStack           func(*uintptr, int32) uintptr
-	_SUIList                 func(*uintptr, int32) uintptr
-	_SUIForm                 func(*uintptr, int32) uintptr
-	_SUISection              func(*byte, uintptr) uintptr
-	_SUITabView              func(*uintptr, int32) uintptr
-	_SUIButton               func(*byte, uintptr) uintptr
-	_SUIButtonWithImage      func(*byte, uintptr) uintptr
-	_SUIButtonWithLabel      func(*byte, *byte, uintptr) uintptr
-	_SUITextFromState        func(uintptr) uintptr
-	_SUITextFromStringState  func(uintptr) uintptr
-	_SUIToggle               func(*byte, uintptr, uintptr) uintptr
-	_SUITextField            func(*byte, uintptr, uintptr) uintptr
-	_SUISecureField          func(*byte, uintptr, uintptr) uintptr
-	_SUITextEditor           func(uintptr) uintptr
-	_SUISlider               func(*byte, uintptr, float64, float64, uintptr) uintptr
-	_SUIPickerSegmented      func(*byte, uintptr, uintptr, uintptr) uintptr
-	_SUIStepperInt           func(*byte, uintptr, int32, int32, uintptr) uintptr
-	_SUIDynamicView          func(uintptr, uintptr) uintptr
-	_SUIAnimatedDynamicView  func(uintptr, int32, uintptr) uintptr
-	_SUINavigationStack      func(uintptr) uintptr
-	_SUIMenu                 func(*byte, uintptr) uintptr
-	_SUIGeometryReader       func(uintptr) uintptr
-	_SUIPickerMenu           func(*byte, uintptr, uintptr, uintptr) uintptr
-	_SUINavigationLink       func(*byte, uintptr) uintptr
-	_SUIColorPicker          func(*byte, uintptr, uintptr) uintptr
-	_SUIDatePicker           func(*byte, uintptr, uintptr) uintptr
-	_SUIFloatSlider          func(*byte, uintptr, float64, float64, uintptr) uintptr
-	_SUIFloatGauge           func(*byte, uintptr, float64, float64) uintptr
-	_SUIFloatProgressView    func(uintptr, float64) uintptr
+	_SUIText                     func(*byte) uintptr
+	_SUIImage                    func(*byte) uintptr
+	_SUISpacer                   func() uintptr
+	_SUIDivider                  func() uintptr
+	_SUILabel                    func(*byte, *byte) uintptr
+	_SUIProgressViewSpinning     func() uintptr
+	_SUIProgressViewLinear       func(float64, float64) uintptr
+	_SUIEmptyView                func() uintptr
+	_SUIColor                    func(float64, float64, float64, float64) uintptr
+	_SUICircle                   func() uintptr
+	_SUIRectangle                func() uintptr
+	_SUIRoundedRectangle         func(float64) uintptr
+	_SUICapsule                  func() uintptr
+	_SUILink                     func(*byte, *byte) uintptr
+	_SUIGauge                    func(float64, *byte) uintptr
+	_SUIVStack                   func(*uintptr, int32) uintptr
+	_SUIVStackSpaced             func(*uintptr, int32, float64) uintptr
+	_SUIHStack                   func(*uintptr, int32) uintptr
+	_SUIHStackSpaced             func(*uintptr, int32, float64) uintptr
+	_SUIGroupBox                 func(*byte, uintptr) uintptr
+	_SUIScrollView               func(uintptr) uintptr
+	_SUIZStack                   func(*uintptr, int32) uintptr
+	_SUILazyVStack               func(*uintptr, int32) uintptr
+	_SUILazyHStack               func(*uintptr, int32) uintptr
+	_SUIList                     func(*uintptr, int32) uintptr
+	_SUIForm                     func(*uintptr, int32) uintptr
+	_SUISection                  func(*byte, uintptr) uintptr
+	_SUITabView                  func(*uintptr, int32) uintptr
+	_SUIButton                   func(*byte, uintptr) uintptr
+	_SUIButtonWithImage          func(*byte, uintptr) uintptr
+	_SUIButtonWithLabel          func(*byte, *byte, uintptr) uintptr
+	_SUITextFromState            func(uintptr) uintptr
+	_SUITextFromStringState      func(uintptr) uintptr
+	_SUIToggle                   func(*byte, uintptr, uintptr) uintptr
+	_SUITextField                func(*byte, uintptr, uintptr) uintptr
+	_SUISecureField              func(*byte, uintptr, uintptr) uintptr
+	_SUITextEditor               func(uintptr) uintptr
+	_SUISlider                   func(*byte, uintptr, float64, float64, uintptr) uintptr
+	_SUIPickerSegmented          func(*byte, uintptr, uintptr, uintptr) uintptr
+	_SUIStepperInt               func(*byte, uintptr, int32, int32, uintptr) uintptr
+	_SUIDynamicView              func(uintptr, uintptr) uintptr
+	_SUIAnimatedDynamicView      func(uintptr, int32, uintptr) uintptr
+	_SUIDynamicBoolView          func(uintptr, uintptr) uintptr
+	_SUIAnimatedDynamicBoolView  func(uintptr, int32, uintptr) uintptr
+	_SUIDynamicFloatView         func(uintptr, uintptr) uintptr
+	_SUIAnimatedDynamicFloatView func(uintptr, int32, uintptr) uintptr
+	_SUINavigationStack          func(uintptr) uintptr
+	_SUIMenu                     func(*byte, uintptr) uintptr
+	_SUIGeometryReader           func(uintptr) uintptr
+	_SUIPickerMenu               func(*byte, uintptr, uintptr, uintptr) uintptr
+	_SUINavigationLink           func(*byte, uintptr) uintptr
+	_SUIColorPicker              func(*byte, uintptr, uintptr) uintptr
+	_SUIDatePicker               func(*byte, uintptr, uintptr) uintptr
+	_SUIFloatSlider              func(*byte, uintptr, float64, float64, uintptr) uintptr
+	_SUIFloatGauge               func(*byte, uintptr, float64, float64) uintptr
+	_SUIFloatProgressView        func(uintptr, float64) uintptr
 
 	// Modifiers.
 	_SUIViewPadding                              func(uintptr, float64) uintptr
@@ -300,40 +324,47 @@ var (
 	_SUIFontNamed        func(*byte) uintptr
 
 	// State.
-	_SUIStateCreateInt        func(int32) uintptr
-	_SUIStateGetInt           func(uintptr) int32
-	_SUIStateSetInt           func(uintptr, int32)
-	_SUIStateSetIntAnimated   func(uintptr, int32)
-	_SUIStateCreateString     func(*byte) uintptr
-	_SUIStateGetString        func(uintptr) *byte
-	_SUIStateSetString        func(uintptr, *byte)
-	_SUIStateCreateColor      func(float64, float64, float64, float64) uintptr
-	_SUIStateGetColorR        func(uintptr) float64
-	_SUIStateGetColorG        func(uintptr) float64
-	_SUIStateGetColorB        func(uintptr) float64
-	_SUIStateGetColorA        func(uintptr) float64
-	_SUIStateSetColor         func(uintptr, float64, float64, float64, float64)
-	_SUIStateCreateDate       func(float64) uintptr
-	_SUIStateGetDate          func(uintptr) float64
-	_SUIStateSetDate          func(uintptr, float64)
-	_SUIStateCreateFloat      func(float64) uintptr
-	_SUIStateGetFloat         func(uintptr) float64
-	_SUIStateSetFloat         func(uintptr, float64)
-	_SUIStateSetFloatAnimated func(uintptr, float64)
-	_SUIStateCreateBool       func(int32) uintptr
-	_SUIStateGetBool          func(uintptr) int32
-	_SUIStateSetBool          func(uintptr, int32)
-	_SUIWebPageCreate         func() uintptr
-	_SUIWebPageLoadURL        func(uintptr, *byte)
-	_SUIWebPageReload         func(uintptr)
+	_SUIStateCreateInt            func(int32) uintptr
+	_SUIStateGetInt               func(uintptr) int32
+	_SUIStateSetInt               func(uintptr, int32)
+	_SUIStateSetIntAnimated       func(uintptr, int32)
+	_SUIStateSetIntAnimatedWith   func(uintptr, int32, int32)
+	_SUIStateCreateString         func(*byte) uintptr
+	_SUIStateGetString            func(uintptr) *byte
+	_SUIStateSetString            func(uintptr, *byte)
+	_SUIStateCreateColor          func(float64, float64, float64, float64) uintptr
+	_SUIStateGetColorR            func(uintptr) float64
+	_SUIStateGetColorG            func(uintptr) float64
+	_SUIStateGetColorB            func(uintptr) float64
+	_SUIStateGetColorA            func(uintptr) float64
+	_SUIStateSetColor             func(uintptr, float64, float64, float64, float64)
+	_SUIStateCreateDate           func(float64) uintptr
+	_SUIStateGetDate              func(uintptr) float64
+	_SUIStateSetDate              func(uintptr, float64)
+	_SUIStateCreateFloat          func(float64) uintptr
+	_SUIStateGetFloat             func(uintptr) float64
+	_SUIStateSetFloat             func(uintptr, float64)
+	_SUIStateSetFloatAnimated     func(uintptr, float64)
+	_SUIStateSetFloatAnimatedWith func(uintptr, float64, int32)
+	_SUIStateCreateBool           func(int32) uintptr
+	_SUIStateGetBool              func(uintptr) int32
+	_SUIStateSetBool              func(uintptr, int32)
+	_SUIStateSetBoolAnimatedWith  func(uintptr, int32, int32)
+	_SUIWebPageCreate             func() uintptr
+	_SUIWebPageLoadURL            func(uintptr, *byte)
+	_SUIWebPageReload             func(uintptr)
 
 	// App lifecycle.
-	_SUIRun func(uintptr, *byte, float64, float64)
+	_SUIRun                func(uintptr, *byte, float64, float64)
+	_SUIRunMenuBar         func(*byte, *byte, uintptr, float64, float64)
+	_SUIRunWithMenuBar     func(uintptr, *byte, float64, float64, *byte, *byte, uintptr, float64, float64)
+	_SUIUpdateMenuBarLabel func(*byte)
 
 	// Callbacks.
-	_SUISetButtonCallback          func(uintptr)
-	_SUISetViewBuilderCallback     func(uintptr)
-	_SUISetGeometryBuilderCallback func(uintptr)
+	_SUISetButtonCallback           func(uintptr)
+	_SUISetViewBuilderCallback      func(uintptr)
+	_SUISetFloatViewBuilderCallback func(uintptr)
+	_SUISetGeometryBuilderCallback  func(uintptr)
 
 	// Memory.
 	_SUIRelease    func(uintptr)
@@ -341,27 +372,23 @@ var (
 )
 
 func init() {
-	// Search order: env var, local, system, vendored swift bridge (auto-built).
-	paths := []string{
-		os.Getenv("LIBSWIFTUI_BRIDGE_PATH"),
-		"libSwiftUIBridge.dylib",
-		"/usr/local/lib/libSwiftUIBridge.dylib",
-	}
+	// Search order:
+	//  1. explicit env override
+	//  2. embedded payload cache
+	//  3. existing build outputs
+	//  4. local rebuild into secure scratch cache
+	//  5. compatibility fallback paths
 	var lastErr error
 
-	for _, path := range paths {
-		if path == "" {
-			continue
-		}
+	if path := os.Getenv("LIBSWIFTUI_BRIDGE_PATH"); path != "" {
 		var err error
 		libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
-		if err == nil {
-			break
+		if err != nil {
+			lastErr = err
 		}
-		lastErr = err
 	}
 
-	// Try embedded bridge payload before local Swift build.
+	// Try embedded bridge payload before any untrusted search path.
 	if libHandle == 0 {
 		if handle, err := loadEmbeddedBridge(); err == nil {
 			libHandle = handle
@@ -370,11 +397,40 @@ func init() {
 		}
 	}
 
-	// Auto-build from vendored Swift source if no pre-built dylib found.
+	if libHandle == 0 {
+		if path, err := discoverBuiltDylib(); err == nil {
+			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			if err != nil {
+				lastErr = err
+			}
+		} else {
+			lastErr = err
+		}
+	}
+
+	// Auto-build from vendored Swift source if needed.
 	if libHandle == 0 {
 		if path, err := buildSwiftBridge(); err == nil {
-			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			if err != nil {
+				lastErr = err
+			}
 		} else {
+			lastErr = err
+		}
+	}
+
+	// Compatibility fallback paths.
+	if libHandle == 0 {
+		for _, path := range []string{
+			"libSwiftUIBridge.dylib",
+			"/usr/local/lib/libSwiftUIBridge.dylib",
+		} {
+			var err error
+			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			if err == nil {
+				break
+			}
 			lastErr = err
 		}
 	}
@@ -434,6 +490,10 @@ func init() {
 	tryRegisterLibFunc(&_SUIStepperInt, libHandle, "SUIStepperInt")
 	tryRegisterLibFunc(&_SUIDynamicView, libHandle, "SUIDynamicView")
 	tryRegisterLibFunc(&_SUIAnimatedDynamicView, libHandle, "SUIAnimatedDynamicView")
+	tryRegisterLibFunc(&_SUIDynamicBoolView, libHandle, "SUIDynamicBoolView")
+	tryRegisterLibFunc(&_SUIAnimatedDynamicBoolView, libHandle, "SUIAnimatedDynamicBoolView")
+	tryRegisterLibFunc(&_SUIDynamicFloatView, libHandle, "SUIDynamicFloatView")
+	tryRegisterLibFunc(&_SUIAnimatedDynamicFloatView, libHandle, "SUIAnimatedDynamicFloatView")
 	tryRegisterLibFunc(&_SUINavigationStack, libHandle, "SUINavigationStack")
 	tryRegisterLibFunc(&_SUIMenu, libHandle, "SUIMenu")
 	tryRegisterLibFunc(&_SUIGeometryReader, libHandle, "SUIGeometryReader")
@@ -531,6 +591,7 @@ func init() {
 	tryRegisterLibFunc(&_SUIStateGetInt, libHandle, "SUIStateGetInt")
 	tryRegisterLibFunc(&_SUIStateSetInt, libHandle, "SUIStateSetInt")
 	tryRegisterLibFunc(&_SUIStateSetIntAnimated, libHandle, "SUIStateSetIntAnimated")
+	tryRegisterLibFunc(&_SUIStateSetIntAnimatedWith, libHandle, "SUIStateSetIntAnimatedWith")
 	tryRegisterLibFunc(&_SUIStateCreateString, libHandle, "SUIStateCreateString")
 	tryRegisterLibFunc(&_SUIStateGetString, libHandle, "SUIStateGetString")
 	tryRegisterLibFunc(&_SUIStateSetString, libHandle, "SUIStateSetString")
@@ -547,19 +608,25 @@ func init() {
 	tryRegisterLibFunc(&_SUIStateGetFloat, libHandle, "SUIStateGetFloat")
 	tryRegisterLibFunc(&_SUIStateSetFloat, libHandle, "SUIStateSetFloat")
 	tryRegisterLibFunc(&_SUIStateSetFloatAnimated, libHandle, "SUIStateSetFloatAnimated")
+	tryRegisterLibFunc(&_SUIStateSetFloatAnimatedWith, libHandle, "SUIStateSetFloatAnimatedWith")
 	tryRegisterLibFunc(&_SUIStateCreateBool, libHandle, "SUIStateCreateBool")
 	tryRegisterLibFunc(&_SUIStateGetBool, libHandle, "SUIStateGetBool")
 	tryRegisterLibFunc(&_SUIStateSetBool, libHandle, "SUIStateSetBool")
+	tryRegisterLibFunc(&_SUIStateSetBoolAnimatedWith, libHandle, "SUIStateSetBoolAnimatedWith")
 	tryRegisterLibFunc(&_SUIWebPageCreate, libHandle, "SUIWebPageCreate")
 	tryRegisterLibFunc(&_SUIWebPageLoadURL, libHandle, "SUIWebPageLoadURL")
 	tryRegisterLibFunc(&_SUIWebPageReload, libHandle, "SUIWebPageReload")
 
 	// App lifecycle.
 	tryRegisterLibFunc(&_SUIRun, libHandle, "SUIRun")
+	tryRegisterLibFunc(&_SUIRunMenuBar, libHandle, "SUIRunMenuBar")
+	tryRegisterLibFunc(&_SUIRunWithMenuBar, libHandle, "SUIRunWithMenuBar")
+	tryRegisterLibFunc(&_SUIUpdateMenuBarLabel, libHandle, "SUIUpdateMenuBarLabel")
 
 	// Callbacks.
 	tryRegisterLibFunc(&_SUISetButtonCallback, libHandle, "SUISetButtonCallback")
 	tryRegisterLibFunc(&_SUISetViewBuilderCallback, libHandle, "SUISetViewBuilderCallback")
+	tryRegisterLibFunc(&_SUISetFloatViewBuilderCallback, libHandle, "SUISetFloatViewBuilderCallback")
 	tryRegisterLibFunc(&_SUISetGeometryBuilderCallback, libHandle, "SUISetGeometryBuilderCallback")
 
 	// Memory.
@@ -571,6 +638,7 @@ func init() {
 	// Register callback trampolines with the Swift bridge.
 	_SUISetButtonCallback(buttonCallbackPtr)
 	_SUISetViewBuilderCallback(viewBuilderCallbackPtr)
+	_SUISetFloatViewBuilderCallback(floatViewBuilderCallbackPtr)
 	_SUISetGeometryBuilderCallback(geometryBuilderCallbackPtr)
 
 	// Initialize preset font constants.
@@ -709,6 +777,18 @@ func setUnavailableStubs() {
 	}
 	if _SUIAnimatedDynamicView == nil {
 		_SUIAnimatedDynamicView = func(uintptr, int32, uintptr) uintptr { stub("SUIAnimatedDynamicView"); return 0 }
+	}
+	if _SUIDynamicBoolView == nil {
+		_SUIDynamicBoolView = func(uintptr, uintptr) uintptr { stub("SUIDynamicBoolView"); return 0 }
+	}
+	if _SUIAnimatedDynamicBoolView == nil {
+		_SUIAnimatedDynamicBoolView = func(uintptr, int32, uintptr) uintptr { stub("SUIAnimatedDynamicBoolView"); return 0 }
+	}
+	if _SUIDynamicFloatView == nil {
+		_SUIDynamicFloatView = func(uintptr, uintptr) uintptr { stub("SUIDynamicFloatView"); return 0 }
+	}
+	if _SUIAnimatedDynamicFloatView == nil {
+		_SUIAnimatedDynamicFloatView = func(uintptr, int32, uintptr) uintptr { stub("SUIAnimatedDynamicFloatView"); return 0 }
 	}
 	if _SUIViewPadding == nil {
 		_SUIViewPadding = func(uintptr, float64) uintptr { stub("SUIViewPadding"); return 0 }
@@ -974,6 +1054,9 @@ func setUnavailableStubs() {
 	if _SUIStateSetIntAnimated == nil {
 		_SUIStateSetIntAnimated = func(uintptr, int32) { stub("SUIStateSetIntAnimated") }
 	}
+	if _SUIStateSetIntAnimatedWith == nil {
+		_SUIStateSetIntAnimatedWith = func(ptr uintptr, value int32, _ int32) { _SUIStateSetIntAnimated(ptr, value) }
+	}
 	if _SUIStateCreateString == nil {
 		_SUIStateCreateString = func(*byte) uintptr { stub("SUIStateCreateString"); return 0 }
 	}
@@ -1028,6 +1111,9 @@ func setUnavailableStubs() {
 	if _SUIStateSetFloatAnimated == nil {
 		_SUIStateSetFloatAnimated = func(uintptr, float64) { stub("SUIStateSetFloatAnimated") }
 	}
+	if _SUIStateSetFloatAnimatedWith == nil {
+		_SUIStateSetFloatAnimatedWith = func(ptr uintptr, value float64, _ int32) { _SUIStateSetFloatAnimated(ptr, value) }
+	}
 	if _SUIStateCreateBool == nil {
 		_SUIStateCreateBool = func(int32) uintptr { stub("SUIStateCreateBool"); return 0 }
 	}
@@ -1036,6 +1122,9 @@ func setUnavailableStubs() {
 	}
 	if _SUIStateSetBool == nil {
 		_SUIStateSetBool = func(uintptr, int32) { stub("SUIStateSetBool") }
+	}
+	if _SUIStateSetBoolAnimatedWith == nil {
+		_SUIStateSetBoolAnimatedWith = func(ptr uintptr, value int32, _ int32) { _SUIStateSetBool(ptr, value) }
 	}
 	if _SUIWebPageCreate == nil {
 		_SUIWebPageCreate = func() uintptr { stub("SUIWebPageCreate"); return 0 }
@@ -1058,11 +1147,25 @@ func setUnavailableStubs() {
 	if _SUIRun == nil {
 		_SUIRun = func(uintptr, *byte, float64, float64) { stub("SUIRun") }
 	}
+	if _SUIRunMenuBar == nil {
+		_SUIRunMenuBar = func(*byte, *byte, uintptr, float64, float64) { stub("SUIRunMenuBar") }
+	}
+	if _SUIRunWithMenuBar == nil {
+		_SUIRunWithMenuBar = func(uintptr, *byte, float64, float64, *byte, *byte, uintptr, float64, float64) {
+			stub("SUIRunWithMenuBar")
+		}
+	}
+	if _SUIUpdateMenuBarLabel == nil {
+		_SUIUpdateMenuBarLabel = func(*byte) { stub("SUIUpdateMenuBarLabel") }
+	}
 	if _SUISetButtonCallback == nil {
 		_SUISetButtonCallback = func(uintptr) { stub("SUISetButtonCallback") }
 	}
 	if _SUISetViewBuilderCallback == nil {
 		_SUISetViewBuilderCallback = func(uintptr) { stub("SUISetViewBuilderCallback") }
+	}
+	if _SUISetFloatViewBuilderCallback == nil {
+		_SUISetFloatViewBuilderCallback = func(uintptr) {}
 	}
 	if _SUISetGeometryBuilderCallback == nil {
 		_SUISetGeometryBuilderCallback = func(uintptr) { stub("SUISetGeometryBuilderCallback") }

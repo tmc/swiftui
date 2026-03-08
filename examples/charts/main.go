@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command charts demonstrates building data visualizations with SwiftUI from Go.
 //
 // It renders a bar chart, a gauge dashboard, metric cards, and progress
@@ -18,8 +21,8 @@ import (
 func init() { runtime.LockOSThread() }
 
 type bar struct {
-	label string
-	value float64 // 0.0–1.0
+	label   string
+	value   float64 // 0.0–1.0
 	r, g, b float64
 }
 

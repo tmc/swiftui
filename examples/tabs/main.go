@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command tabs demonstrates TabView and NavigationStack from Go.
 //
 // It creates a tabbed interface with three tabs: a home view with navigation,

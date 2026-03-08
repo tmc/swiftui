@@ -1,6 +1,7 @@
 # Swift build artifacts
-**/swift/.build/
+**/internal/swift/.build/
 *.dylib
+!internal/embeddedbridge/libSwiftUIBridge.dylib
 *.o
 *.a
 *.dia
@@ -8,3 +9,7 @@
 
 # Generation report
 swiftui_generation_report.json
+
+# Example build artifacts
+examples/*/*
+!examples/*/*.go

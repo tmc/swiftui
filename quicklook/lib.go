@@ -1,0 +1,111 @@
+package quicklook
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/tmc/swiftui/internal/bridgeutil"
+
+	"github.com/ebitengine/purego"
+)
+
+// libHandle is the handle to the loaded libQuickLookSwiftUIBridge dylib.
+var libHandle uintptr
+
+// swiftBridgeDir returns the path to the vendored Swift bridge source directory.
+func swiftBridgeDir() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "internal/swift")
+}
+
+// discoverBuiltDylib locates a built bridge dylib across SwiftPM layouts.
+func discoverBuiltDylib() (string, error) {
+	path, err := bridgeutil.DiscoverBuiltDylib(swiftBridgeDir(), "libQuickLookSwiftUIBridge.dylib")
+	if err != nil {
+		return "", fmt.Errorf("quicklook: %w", err)
+	}
+	return path, nil
+}
+
+// buildSwiftBridge builds the vendored Swift bridge dylib if needed.
+func buildSwiftBridge() (string, error) {
+	return bridgeutil.BuildSwiftBridge(swiftBridgeDir(), "quicklook", "libQuickLookSwiftUIBridge.dylib", "quicklook")
+}
+
+// tryRegisterLibFunc attempts to register a C function from the dylib.
+func tryRegisterLibFunc(fptr any, handle uintptr, name string) bool {
+	defer func() { recover() }()
+	purego.RegisterLibFunc(fptr, handle, name)
+	return true
+}
+
+// C function variables registered via purego.RegisterLibFunc.
+var (
+	_QLS_QuickLookPreview func(uintptr, *byte) uintptr
+	_QLS_Retain           func(uintptr) uintptr
+	_QLS_Release          func(uintptr)
+	_QLS_FreeString       func(*byte)
+)
+
+func init() {
+	envKey := "LIB" + strings.ToUpper("QuickLookSwiftUIBridge") + "_PATH"
+
+	if path := os.Getenv(envKey); path != "" {
+		libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+	}
+
+	if libHandle == 0 {
+		if path, err := discoverBuiltDylib(); err == nil {
+			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		}
+	}
+
+	if libHandle == 0 {
+		if path, err := buildSwiftBridge(); err == nil {
+			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		}
+	}
+
+	if libHandle == 0 {
+		for _, path := range []string{
+			"libQuickLookSwiftUIBridge.dylib",
+			"/usr/local/lib/libQuickLookSwiftUIBridge.dylib",
+		} {
+			var err error
+			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			if err == nil {
+				break
+			}
+		}
+	}
+
+	if libHandle == 0 {
+		setUnavailableStubs()
+		return
+	}
+	tryRegisterLibFunc(&_QLS_QuickLookPreview, libHandle, "QLS_QuickLookPreview")
+	tryRegisterLibFunc(&_QLS_Retain, libHandle, "QLS_Retain")
+	tryRegisterLibFunc(&_QLS_Release, libHandle, "QLS_Release")
+	tryRegisterLibFunc(&_QLS_FreeString, libHandle, "QLS_FreeString")
+
+	setUnavailableStubs()
+}
+
+func setUnavailableStubs() {
+	stub := func(name string) { panic("quicklook: " + name + ": dylib not loaded") }
+	if _QLS_QuickLookPreview == nil {
+		_QLS_QuickLookPreview = func(uintptr, *byte) uintptr { stub("QLS_QuickLookPreview"); return 0 }
+	}
+	if _QLS_Retain == nil {
+		_QLS_Retain = func(uintptr) uintptr { stub("QLS_Retain"); return 0 }
+	}
+	if _QLS_Release == nil {
+		_QLS_Release = func(uintptr) { stub("QLS_Release") }
+	}
+	if _QLS_FreeString == nil {
+		_QLS_FreeString = func(*byte) { stub("QLS_FreeString") }
+	}
+}

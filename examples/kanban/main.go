@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command kanban demonstrates a three-column Kanban board with card management.
 //
 // Cards can be created with title, description, and priority. Cards support
@@ -91,9 +94,9 @@ func main() {
 
 	// Column header colors.
 	headerColors := [3][3]float64{
-		{0.3, 0.55, 0.95},  // blue
-		{0.9, 0.6, 0.2},    // orange
-		{0.3, 0.75, 0.45},  // green
+		{0.3, 0.55, 0.95}, // blue
+		{0.9, 0.6, 0.2},   // orange
+		{0.3, 0.75, 0.45}, // green
 	}
 
 	// Build columns.

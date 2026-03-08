@@ -2,7 +2,7 @@
 // enabling declarative UI construction from pure Go on macOS 26+.
 //
 // SwiftUI is a Swift-only framework. This package includes a vendored
-// Swift bridge (under swift/) that is automatically built on first use.
+// Swift bridge (under internal/swift/) that is automatically built on first use.
 // No external dependencies or manual setup required — just go run.
 //
 // # Threading
@@ -14,6 +14,9 @@
 // from background goroutines, use dispatch.MainQueue().Async().
 //
 // # Environment
+//
+// By default, the package loads the embedded bridge from a per-user cache
+// under $HOME/Library/Caches/swiftui/bridge-cache.
 //
 // To override the dylib path, set $LIBSWIFTUI_BRIDGE_PATH.
 package swiftui

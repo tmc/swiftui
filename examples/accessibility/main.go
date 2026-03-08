@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command accessibility demonstrates SwiftUI accessibility modifiers from Go.
 //
 // It showcases AccessibilityLabel, AccessibilityHint, and AccessibilityHidden

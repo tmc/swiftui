@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command markdown-editor demonstrates a split-pane text editor with live preview.
 //
 // The left pane is a TextEditor bound to a StringState. The right pane is a

@@ -1,0 +1,111 @@
+package arkit
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
+
+	"github.com/tmc/swiftui/internal/bridgeutil"
+
+	"github.com/ebitengine/purego"
+)
+
+// libHandle is the handle to the loaded libARKitSwiftUIBridge dylib.
+var libHandle uintptr
+
+// swiftBridgeDir returns the path to the vendored Swift bridge source directory.
+func swiftBridgeDir() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "internal/swift")
+}
+
+// discoverBuiltDylib locates a built bridge dylib across SwiftPM layouts.
+func discoverBuiltDylib() (string, error) {
+	path, err := bridgeutil.DiscoverBuiltDylib(swiftBridgeDir(), "libARKitSwiftUIBridge.dylib")
+	if err != nil {
+		return "", fmt.Errorf("arkit: %w", err)
+	}
+	return path, nil
+}
+
+// buildSwiftBridge builds the vendored Swift bridge dylib if needed.
+func buildSwiftBridge() (string, error) {
+	return bridgeutil.BuildSwiftBridge(swiftBridgeDir(), "arkit", "libARKitSwiftUIBridge.dylib", "arkit")
+}
+
+// tryRegisterLibFunc attempts to register a C function from the dylib.
+func tryRegisterLibFunc(fptr any, handle uintptr, name string) bool {
+	defer func() { recover() }()
+	purego.RegisterLibFunc(fptr, handle, name)
+	return true
+}
+
+// C function variables registered via purego.RegisterLibFunc.
+var (
+	_ARS_ARViewCreate func() uintptr
+	_ARS_Retain       func(uintptr) uintptr
+	_ARS_Release      func(uintptr)
+	_ARS_FreeString   func(*byte)
+)
+
+func init() {
+	envKey := "LIB" + strings.ToUpper("ARKitSwiftUIBridge") + "_PATH"
+
+	if path := os.Getenv(envKey); path != "" {
+		libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+	}
+
+	if libHandle == 0 {
+		if path, err := discoverBuiltDylib(); err == nil {
+			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		}
+	}
+
+	if libHandle == 0 {
+		if path, err := buildSwiftBridge(); err == nil {
+			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		}
+	}
+
+	if libHandle == 0 {
+		for _, path := range []string{
+			"libARKitSwiftUIBridge.dylib",
+			"/usr/local/lib/libARKitSwiftUIBridge.dylib",
+		} {
+			var err error
+			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			if err == nil {
+				break
+			}
+		}
+	}
+
+	if libHandle == 0 {
+		setUnavailableStubs()
+		return
+	}
+	tryRegisterLibFunc(&_ARS_ARViewCreate, libHandle, "ARS_ARViewCreate")
+	tryRegisterLibFunc(&_ARS_Retain, libHandle, "ARS_Retain")
+	tryRegisterLibFunc(&_ARS_Release, libHandle, "ARS_Release")
+	tryRegisterLibFunc(&_ARS_FreeString, libHandle, "ARS_FreeString")
+
+	setUnavailableStubs()
+}
+
+func setUnavailableStubs() {
+	stub := func(name string) { panic("arkit: " + name + ": dylib not loaded") }
+	if _ARS_ARViewCreate == nil {
+		_ARS_ARViewCreate = func() uintptr { stub("ARS_ARViewCreate"); return 0 }
+	}
+	if _ARS_Retain == nil {
+		_ARS_Retain = func(uintptr) uintptr { stub("ARS_Retain"); return 0 }
+	}
+	if _ARS_Release == nil {
+		_ARS_Release = func(uintptr) { stub("ARS_Release") }
+	}
+	if _ARS_FreeString == nil {
+		_ARS_FreeString = func(*byte) { stub("ARS_FreeString") }
+	}
+}

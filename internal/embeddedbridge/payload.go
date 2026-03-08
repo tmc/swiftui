@@ -1,6 +1,11 @@
 package embeddedbridge
 
-// Payload returns an embedded bridge dylib payload when built with embed tags.
+import _ "embed"
+
+//go:embed libSwiftUIBridge.dylib
+var bridge []byte
+
+// Payload returns the embedded bridge dylib payload.
 func Payload() ([]byte, string) {
-	return nil, ""
+	return bridge, "libSwiftUIBridge.dylib"
 }

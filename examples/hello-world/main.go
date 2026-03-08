@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command hello-world is the simplest SwiftUI app from Go.
 //
 // Usage:

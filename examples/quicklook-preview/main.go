@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command quicklook-preview demonstrates the QuickLook SwiftUI overlay bridge.
 //
 // It creates a Text view with a quickLookPreview modifier applied,
@@ -13,7 +16,7 @@ import (
 	"runtime"
 
 	"github.com/tmc/swiftui"
-	"github.com/tmc/swiftui/quicklookswiftui"
+	"github.com/tmc/swiftui/quicklook"
 )
 
 func init() { runtime.LockOSThread() }
@@ -26,7 +29,7 @@ func main() {
 
 	// Create a Text view and apply the quickLookPreview modifier.
 	text := swiftui.Text("Preview: " + file)
-	previewPtr := quicklookswiftui.QuickLookPreview(text.Pointer(), file)
+	previewPtr := quicklook.QuickLookPreview(text.Pointer(), file)
 
 	// Display in a window.
 	swiftui.Run(swiftui.AppConfig{

@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command video-player demonstrates the AVKit SwiftUI overlay bridge.
 //
 // It creates an AVPlayer via the ObjC runtime, wraps it in a VideoPlayer
@@ -17,7 +20,7 @@ import (
 	"github.com/ebitengine/purego/objc"
 
 	"github.com/tmc/swiftui"
-	"github.com/tmc/swiftui/avkitswiftui"
+	"github.com/tmc/swiftui/avkit"
 )
 
 func init() { runtime.LockOSThread() }
@@ -42,7 +45,7 @@ func main() {
 	)
 
 	// Wrap in VideoPlayer SwiftUI view via the overlay bridge.
-	viewPtr := avkitswiftui.NewVideoPlayer(uintptr(player))
+	viewPtr := avkit.NewVideoPlayer(uintptr(player))
 
 	// Display the video player in a window.
 	swiftui.Run(swiftui.AppConfig{

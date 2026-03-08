@@ -1,0 +1,139 @@
+package bridgeutil
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"sort"
+)
+
+// EnsurePrivateDir makes sure path exists as a non-symlink directory with 0700 permissions.
+func EnsurePrivateDir(path string) error {
+	if err := os.MkdirAll(path, 0o700); err != nil {
+		return fmt.Errorf("create directory %s: %w", path, err)
+	}
+	info, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("stat directory %s: %w", path, err)
+	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return fmt.Errorf("directory %s must not be a symlink", path)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("%s is not a directory", path)
+	}
+	if info.Mode().Perm() == 0o700 {
+		return nil
+	}
+	if err := os.Chmod(path, 0o700); err != nil {
+		return fmt.Errorf("chmod directory %s: %w", path, err)
+	}
+	return nil
+}
+
+// SwiftUICacheDir returns a secured cache directory under the user's cache root.
+func SwiftUICacheDir(parts ...string) (string, error) {
+	base, err := os.UserCacheDir()
+	if err != nil {
+		return "", fmt.Errorf("locate user cache dir: %w", err)
+	}
+	root := filepath.Join(base, "swiftui")
+	if err := EnsurePrivateDir(root); err != nil {
+		return "", err
+	}
+	dir := filepath.Join(append([]string{root}, parts...)...)
+	if err := EnsurePrivateDir(dir); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+// DiscoverBuiltDylib locates a built dylib from common SwiftPM output layouts.
+func DiscoverBuiltDylib(baseDir, dylibName string) (string, error) {
+	if baseDir == "" {
+		return "", fmt.Errorf("empty base dir")
+	}
+	if dylibName == "" {
+		return "", fmt.Errorf("empty dylib name")
+	}
+
+	roots := []string{
+		filepath.Join(baseDir, ".build"),
+		baseDir,
+	}
+	rels := []string{
+		filepath.Join("universal", "release", dylibName),
+		filepath.Join("release", dylibName),
+		filepath.Join("arm64-apple-macosx", "release", dylibName),
+		filepath.Join("x86_64-apple-macosx", "release", dylibName),
+	}
+
+	seen := make(map[string]bool)
+	var candidates []string
+	for _, root := range roots {
+		for _, rel := range rels {
+			path := filepath.Join(root, rel)
+			if seen[path] {
+				continue
+			}
+			seen[path] = true
+			candidates = append(candidates, path)
+		}
+	}
+
+	for _, root := range roots {
+		glob, _ := filepath.Glob(filepath.Join(root, "*", "release", dylibName))
+		sort.Strings(glob)
+		for _, path := range glob {
+			if seen[path] {
+				continue
+			}
+			seen[path] = true
+			candidates = append(candidates, path)
+		}
+	}
+
+	for _, path := range candidates {
+		info, err := os.Stat(path)
+		if err != nil {
+			continue
+		}
+		if info.Mode().IsRegular() {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("built dylib %s not found", dylibName)
+}
+
+// BuildSwiftBridge builds a Swift bridge dylib to a writable secure scratch directory.
+func BuildSwiftBridge(swiftDir, cacheKey, dylibName, errPrefix string) (string, error) {
+	if path, err := DiscoverBuiltDylib(swiftDir, dylibName); err == nil {
+		return path, nil
+	}
+
+	scratchDir, err := SwiftUICacheDir("swift-build", cacheKey)
+	if err != nil {
+		return "", fmt.Errorf("%s: prepare swift build cache: %w", errPrefix, err)
+	}
+	if path, err := DiscoverBuiltDylib(scratchDir, dylibName); err == nil {
+		return path, nil
+	}
+
+	if _, err := os.Stat(filepath.Join(swiftDir, "Package.swift")); err != nil {
+		return "", fmt.Errorf("%s: swift bridge source not found at %s", errPrefix, swiftDir)
+	}
+
+	cmd := exec.Command("swift", "build", "-c", "release", "--quiet", "--scratch-path", scratchDir)
+	cmd.Dir = swiftDir
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("%s: swift build failed: %w", errPrefix, err)
+	}
+
+	path, err := DiscoverBuiltDylib(scratchDir, dylibName)
+	if err != nil {
+		return "", fmt.Errorf("%s: %w", errPrefix, err)
+	}
+	return path, nil
+}

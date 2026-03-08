@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command form demonstrates SwiftUI form controls from Go.
 //
 // It shows TextField, SecureField, Toggle, Slider, ColorPicker, and

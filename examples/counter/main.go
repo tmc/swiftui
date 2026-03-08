@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command counter demonstrates reactive state management with SwiftUI from Go.
 //
 // It displays a count that increments and decrements via buttons, with the

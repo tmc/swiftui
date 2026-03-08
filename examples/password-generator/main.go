@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command password-generator demonstrates a password generator and strength
 // analyzer built with SwiftUI from Go. It combines reactive state management,
 // form controls, and dynamic views to create an interactive security tool.

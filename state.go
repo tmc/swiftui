@@ -28,7 +28,12 @@ func (s *IntState) Set(v int) {
 
 // SetAnimated updates the value inside withAnimation, triggering animated SwiftUI transitions.
 func (s *IntState) SetAnimated(v int) {
-	_SUIStateSetIntAnimated(s.ptr, int32(v))
+	s.SetAnimatedWith(v, AnimationEaseInOut)
+}
+
+// SetAnimatedWith updates the value using the provided animation curve.
+func (s *IntState) SetAnimatedWith(v int, kind AnimationKind) {
+	_SUIStateSetIntAnimatedWith(s.ptr, int32(v), int32(kind))
 }
 
 // StringState is a reactive string state that bridges Go and SwiftUI.
@@ -146,7 +151,12 @@ func (s *FloatState) Set(v float64) {
 
 // SetAnimated updates the float64 value inside withAnimation.
 func (s *FloatState) SetAnimated(v float64) {
-	_SUIStateSetFloatAnimated(s.ptr, v)
+	s.SetAnimatedWith(v, AnimationEaseInOut)
+}
+
+// SetAnimatedWith updates the float64 value using the provided animation curve.
+func (s *FloatState) SetAnimatedWith(v float64, kind AnimationKind) {
+	_SUIStateSetFloatAnimatedWith(s.ptr, v, int32(kind))
 }
 
 // BoolState is an observable boolean state value.
@@ -177,6 +187,20 @@ func (s *BoolState) Set(v bool) {
 		vv = 1
 	}
 	_SUIStateSetBool(s.ptr, vv)
+}
+
+// SetAnimated updates the boolean value with the default ease-in-out animation.
+func (s *BoolState) SetAnimated(v bool) {
+	s.SetAnimatedWith(v, AnimationEaseInOut)
+}
+
+// SetAnimatedWith updates the boolean value using the provided animation curve.
+func (s *BoolState) SetAnimatedWith(v bool, kind AnimationKind) {
+	var vv int32
+	if v {
+		vv = 1
+	}
+	_SUIStateSetBoolAnimatedWith(s.ptr, vv, int32(kind))
 }
 
 // Release decrements the underlying Swift retain count.

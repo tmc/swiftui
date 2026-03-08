@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command pomodoro demonstrates a Pomodoro technique timer built with SwiftUI
 // from Go. A background goroutine drives countdown updates, while DynamicView
 // rebuilds the UI reactively as state changes.
@@ -100,6 +103,7 @@ func main() {
 				}
 				seconds.Set(rem)
 				progress.Set(1.0 - float64(rem)/float64(total))
+				swiftui.UpdateMenuBarLabel(fmt.Sprintf("%02d:%02d", rem/60, rem%60))
 			}
 		}()
 	}
@@ -117,10 +121,11 @@ func main() {
 		progress.SetAnimated(0)
 	}
 
-	swiftui.Run(swiftui.AppConfig{
-		Title:  "Pomodoro",
-		Width:  400,
-		Height: 550,
+	swiftui.RunMenuBar(swiftui.MenuBarConfig{
+		Label:       "25:00",
+		SystemImage: "timer",
+		Width:       360,
+		Height:      480,
 	}, swiftui.VStackSpaced(20,
 		swiftui.Spacer(),
 

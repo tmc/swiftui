@@ -1,0 +1,68 @@
+name: Universal Dylibs
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Select Xcode
+        run: echo "DEVELOPER_DIR=/Applications/Xcode_16.4.app/Contents/Developer" >> "$GITHUB_ENV"
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          go version
+          swift --version
+
+      - name: Build universal dylibs
+        run: |
+          go generate -run 'lipo -create' \
+            . \
+            ./arkitswiftui \
+            ./avkitswiftui \
+            ./localauthswiftui \
+            ./quicklookswiftui \
+            ./scenekitswiftui \
+            ./spritekitswiftui \
+            ./translationswiftui
+
+      - name: Collect artifacts
+        run: |
+          rm -rf dist
+          mkdir -p dist/universal-dylibs
+          while IFS= read -r dylib; do
+            dest="dist/universal-dylibs/${dylib#./}"
+            mkdir -p "$(dirname "$dest")"
+            cp "$dylib" "$dest"
+          done < <(find . -path '*/.build/universal/release/*.dylib' -type f | sort)
+          tar -C dist -czf dist/universal-dylibs.tar.gz universal-dylibs
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: universal-dylibs
+          path: |
+            dist/universal-dylibs
+            dist/universal-dylibs.tar.gz
+
+      - name: Attach release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/universal-dylibs.tar.gz

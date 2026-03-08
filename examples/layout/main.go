@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command layout demonstrates SwiftUI layout composition and visual styling
 // from Go.
 //

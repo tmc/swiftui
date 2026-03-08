@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command glass demonstrates material and translucency effects in SwiftUI
 // from Go, showcasing the liquid glass aesthetic on macOS 26+.
 //

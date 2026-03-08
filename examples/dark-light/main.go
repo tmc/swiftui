@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command dark-light showcases semantic foreground and background styles.
 //
 // It displays a card layout with SwiftUI's named styles — primary through

@@ -21,7 +21,7 @@ func registerCallback(fn func()) uintptr {
 }
 
 // unregisterCallback removes a callback from the callback map.
-// Also checks viewBuilder and geometryBuilder maps since retained
+// Also checks viewBuilder, floatViewBuilder, and geometryBuilder maps since retained
 // tracks all callback types with a single list.
 func unregisterCallback(id uintptr) {
 	callbackMu.Lock()
@@ -30,6 +30,9 @@ func unregisterCallback(id uintptr) {
 	viewBuilderMu.Lock()
 	delete(viewBuilderMap, id)
 	viewBuilderMu.Unlock()
+	floatViewBuilderMu.Lock()
+	delete(floatViewBuilderMap, id)
+	floatViewBuilderMu.Unlock()
 	geometryBuilderMu.Lock()
 	delete(geometryBuilderMap, id)
 	geometryBuilderMu.Unlock()
@@ -76,6 +79,39 @@ func viewBuilderCallbackTrampoline(id uintptr, value int) uintptr {
 }
 
 var viewBuilderCallbackPtr = purego.NewCallback(viewBuilderCallbackTrampoline)
+
+// Float view builder callbacks: Go functions that return a View given a float state value.
+var (
+	floatViewBuilderMu   sync.Mutex
+	floatViewBuilderMap  = map[uintptr]func(float64) View{}
+	floatViewBuilderNext uintptr
+)
+
+func registerFloatViewBuilder(fn func(float64) View) uintptr {
+	floatViewBuilderMu.Lock()
+	defer floatViewBuilderMu.Unlock()
+	floatViewBuilderNext++
+	floatViewBuilderMap[floatViewBuilderNext] = fn
+	return floatViewBuilderNext
+}
+
+func viewBuilderCallbackTrampolineFloat(id uintptr, value float64) uintptr {
+	floatViewBuilderMu.Lock()
+	fn := floatViewBuilderMap[id]
+	floatViewBuilderMu.Unlock()
+	if fn != nil {
+		return fn(value).ptr
+	}
+	return _SUIEmptyView()
+}
+
+var floatViewBuilderCallbackPtr = purego.NewCallback(viewBuilderCallbackTrampolineFloat)
+
+func registerBoolViewBuilder(fn func(bool) View) uintptr {
+	return registerViewBuilder(func(v int) View {
+		return fn(v != 0)
+	})
+}
 
 // Geometry builder callbacks: Go functions that return a View given dimensions.
 var (

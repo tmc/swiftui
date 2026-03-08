@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command system-monitor displays live Go runtime metrics using SwiftUI gauges
 // and progress bars, updated every two seconds from a background goroutine.
 //

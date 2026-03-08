@@ -1,3 +1,6 @@
+//go:build darwin
+// +build darwin
+
 // Command music-player demonstrates a rich music player UI with playlist
 // navigation, now-playing view, and audio visualizer using SwiftUI from Go.
 //
