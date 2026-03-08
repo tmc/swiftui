@@ -38,6 +38,11 @@ type playlist struct {
 	tracks []track
 }
 
+type queuedTrack struct {
+	playlist int
+	track    int
+}
+
 var playlists = []playlist{
 	{
 		name: "Favorites",
@@ -71,7 +76,7 @@ var (
 	mu              sync.Mutex
 	currentPlaylist int // index into playlists, -1 = none
 	currentTrack    int // index into playlist tracks, -1 = none
-	queue           []int // indices of upcoming tracks in currentPlaylist
+	queue           []queuedTrack
 )
 
 func formatDuration(secs int) string {
@@ -85,17 +90,25 @@ func allTracks(pl int) []track {
 	return playlists[pl].tracks
 }
 
+func trackInfo(pl, ti int) (track, bool) {
+	tracks := allTracks(pl)
+	if ti < 0 || ti >= len(tracks) {
+		return track{}, false
+	}
+	return tracks[ti], true
+}
+
+func playbackKey(pl, ti int) int {
+	if pl < 0 || ti < 0 {
+		return -1
+	}
+	return pl<<16 | ti
+}
+
 func currentTrackInfo() (track, bool) {
 	mu.Lock()
 	defer mu.Unlock()
-	if currentPlaylist < 0 || currentTrack < 0 {
-		return track{}, false
-	}
-	tracks := allTracks(currentPlaylist)
-	if currentTrack >= len(tracks) {
-		return track{}, false
-	}
-	return tracks[currentTrack], true
+	return trackInfo(currentPlaylist, currentTrack)
 }
 
 func main() {
@@ -140,8 +153,10 @@ func main() {
 				mu.Lock()
 				advanced := false
 				if len(queue) > 0 {
-					currentTrack = queue[0]
+					next := queue[0]
 					queue = queue[1:]
+					currentPlaylist = next.playlist
+					currentTrack = next.track
 					advanced = true
 				} else if currentPlaylist >= 0 {
 					next := currentTrack + 1
@@ -151,12 +166,13 @@ func main() {
 						advanced = true
 					}
 				}
+				cp := currentPlaylist
 				ct := currentTrack
 				qc := len(queue)
 				mu.Unlock()
 				if advanced {
 					positionState.Set(0)
-					trackState.Set(ct)
+					trackState.Set(playbackKey(cp, ct))
 					queueCount.Set(qc)
 				} else {
 					playingState.Set(0)
@@ -195,12 +211,12 @@ func main() {
 		queue = nil
 		tracks := allTracks(pl)
 		for j := ti + 1; j < len(tracks); j++ {
-			queue = append(queue, j)
+			queue = append(queue, queuedTrack{playlist: pl, track: j})
 		}
 		qc := len(queue)
 		mu.Unlock()
 		positionState.Set(0)
-		trackState.Set(ti)
+		trackState.Set(playbackKey(pl, ti))
 		playingState.Set(1)
 		sheetState.Set(1)
 		queueCount.Set(qc)
@@ -219,18 +235,21 @@ func main() {
 		if currentPlaylist >= 0 && currentTrack > 0 {
 			currentTrack--
 		}
+		cp := currentPlaylist
 		ct := currentTrack
 		mu.Unlock()
 		positionState.Set(0)
-		trackState.Set(ct)
+		trackState.Set(playbackKey(cp, ct))
 	}
 
 	nextTrack := func() {
 		mu.Lock()
 		advanced := false
 		if len(queue) > 0 {
-			currentTrack = queue[0]
+			next := queue[0]
 			queue = queue[1:]
+			currentPlaylist = next.playlist
+			currentTrack = next.track
 			advanced = true
 		} else if currentPlaylist >= 0 {
 			next := currentTrack + 1
@@ -240,19 +259,20 @@ func main() {
 				advanced = true
 			}
 		}
+		cp := currentPlaylist
 		ct := currentTrack
 		qc := len(queue)
 		mu.Unlock()
 		if advanced {
 			positionState.Set(0)
-			trackState.Set(ct)
+			trackState.Set(playbackKey(cp, ct))
 			queueCount.Set(qc)
 		}
 	}
 
 	playNext := func(pl, ti int) {
 		mu.Lock()
-		queue = append([]int{ti}, queue...)
+		queue = append([]queuedTrack{{playlist: pl, track: ti}}, queue...)
 		qc := len(queue)
 		mu.Unlock()
 		queueCount.Set(qc)
@@ -260,7 +280,7 @@ func main() {
 
 	addToQueue := func(pl, ti int) {
 		mu.Lock()
-		queue = append(queue, ti)
+		queue = append(queue, queuedTrack{playlist: pl, track: ti})
 		qc := len(queue)
 		mu.Unlock()
 		queueCount.Set(qc)
@@ -269,7 +289,7 @@ func main() {
 	removeFromQueue := func(pl, ti int) {
 		mu.Lock()
 		for j := 0; j < len(queue); j++ {
-			if queue[j] == ti {
+			if queue[j].playlist == pl && queue[j].track == ti {
 				queue = append(queue[:j], queue[j+1:]...)
 				break
 			}
@@ -428,8 +448,7 @@ func main() {
 	// Queue popover content.
 	queuePopover := swiftui.DynamicView(queueCount, func(qc int) swiftui.View {
 		mu.Lock()
-		pl := currentPlaylist
-		q := make([]int, len(queue))
+		q := make([]queuedTrack, len(queue))
 		copy(q, queue)
 		mu.Unlock()
 		if len(q) == 0 {
@@ -438,24 +457,28 @@ func main() {
 				ForegroundStyleNamed("secondary").
 				Padding(12).AsView()
 		}
-		tracks := allTracks(pl)
 		var rows []swiftui.Viewable
 		limit := 3
 		if len(q) < limit {
 			limit = len(q)
 		}
 		for i := 0; i < limit; i++ {
-			ti := q[i]
-			if ti < len(tracks) {
-				t := tracks[ti]
-				rows = append(rows, swiftui.HStack(
-					swiftui.Text(t.title).Font(swiftui.FontCaption),
-					swiftui.Spacer(),
-					swiftui.Text(t.artist).
-						Font(swiftui.FontCaption).
-						ForegroundStyleNamed("secondary"),
-				).Padding(4))
+			entry := q[i]
+			t, ok := trackInfo(entry.playlist, entry.track)
+			if !ok {
+				continue
 			}
+			subtitle := t.artist
+			if entry.playlist >= 0 && entry.playlist < len(playlists) {
+				subtitle = fmt.Sprintf("%s • %s", t.artist, playlists[entry.playlist].name)
+			}
+			rows = append(rows, swiftui.HStack(
+				swiftui.Text(t.title).Font(swiftui.FontCaption),
+				swiftui.Spacer(),
+				swiftui.Text(subtitle).
+					Font(swiftui.FontCaption).
+					ForegroundStyleNamed("secondary"),
+			).Padding(4))
 		}
 		return swiftui.VStackSpaced(2, rows...).Padding(12).Frame(250, 0)
 	})

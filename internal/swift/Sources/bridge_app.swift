@@ -168,3 +168,11 @@ public func SUIUpdateMenuBarLabel(_ label: UnsafePointer<CChar>) {
         _statusItem?.button?.title = " " + str
     }
 }
+
+@_cdecl("SUIPlaySystemSound")
+public func SUIPlaySystemSound(_ name: UnsafePointer<CChar>) {
+    let soundName = String(cString: name)
+    DispatchQueue.main.async {
+        NSSound(named: NSSound.Name(soundName))?.play()
+    }
+}

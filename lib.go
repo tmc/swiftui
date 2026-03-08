@@ -359,6 +359,7 @@ var (
 	_SUIRunMenuBar         func(*byte, *byte, uintptr, float64, float64)
 	_SUIRunWithMenuBar     func(uintptr, *byte, float64, float64, *byte, *byte, uintptr, float64, float64)
 	_SUIUpdateMenuBarLabel func(*byte)
+	_SUIPlaySystemSound    func(*byte)
 
 	// Callbacks.
 	_SUISetButtonCallback           func(uintptr)
@@ -622,6 +623,7 @@ func init() {
 	tryRegisterLibFunc(&_SUIRunMenuBar, libHandle, "SUIRunMenuBar")
 	tryRegisterLibFunc(&_SUIRunWithMenuBar, libHandle, "SUIRunWithMenuBar")
 	tryRegisterLibFunc(&_SUIUpdateMenuBarLabel, libHandle, "SUIUpdateMenuBarLabel")
+	tryRegisterLibFunc(&_SUIPlaySystemSound, libHandle, "SUIPlaySystemSound")
 
 	// Callbacks.
 	tryRegisterLibFunc(&_SUISetButtonCallback, libHandle, "SUISetButtonCallback")
@@ -1157,6 +1159,9 @@ func setUnavailableStubs() {
 	}
 	if _SUIUpdateMenuBarLabel == nil {
 		_SUIUpdateMenuBarLabel = func(*byte) { stub("SUIUpdateMenuBarLabel") }
+	}
+	if _SUIPlaySystemSound == nil {
+		_SUIPlaySystemSound = func(*byte) { stub("SUIPlaySystemSound") }
 	}
 	if _SUISetButtonCallback == nil {
 		_SUISetButtonCallback = func(uintptr) { stub("SUISetButtonCallback") }

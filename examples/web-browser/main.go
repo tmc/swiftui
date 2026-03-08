@@ -12,8 +12,11 @@
 package main
 
 import (
+	"net/url"
 	"os"
+	"os/exec"
 	"runtime"
+	"strings"
 
 	"github.com/ebitengine/purego"
 
@@ -25,14 +28,33 @@ func init() { runtime.LockOSThread() }
 // sUIWebViewPage wraps a WebPage pointer into a SwiftUI View pointer.
 var sUIWebViewPage func(uintptr) uintptr
 
+func normalizeAddress(raw string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" {
+		return ""
+	}
+	if u, err := url.Parse(s); err == nil && u.Scheme != "" && u.Host != "" {
+		return u.String()
+	}
+	if strings.ContainsAny(s, " \t\n") || !strings.Contains(s, ".") {
+		return "https://duckduckgo.com/?q=" + url.QueryEscape(s)
+	}
+	return "https://" + s
+}
+
 func main() {
-	url := "https://go.dev"
+	homeURL := "https://go.dev"
+	address := homeURL
 	if len(os.Args) > 1 {
-		url = os.Args[1]
+		address = os.Args[1]
+	}
+	address = normalizeAddress(address)
+	if address == "" {
+		address = homeURL
 	}
 
 	// Create a WebPage and load the URL.
-	page := swiftui.NewWebPageURL(url)
+	page := swiftui.NewWebPageURL(address)
 
 	// Register the SUIWebViewPage bridge function (exported from the dylib
 	// but not yet bound in the Go layer).
@@ -42,7 +64,16 @@ func main() {
 	webViewPtr := sUIWebViewPage(page.Pointer())
 	webView := swiftui.ViewFromPointer(webViewPtr)
 
-	urlState := swiftui.NewStringState(url)
+	urlState := swiftui.NewStringState(address)
+
+	loadAddress := func(raw string) {
+		resolved := normalizeAddress(raw)
+		if resolved == "" {
+			return
+		}
+		urlState.Set(resolved)
+		page.LoadURL(resolved)
+	}
 
 	swiftui.Run(swiftui.AppConfig{
 		Title:  "Web Browser",
@@ -51,17 +82,24 @@ func main() {
 	}, swiftui.VStack(
 		// Toolbar
 		swiftui.HStackSpaced(4,
-			swiftui.ButtonWithImage("chevron.left", func() {}).
-				ButtonStyle(swiftui.ButtonStyleBorderless),
-			swiftui.ButtonWithImage("chevron.right", func() {}).
+			swiftui.ButtonWithImage("house", func() {
+				loadAddress(homeURL)
+			}).
 				ButtonStyle(swiftui.ButtonStyleBorderless),
 			swiftui.ButtonWithImage("arrow.clockwise", func() {
 				page.Reload()
 			}).ButtonStyle(swiftui.ButtonStyleBorderless),
 			swiftui.TextField("Search or enter URL", urlState, func() {
-				page.LoadURL(urlState.Get())
+				loadAddress(urlState.Get())
 			}).TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
-			swiftui.ButtonWithImage("square.and.arrow.up", func() {}).
+			swiftui.ButtonWithImage("safari", func() {
+				resolved := normalizeAddress(urlState.Get())
+				if resolved == "" {
+					return
+				}
+				urlState.Set(resolved)
+				_ = exec.Command("open", resolved).Start()
+			}).
 				ButtonStyle(swiftui.ButtonStyleBorderless),
 		).Padding(6),
 		swiftui.Divider(),

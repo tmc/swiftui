@@ -54,3 +54,13 @@ func UpdateMenuBarLabel(label string) {
 		_SUIUpdateMenuBarLabel(l)
 	})
 }
+
+// PlaySystemSound plays a macOS system sound by name.
+// Common names: "Basso", "Blow", "Bottle", "Frog", "Funk",
+// "Glass", "Hero", "Morse", "Ping", "Pop", "Purr", "Sosumi",
+// "Submarine", "Tink".
+func PlaySystemSound(name string) {
+	withCString(name, func(n *byte) {
+		_SUIPlaySystemSound(n)
+	})
+}
