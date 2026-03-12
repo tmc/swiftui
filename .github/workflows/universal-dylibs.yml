@@ -13,34 +13,32 @@ permissions:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
 
-      - name: Select Xcode
-        run: echo "DEVELOPER_DIR=/Applications/Xcode_16.4.app/Contents/Developer" >> "$GITHUB_ENV"
-
       - name: Show toolchain
         run: |
+          xcode-select -p
           xcodebuild -version
           go version
           swift --version
 
       - name: Build universal dylibs
         run: |
-          go generate -run 'lipo -create' \
-            . \
-            ./arkitswiftui \
-            ./avkitswiftui \
-            ./localauthswiftui \
-            ./quicklookswiftui \
-            ./scenekitswiftui \
-            ./spritekitswiftui \
-            ./translationswiftui
+          pkgs=()
+          while IFS= read -r file; do
+            pkg=$(dirname "$file")
+            if [ "$pkg" = "./workoutkit" ]; then
+              continue
+            fi
+            pkgs+=("$pkg")
+          done < <(find . -mindepth 1 -maxdepth 2 -name generate.go -print | sort)
+          go generate -run 'lipo -create' "${pkgs[@]}"
 
       - name: Collect artifacts
         run: |
@@ -54,15 +52,40 @@ jobs:
           tar -C dist -czf dist/universal-dylibs.tar.gz universal-dylibs
 
       - name: Upload workflow artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: universal-dylibs
           path: |
             dist/universal-dylibs
             dist/universal-dylibs.tar.gz
 
-      - name: Attach release asset
+      - name: Publish main snapshot
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          notes="Automated universal dylib snapshot built from \`${GITHUB_SHA}\` on \`main\`."
+          if gh release view main-snapshot >/dev/null 2>&1; then
+            gh release delete main-snapshot --yes
+          fi
+          git tag -f main-snapshot "${GITHUB_SHA}"
+          git push --force origin refs/tags/main-snapshot
+          gh release create main-snapshot dist/universal-dylibs.tar.gz \
+            --verify-tag \
+            --title "Main Snapshot" \
+            --notes "$notes" \
+            --prerelease \
+            --latest=false
+
+      - name: Attach tagged release asset
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: dist/universal-dylibs.tar.gz
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            gh release upload "${GITHUB_REF_NAME}" dist/universal-dylibs.tar.gz --clobber
+          else
+            gh release create "${GITHUB_REF_NAME}" dist/universal-dylibs.tar.gz \
+              --verify-tag \
+              --generate-notes
+          fi
