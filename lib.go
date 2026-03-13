@@ -1,0 +1,1076 @@
+package swiftui
+
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"sync"
+
+	embeddedbridge "github.com/tmc/swiftui/internal/embeddedbridge"
+
+	"github.com/ebitengine/purego"
+)
+
+// libHandle is the handle to the loaded libSwiftUIBridge dylib.
+var libHandle uintptr
+var loadErr error
+
+type retained struct {
+	ptr         uintptr
+	once        sync.Once
+	callbackIDs []uintptr // callback map entries owned by this handle
+}
+
+func newRetained(ptr uintptr) *retained {
+	if ptr == 0 || libHandle == 0 {
+		return nil
+	}
+	r := &retained{ptr: ptr}
+	runtime.SetFinalizer(r, func(rr *retained) {
+		rr.release()
+	})
+	return r
+}
+
+// addCallbackID records a callback map entry so it is cleaned up on release.
+func (r *retained) addCallbackID(id uintptr) {
+	if r == nil {
+		return
+	}
+	r.callbackIDs = append(r.callbackIDs, id)
+}
+
+func (r *retained) release() {
+	if r == nil {
+		return
+	}
+	r.once.Do(func() {
+		for _, id := range r.callbackIDs {
+			unregisterCallback(id)
+		}
+		r.callbackIDs = nil
+		if r.ptr == 0 || libHandle == 0 || _SUIRelease == nil {
+			return
+		}
+		_SUIRelease(r.ptr)
+		r.ptr = 0
+	})
+}
+
+// swiftBridgeDir returns the path to the vendored Swift bridge source directory.
+func swiftBridgeDir() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(filepath.Dir(file), "swift")
+}
+
+// discoverBuiltDylib locates a built SwiftUI bridge dylib across SwiftPM layouts.
+func discoverBuiltDylib() (string, error) {
+	dir := swiftBridgeDir()
+	candidates := []string{
+		filepath.Join(dir, ".build", "release", "libSwiftUIBridge.dylib"),
+	}
+	glob, _ := filepath.Glob(filepath.Join(dir, ".build", "*", "release", "libSwiftUIBridge.dylib"))
+	sort.Strings(glob)
+	candidates = append(candidates, glob...)
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path, nil
+		}
+	}
+	return "", fmt.Errorf("swiftui: built dylib not found")
+}
+
+func materializeEmbeddedBridge(data []byte, name string) (string, error) {
+	if len(data) == 0 {
+		return "", nil
+	}
+	if name == "" {
+		name = "libSwiftUIBridge.dylib"
+	}
+	sum := sha256.Sum256(data)
+	cacheDir := filepath.Join(os.TempDir(), "swiftui-bridge-cache")
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		return "", fmt.Errorf("swiftui: create bridge cache: %w", err)
+	}
+	path := filepath.Join(cacheDir, hex.EncodeToString(sum[:])+"-"+name)
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o755); err != nil {
+		return "", fmt.Errorf("swiftui: write embedded bridge: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		// Another process may have raced us and created the file first.
+		if _, statErr := os.Stat(path); statErr == nil {
+			_ = os.Remove(tmp)
+			return path, nil
+		}
+		return "", fmt.Errorf("swiftui: finalize embedded bridge: %w", err)
+	}
+	return path, nil
+}
+
+func loadEmbeddedBridge() (uintptr, error) {
+	data, name := embeddedbridge.Payload()
+	if len(data) == 0 {
+		return 0, nil
+	}
+	path, err := materializeEmbeddedBridge(data, name)
+	if err != nil {
+		return 0, err
+	}
+	handle, err := purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+	if err != nil {
+		return 0, fmt.Errorf("swiftui: dlopen embedded bridge %s: %w", path, err)
+	}
+	return handle, nil
+}
+
+// buildSwiftBridge builds the vendored Swift bridge dylib if it doesn't already exist.
+func buildSwiftBridge() (string, error) {
+	if path, err := discoverBuiltDylib(); err == nil {
+		return path, nil
+	}
+	dir := swiftBridgeDir()
+	if _, err := os.Stat(filepath.Join(dir, "Package.swift")); err != nil {
+		return "", fmt.Errorf("swiftui: swift bridge source not found at %s", dir)
+	}
+	cmd := exec.Command("swift", "build", "-c", "release", "--quiet")
+	cmd.Dir = dir
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("swiftui: swift build failed: %w", err)
+	}
+	path, err := discoverBuiltDylib()
+	if err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// tryRegisterLibFunc attempts to register a C function from the dylib.
+// Returns false if the symbol is not found (does not panic).
+func tryRegisterLibFunc(fptr any, handle uintptr, name string) bool {
+	defer func() { recover() }()
+	purego.RegisterLibFunc(fptr, handle, name)
+	return true
+}
+
+// C function variables registered via purego.RegisterLibFunc.
+var (
+	// Views.
+	_SUIText                 func(*byte) uintptr
+	_SUIImage                func(*byte) uintptr
+	_SUISpacer               func() uintptr
+	_SUIDivider              func() uintptr
+	_SUILabel                func(*byte, *byte) uintptr
+	_SUIProgressViewSpinning func() uintptr
+	_SUIProgressViewLinear   func(float64, float64) uintptr
+	_SUIEmptyView            func() uintptr
+	_SUIColor                func(float64, float64, float64, float64) uintptr
+	_SUICircle               func() uintptr
+	_SUIRectangle            func() uintptr
+	_SUIRoundedRectangle     func(float64) uintptr
+	_SUICapsule              func() uintptr
+	_SUILink                 func(*byte, *byte) uintptr
+	_SUIGauge                func(float64, *byte) uintptr
+	_SUIVStack               func(*uintptr, int32) uintptr
+	_SUIVStackSpaced         func(*uintptr, int32, float64) uintptr
+	_SUIHStack               func(*uintptr, int32) uintptr
+	_SUIHStackSpaced         func(*uintptr, int32, float64) uintptr
+	_SUIGroupBox             func(*byte, uintptr) uintptr
+	_SUIScrollView           func(uintptr) uintptr
+	_SUIZStack               func(*uintptr, int32) uintptr
+	_SUILazyVStack           func(*uintptr, int32) uintptr
+	_SUILazyHStack           func(*uintptr, int32) uintptr
+	_SUIList                 func(*uintptr, int32) uintptr
+	_SUIForm                 func(*uintptr, int32) uintptr
+	_SUISection              func(*byte, uintptr) uintptr
+	_SUITabView              func(*uintptr, int32) uintptr
+	_SUIButton               func(*byte, uintptr) uintptr
+	_SUIButtonWithImage      func(*byte, uintptr) uintptr
+	_SUIButtonWithLabel      func(*byte, *byte, uintptr) uintptr
+	_SUITextFromState        func(uintptr) uintptr
+	_SUITextFromStringState  func(uintptr) uintptr
+	_SUIToggle               func(*byte, uintptr, uintptr) uintptr
+	_SUITextField            func(*byte, uintptr, uintptr) uintptr
+	_SUISecureField          func(*byte, uintptr, uintptr) uintptr
+	_SUITextEditor           func(uintptr) uintptr
+	_SUISlider               func(*byte, uintptr, float64, float64, uintptr) uintptr
+	_SUIPickerSegmented      func(*byte, uintptr, uintptr, uintptr) uintptr
+	_SUIStepperInt           func(*byte, uintptr, int32, int32, uintptr) uintptr
+	_SUIDynamicView          func(uintptr, uintptr) uintptr
+	_SUIAnimatedDynamicView  func(uintptr, int32, uintptr) uintptr
+	_SUINavigationStack      func(uintptr) uintptr
+	_SUIMenu                 func(*byte, uintptr) uintptr
+	_SUIGeometryReader       func(uintptr) uintptr
+	_SUIPickerMenu           func(*byte, uintptr, uintptr, uintptr) uintptr
+	_SUINavigationLink       func(*byte, uintptr) uintptr
+	_SUIColorPicker          func(*byte, uintptr, uintptr) uintptr
+	_SUIDatePicker           func(*byte, uintptr, uintptr) uintptr
+	_SUIFloatSlider          func(*byte, uintptr, float64, float64, uintptr) uintptr
+	_SUIFloatGauge           func(*byte, uintptr, float64, float64) uintptr
+	_SUIFloatProgressView    func(uintptr, float64) uintptr
+
+	// Modifiers.
+	_SUIViewPadding                              func(uintptr, float64) uintptr
+	_SUIViewPaddingEdge                          func(uintptr, int32, float64) uintptr
+	_SUIViewFont                                 func(uintptr, uintptr) uintptr
+	_SUIViewFrame                                func(uintptr, float64, float64) uintptr
+	_SUIViewMaxFrame                             func(uintptr, float64, float64) uintptr
+	_SUIViewForegroundStyle                      func(uintptr, float64, float64, float64, float64) uintptr
+	_SUIViewForegroundStyleName                  func(uintptr, *byte) uintptr
+	_SUIViewButtonStyle                          func(uintptr, int32) uintptr
+	_SUIViewControlSize                          func(uintptr, int32) uintptr
+	_SUIViewImageScale                           func(uintptr, int32) uintptr
+	_SUIViewFontWeight                           func(uintptr, int32) uintptr
+	_SUIViewFontDesign                           func(uintptr, int32) uintptr
+	_SUIViewMonospacedDigit                      func(uintptr) uintptr
+	_SUIViewMultilineTextAlignment               func(uintptr, int32) uintptr
+	_SUIViewOpacity                              func(uintptr, float64) uintptr
+	_SUIViewDisabled                             func(uintptr, int32) uintptr
+	_SUIViewHelp                                 func(uintptr, *byte) uintptr
+	_SUIViewBackground                           func(uintptr, float64, float64, float64, float64) uintptr
+	_SUIViewBackgroundRoundedRect                func(uintptr, float64, float64, float64, float64, float64) uintptr
+	_SUIViewClipRoundedRect                      func(uintptr, float64) uintptr
+	_SUIViewOverlay                              func(uintptr, uintptr) uintptr
+	_SUIViewAnimation                            func(uintptr, int32) uintptr
+	_SUIViewBackgroundStyle                      func(uintptr, *byte) uintptr
+	_SUIViewLineLimit                            func(uintptr, int32) uintptr
+	_SUIViewTextFieldStyle                       func(uintptr, int32) uintptr
+	_SUIViewShadow                               func(uintptr, float64, float64, float64, float64, float64, float64, float64) uintptr
+	_SUIViewBorder                               func(uintptr, float64, float64, float64, float64, float64) uintptr
+	_SUIViewCornerRadius                         func(uintptr, float64) uintptr
+	_SUIViewScaleEffect                          func(uintptr, float64) uintptr
+	_SUIViewRotationEffect                       func(uintptr, float64) uintptr
+	_SUIViewOffset                               func(uintptr, float64, float64) uintptr
+	_SUIViewAllowsHitTesting                     func(uintptr, int32) uintptr
+	_SUIViewOnTapGesture                         func(uintptr, uintptr) uintptr
+	_SUIViewFocusable                            func(uintptr, int32) uintptr
+	_SUIViewNavigationTitle                      func(uintptr, *byte) uintptr
+	_SUIViewTabItem                              func(uintptr, *byte, *byte) uintptr
+	_SUIViewTag                                  func(uintptr, int32) uintptr
+	_SUIViewFill                                 func(uintptr, float64, float64, float64, float64) uintptr
+	_SUIViewStroke                               func(uintptr, float64, float64, float64, float64, float64) uintptr
+	_SUIViewOnAppear                             func(uintptr, uintptr) uintptr
+	_SUIViewOnDisappear                          func(uintptr, uintptr) uintptr
+	_SUIViewOnHover                              func(uintptr, uintptr) uintptr
+	_SUIViewTint                                 func(uintptr, float64, float64, float64, float64) uintptr
+	_SUIViewFixedSize                            func(uintptr) uintptr
+	_SUIViewFixedSizeAxis                        func(uintptr, int32, int32) uintptr
+	_SUIViewAspectRatio                          func(uintptr, float64, int32) uintptr
+	_SUIViewSheet                                func(uintptr, uintptr, uintptr) uintptr
+	_SUIViewAlert                                func(uintptr, *byte, *byte, uintptr) uintptr
+	_SUIViewConfirmationDialog                   func(uintptr, *byte, uintptr, uintptr) uintptr
+	_SUIViewContextMenu                          func(uintptr, uintptr) uintptr
+	_SUIViewBold                                 func(uintptr) uintptr
+	_SUIViewItalic                               func(uintptr) uintptr
+	_SUIViewUnderline                            func(uintptr) uintptr
+	_SUIViewStrikethrough                        func(uintptr) uintptr
+	_SUIViewTruncationMode                       func(uintptr, int32) uintptr
+	_SUIViewSymbolRenderingMode                  func(uintptr, int32) uintptr
+	_SUIViewZIndex                               func(uintptr, float64) uintptr
+	_SUIViewLayoutPriority                       func(uintptr, float64) uintptr
+	_SUIViewBlur                                 func(uintptr, float64) uintptr
+	_SUIViewClipped                              func(uintptr) uintptr
+	_SUIViewMask                                 func(uintptr, uintptr) uintptr
+	_SUIViewAccessibilityLabel                   func(uintptr, *byte) uintptr
+	_SUIViewAccessibilityHint                    func(uintptr, *byte) uintptr
+	_SUIViewAccessibilityHidden                  func(uintptr, int32) uintptr
+	_SUIViewListStyle                            func(uintptr, int32) uintptr
+	_SUIViewListRowBackground                    func(uintptr, uintptr) uintptr
+	_SUIViewWebViewBackForwardNavigationGestures func(uintptr, int32) uintptr
+	_SUIViewWebViewContentBackground             func(uintptr, int32) uintptr
+	_SUIViewWebViewElementFullscreenBehavior     func(uintptr, int32) uintptr
+	_SUIViewWebViewLinkPreviews                  func(uintptr, int32) uintptr
+	_SUIViewWebViewMagnificationGestures         func(uintptr, int32) uintptr
+	_SUIViewWebViewTextSelection                 func(uintptr, int32) uintptr
+	_SUIViewPopover                              func(uintptr, uintptr, uintptr) uintptr
+	_SUIViewFullScreenCover                      func(uintptr, uintptr, uintptr) uintptr
+
+	// Fonts.
+	_SUIFontSystem       func(float64) uintptr
+	_SUIFontSystemDesign func(float64, int32, int32) uintptr
+	_SUIFontNamed        func(*byte) uintptr
+
+	// State.
+	_SUIStateCreateInt        func(int32) uintptr
+	_SUIStateGetInt           func(uintptr) int32
+	_SUIStateSetInt           func(uintptr, int32)
+	_SUIStateSetIntAnimated   func(uintptr, int32)
+	_SUIStateCreateString     func(*byte) uintptr
+	_SUIStateGetString        func(uintptr) *byte
+	_SUIStateSetString        func(uintptr, *byte)
+	_SUIStateCreateColor      func(float64, float64, float64, float64) uintptr
+	_SUIStateGetColorR        func(uintptr) float64
+	_SUIStateGetColorG        func(uintptr) float64
+	_SUIStateGetColorB        func(uintptr) float64
+	_SUIStateGetColorA        func(uintptr) float64
+	_SUIStateSetColor         func(uintptr, float64, float64, float64, float64)
+	_SUIStateCreateDate       func(float64) uintptr
+	_SUIStateGetDate          func(uintptr) float64
+	_SUIStateSetDate          func(uintptr, float64)
+	_SUIStateCreateFloat      func(float64) uintptr
+	_SUIStateGetFloat         func(uintptr) float64
+	_SUIStateSetFloat         func(uintptr, float64)
+	_SUIStateSetFloatAnimated func(uintptr, float64)
+	_SUIStateCreateBool       func(int32) uintptr
+	_SUIStateGetBool          func(uintptr) int32
+	_SUIStateSetBool          func(uintptr, int32)
+	_SUIWebPageCreate         func() uintptr
+	_SUIWebPageLoadURL        func(uintptr, *byte)
+	_SUIWebPageReload         func(uintptr)
+
+	// App lifecycle.
+	_SUIRun func(uintptr, *byte, float64, float64)
+
+	// Callbacks.
+	_SUISetButtonCallback          func(uintptr)
+	_SUISetViewBuilderCallback     func(uintptr)
+	_SUISetGeometryBuilderCallback func(uintptr)
+
+	// Memory.
+	_SUIRelease    func(uintptr)
+	_SUIFreeString func(*byte)
+)
+
+func init() {
+	// Search order: env var, local, system, vendored swift bridge (auto-built).
+	paths := []string{
+		os.Getenv("LIBSWIFTUI_BRIDGE_PATH"),
+		"libSwiftUIBridge.dylib",
+		"/usr/local/lib/libSwiftUIBridge.dylib",
+	}
+	var lastErr error
+
+	for _, path := range paths {
+		if path == "" {
+			continue
+		}
+		var err error
+		libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		if err == nil {
+			break
+		}
+		lastErr = err
+	}
+
+	// Try embedded bridge payload before local Swift build.
+	if libHandle == 0 {
+		if handle, err := loadEmbeddedBridge(); err == nil {
+			libHandle = handle
+		} else {
+			lastErr = err
+		}
+	}
+
+	// Auto-build from vendored Swift source if no pre-built dylib found.
+	if libHandle == 0 {
+		if path, err := buildSwiftBridge(); err == nil {
+			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		} else {
+			lastErr = err
+		}
+	}
+
+	if libHandle == 0 {
+		if _, err := exec.LookPath("swift"); err != nil {
+			loadErr = fmt.Errorf("swiftui: swift toolchain not found; install Xcode or Command Line Tools")
+		} else if lastErr != nil {
+			loadErr = fmt.Errorf("swiftui: failed to load bridge dylib: %w", lastErr)
+		} else {
+			loadErr = fmt.Errorf("swiftui: bridge dylib not loaded")
+		}
+		setUnavailableStubs()
+		return
+	}
+
+	// Views.
+	tryRegisterLibFunc(&_SUIText, libHandle, "SUIText")
+	tryRegisterLibFunc(&_SUIImage, libHandle, "SUIImage")
+	tryRegisterLibFunc(&_SUISpacer, libHandle, "SUISpacer")
+	tryRegisterLibFunc(&_SUIDivider, libHandle, "SUIDivider")
+	tryRegisterLibFunc(&_SUILabel, libHandle, "SUILabel")
+	tryRegisterLibFunc(&_SUIProgressViewSpinning, libHandle, "SUIProgressViewSpinning")
+	tryRegisterLibFunc(&_SUIProgressViewLinear, libHandle, "SUIProgressViewLinear")
+	tryRegisterLibFunc(&_SUIEmptyView, libHandle, "SUIEmptyView")
+	tryRegisterLibFunc(&_SUIColor, libHandle, "SUIColor")
+	tryRegisterLibFunc(&_SUICircle, libHandle, "SUICircle")
+	tryRegisterLibFunc(&_SUIRectangle, libHandle, "SUIRectangle")
+	tryRegisterLibFunc(&_SUIRoundedRectangle, libHandle, "SUIRoundedRectangle")
+	tryRegisterLibFunc(&_SUICapsule, libHandle, "SUICapsule")
+	tryRegisterLibFunc(&_SUILink, libHandle, "SUILink")
+	tryRegisterLibFunc(&_SUIGauge, libHandle, "SUIGauge")
+	tryRegisterLibFunc(&_SUIVStack, libHandle, "SUIVStack")
+	tryRegisterLibFunc(&_SUIVStackSpaced, libHandle, "SUIVStackSpaced")
+	tryRegisterLibFunc(&_SUIHStack, libHandle, "SUIHStack")
+	tryRegisterLibFunc(&_SUIHStackSpaced, libHandle, "SUIHStackSpaced")
+	tryRegisterLibFunc(&_SUIGroupBox, libHandle, "SUIGroupBox")
+	tryRegisterLibFunc(&_SUIScrollView, libHandle, "SUIScrollView")
+	tryRegisterLibFunc(&_SUIZStack, libHandle, "SUIZStack")
+	tryRegisterLibFunc(&_SUILazyVStack, libHandle, "SUILazyVStack")
+	tryRegisterLibFunc(&_SUILazyHStack, libHandle, "SUILazyHStack")
+	tryRegisterLibFunc(&_SUIList, libHandle, "SUIList")
+	tryRegisterLibFunc(&_SUIForm, libHandle, "SUIForm")
+	tryRegisterLibFunc(&_SUISection, libHandle, "SUISection")
+	tryRegisterLibFunc(&_SUITabView, libHandle, "SUITabView")
+	tryRegisterLibFunc(&_SUIButton, libHandle, "SUIButton")
+	tryRegisterLibFunc(&_SUIButtonWithImage, libHandle, "SUIButtonWithImage")
+	tryRegisterLibFunc(&_SUIButtonWithLabel, libHandle, "SUIButtonWithLabel")
+	tryRegisterLibFunc(&_SUITextFromState, libHandle, "SUITextFromState")
+	tryRegisterLibFunc(&_SUITextFromStringState, libHandle, "SUITextFromStringState")
+	tryRegisterLibFunc(&_SUIToggle, libHandle, "SUIToggle")
+	tryRegisterLibFunc(&_SUITextField, libHandle, "SUITextField")
+	tryRegisterLibFunc(&_SUISecureField, libHandle, "SUISecureField")
+	tryRegisterLibFunc(&_SUITextEditor, libHandle, "SUITextEditor")
+	tryRegisterLibFunc(&_SUISlider, libHandle, "SUISlider")
+	tryRegisterLibFunc(&_SUIPickerSegmented, libHandle, "SUIPickerSegmented")
+	tryRegisterLibFunc(&_SUIStepperInt, libHandle, "SUIStepperInt")
+	tryRegisterLibFunc(&_SUIDynamicView, libHandle, "SUIDynamicView")
+	tryRegisterLibFunc(&_SUIAnimatedDynamicView, libHandle, "SUIAnimatedDynamicView")
+	tryRegisterLibFunc(&_SUINavigationStack, libHandle, "SUINavigationStack")
+	tryRegisterLibFunc(&_SUIMenu, libHandle, "SUIMenu")
+	tryRegisterLibFunc(&_SUIGeometryReader, libHandle, "SUIGeometryReader")
+	tryRegisterLibFunc(&_SUIPickerMenu, libHandle, "SUIPickerMenu")
+	tryRegisterLibFunc(&_SUINavigationLink, libHandle, "SUINavigationLink")
+	tryRegisterLibFunc(&_SUIColorPicker, libHandle, "SUIColorPicker")
+	tryRegisterLibFunc(&_SUIDatePicker, libHandle, "SUIDatePicker")
+	tryRegisterLibFunc(&_SUIFloatSlider, libHandle, "SUIFloatSlider")
+	tryRegisterLibFunc(&_SUIFloatGauge, libHandle, "SUIFloatGauge")
+	tryRegisterLibFunc(&_SUIFloatProgressView, libHandle, "SUIFloatProgressView")
+
+	// Modifiers.
+	tryRegisterLibFunc(&_SUIViewPadding, libHandle, "SUIViewPadding")
+	tryRegisterLibFunc(&_SUIViewPaddingEdge, libHandle, "SUIViewPaddingEdge")
+	tryRegisterLibFunc(&_SUIViewFont, libHandle, "SUIViewFont")
+	tryRegisterLibFunc(&_SUIViewFrame, libHandle, "SUIViewFrame")
+	tryRegisterLibFunc(&_SUIViewMaxFrame, libHandle, "SUIViewMaxFrame")
+	tryRegisterLibFunc(&_SUIViewForegroundStyle, libHandle, "SUIViewForegroundStyle")
+	tryRegisterLibFunc(&_SUIViewForegroundStyleName, libHandle, "SUIViewForegroundStyleName")
+	tryRegisterLibFunc(&_SUIViewButtonStyle, libHandle, "SUIViewButtonStyle")
+	tryRegisterLibFunc(&_SUIViewControlSize, libHandle, "SUIViewControlSize")
+	tryRegisterLibFunc(&_SUIViewImageScale, libHandle, "SUIViewImageScale")
+	tryRegisterLibFunc(&_SUIViewFontWeight, libHandle, "SUIViewFontWeight")
+	tryRegisterLibFunc(&_SUIViewFontDesign, libHandle, "SUIViewFontDesign")
+	tryRegisterLibFunc(&_SUIViewMonospacedDigit, libHandle, "SUIViewMonospacedDigit")
+	tryRegisterLibFunc(&_SUIViewMultilineTextAlignment, libHandle, "SUIViewMultilineTextAlignment")
+	tryRegisterLibFunc(&_SUIViewOpacity, libHandle, "SUIViewOpacity")
+	tryRegisterLibFunc(&_SUIViewDisabled, libHandle, "SUIViewDisabled")
+	tryRegisterLibFunc(&_SUIViewHelp, libHandle, "SUIViewHelp")
+	tryRegisterLibFunc(&_SUIViewBackground, libHandle, "SUIViewBackground")
+	tryRegisterLibFunc(&_SUIViewBackgroundRoundedRect, libHandle, "SUIViewBackgroundRoundedRect")
+	tryRegisterLibFunc(&_SUIViewClipRoundedRect, libHandle, "SUIViewClipRoundedRect")
+	tryRegisterLibFunc(&_SUIViewOverlay, libHandle, "SUIViewOverlay")
+	tryRegisterLibFunc(&_SUIViewAnimation, libHandle, "SUIViewAnimation")
+	tryRegisterLibFunc(&_SUIViewBackgroundStyle, libHandle, "SUIViewBackgroundStyle")
+	tryRegisterLibFunc(&_SUIViewLineLimit, libHandle, "SUIViewLineLimit")
+	tryRegisterLibFunc(&_SUIViewTextFieldStyle, libHandle, "SUIViewTextFieldStyle")
+	tryRegisterLibFunc(&_SUIViewShadow, libHandle, "SUIViewShadow")
+	tryRegisterLibFunc(&_SUIViewBorder, libHandle, "SUIViewBorder")
+	tryRegisterLibFunc(&_SUIViewCornerRadius, libHandle, "SUIViewCornerRadius")
+	tryRegisterLibFunc(&_SUIViewScaleEffect, libHandle, "SUIViewScaleEffect")
+	tryRegisterLibFunc(&_SUIViewRotationEffect, libHandle, "SUIViewRotationEffect")
+	tryRegisterLibFunc(&_SUIViewOffset, libHandle, "SUIViewOffset")
+	tryRegisterLibFunc(&_SUIViewAllowsHitTesting, libHandle, "SUIViewAllowsHitTesting")
+	tryRegisterLibFunc(&_SUIViewOnTapGesture, libHandle, "SUIViewOnTapGesture")
+	tryRegisterLibFunc(&_SUIViewFocusable, libHandle, "SUIViewFocusable")
+	tryRegisterLibFunc(&_SUIViewNavigationTitle, libHandle, "SUIViewNavigationTitle")
+	tryRegisterLibFunc(&_SUIViewTabItem, libHandle, "SUIViewTabItem")
+	tryRegisterLibFunc(&_SUIViewTag, libHandle, "SUIViewTag")
+	tryRegisterLibFunc(&_SUIViewFill, libHandle, "SUIViewFill")
+	tryRegisterLibFunc(&_SUIViewStroke, libHandle, "SUIViewStroke")
+	tryRegisterLibFunc(&_SUIViewOnAppear, libHandle, "SUIViewOnAppear")
+	tryRegisterLibFunc(&_SUIViewOnDisappear, libHandle, "SUIViewOnDisappear")
+	tryRegisterLibFunc(&_SUIViewOnHover, libHandle, "SUIViewOnHover")
+	tryRegisterLibFunc(&_SUIViewTint, libHandle, "SUIViewTint")
+	tryRegisterLibFunc(&_SUIViewFixedSize, libHandle, "SUIViewFixedSize")
+	tryRegisterLibFunc(&_SUIViewFixedSizeAxis, libHandle, "SUIViewFixedSizeAxis")
+	tryRegisterLibFunc(&_SUIViewAspectRatio, libHandle, "SUIViewAspectRatio")
+	tryRegisterLibFunc(&_SUIViewSheet, libHandle, "SUIViewSheet")
+	tryRegisterLibFunc(&_SUIViewAlert, libHandle, "SUIViewAlert")
+	tryRegisterLibFunc(&_SUIViewConfirmationDialog, libHandle, "SUIViewConfirmationDialog")
+	tryRegisterLibFunc(&_SUIViewContextMenu, libHandle, "SUIViewContextMenu")
+	tryRegisterLibFunc(&_SUIViewBold, libHandle, "SUIViewBold")
+	tryRegisterLibFunc(&_SUIViewItalic, libHandle, "SUIViewItalic")
+	tryRegisterLibFunc(&_SUIViewUnderline, libHandle, "SUIViewUnderline")
+	tryRegisterLibFunc(&_SUIViewStrikethrough, libHandle, "SUIViewStrikethrough")
+	tryRegisterLibFunc(&_SUIViewTruncationMode, libHandle, "SUIViewTruncationMode")
+	tryRegisterLibFunc(&_SUIViewSymbolRenderingMode, libHandle, "SUIViewSymbolRenderingMode")
+	tryRegisterLibFunc(&_SUIViewZIndex, libHandle, "SUIViewZIndex")
+	tryRegisterLibFunc(&_SUIViewLayoutPriority, libHandle, "SUIViewLayoutPriority")
+	tryRegisterLibFunc(&_SUIViewBlur, libHandle, "SUIViewBlur")
+	tryRegisterLibFunc(&_SUIViewClipped, libHandle, "SUIViewClipped")
+	tryRegisterLibFunc(&_SUIViewMask, libHandle, "SUIViewMask")
+	tryRegisterLibFunc(&_SUIViewAccessibilityLabel, libHandle, "SUIViewAccessibilityLabel")
+	tryRegisterLibFunc(&_SUIViewAccessibilityHint, libHandle, "SUIViewAccessibilityHint")
+	tryRegisterLibFunc(&_SUIViewAccessibilityHidden, libHandle, "SUIViewAccessibilityHidden")
+	tryRegisterLibFunc(&_SUIViewListStyle, libHandle, "SUIViewListStyle")
+	tryRegisterLibFunc(&_SUIViewListRowBackground, libHandle, "SUIViewListRowBackground")
+	tryRegisterLibFunc(&_SUIViewWebViewBackForwardNavigationGestures, libHandle, "SUIViewWebViewBackForwardNavigationGestures")
+	tryRegisterLibFunc(&_SUIViewWebViewContentBackground, libHandle, "SUIViewWebViewContentBackground")
+	tryRegisterLibFunc(&_SUIViewWebViewElementFullscreenBehavior, libHandle, "SUIViewWebViewElementFullscreenBehavior")
+	tryRegisterLibFunc(&_SUIViewWebViewLinkPreviews, libHandle, "SUIViewWebViewLinkPreviews")
+	tryRegisterLibFunc(&_SUIViewWebViewMagnificationGestures, libHandle, "SUIViewWebViewMagnificationGestures")
+	tryRegisterLibFunc(&_SUIViewWebViewTextSelection, libHandle, "SUIViewWebViewTextSelection")
+	tryRegisterLibFunc(&_SUIViewPopover, libHandle, "SUIViewPopover")
+	tryRegisterLibFunc(&_SUIViewFullScreenCover, libHandle, "SUIViewFullScreenCover")
+
+	// Fonts.
+	tryRegisterLibFunc(&_SUIFontSystem, libHandle, "SUIFontSystem")
+	tryRegisterLibFunc(&_SUIFontSystemDesign, libHandle, "SUIFontSystemDesign")
+	tryRegisterLibFunc(&_SUIFontNamed, libHandle, "SUIFontNamed")
+
+	// State.
+	tryRegisterLibFunc(&_SUIStateCreateInt, libHandle, "SUIStateCreateInt")
+	tryRegisterLibFunc(&_SUIStateGetInt, libHandle, "SUIStateGetInt")
+	tryRegisterLibFunc(&_SUIStateSetInt, libHandle, "SUIStateSetInt")
+	tryRegisterLibFunc(&_SUIStateSetIntAnimated, libHandle, "SUIStateSetIntAnimated")
+	tryRegisterLibFunc(&_SUIStateCreateString, libHandle, "SUIStateCreateString")
+	tryRegisterLibFunc(&_SUIStateGetString, libHandle, "SUIStateGetString")
+	tryRegisterLibFunc(&_SUIStateSetString, libHandle, "SUIStateSetString")
+	tryRegisterLibFunc(&_SUIStateCreateColor, libHandle, "SUIStateCreateColor")
+	tryRegisterLibFunc(&_SUIStateGetColorR, libHandle, "SUIStateGetColorR")
+	tryRegisterLibFunc(&_SUIStateGetColorG, libHandle, "SUIStateGetColorG")
+	tryRegisterLibFunc(&_SUIStateGetColorB, libHandle, "SUIStateGetColorB")
+	tryRegisterLibFunc(&_SUIStateGetColorA, libHandle, "SUIStateGetColorA")
+	tryRegisterLibFunc(&_SUIStateSetColor, libHandle, "SUIStateSetColor")
+	tryRegisterLibFunc(&_SUIStateCreateDate, libHandle, "SUIStateCreateDate")
+	tryRegisterLibFunc(&_SUIStateGetDate, libHandle, "SUIStateGetDate")
+	tryRegisterLibFunc(&_SUIStateSetDate, libHandle, "SUIStateSetDate")
+	tryRegisterLibFunc(&_SUIStateCreateFloat, libHandle, "SUIStateCreateFloat")
+	tryRegisterLibFunc(&_SUIStateGetFloat, libHandle, "SUIStateGetFloat")
+	tryRegisterLibFunc(&_SUIStateSetFloat, libHandle, "SUIStateSetFloat")
+	tryRegisterLibFunc(&_SUIStateSetFloatAnimated, libHandle, "SUIStateSetFloatAnimated")
+	tryRegisterLibFunc(&_SUIStateCreateBool, libHandle, "SUIStateCreateBool")
+	tryRegisterLibFunc(&_SUIStateGetBool, libHandle, "SUIStateGetBool")
+	tryRegisterLibFunc(&_SUIStateSetBool, libHandle, "SUIStateSetBool")
+	tryRegisterLibFunc(&_SUIWebPageCreate, libHandle, "SUIWebPageCreate")
+	tryRegisterLibFunc(&_SUIWebPageLoadURL, libHandle, "SUIWebPageLoadURL")
+	tryRegisterLibFunc(&_SUIWebPageReload, libHandle, "SUIWebPageReload")
+
+	// App lifecycle.
+	tryRegisterLibFunc(&_SUIRun, libHandle, "SUIRun")
+
+	// Callbacks.
+	tryRegisterLibFunc(&_SUISetButtonCallback, libHandle, "SUISetButtonCallback")
+	tryRegisterLibFunc(&_SUISetViewBuilderCallback, libHandle, "SUISetViewBuilderCallback")
+	tryRegisterLibFunc(&_SUISetGeometryBuilderCallback, libHandle, "SUISetGeometryBuilderCallback")
+
+	// Memory.
+	tryRegisterLibFunc(&_SUIRelease, libHandle, "SUIRelease")
+	tryRegisterLibFunc(&_SUIFreeString, libHandle, "SUIFreeString")
+
+	setUnavailableStubs()
+
+	// Register callback trampolines with the Swift bridge.
+	_SUISetButtonCallback(buttonCallbackPtr)
+	_SUISetViewBuilderCallback(viewBuilderCallbackPtr)
+	_SUISetGeometryBuilderCallback(geometryBuilderCallbackPtr)
+
+	// Initialize preset font constants.
+	initFonts()
+}
+
+func setUnavailableStubs() {
+	stub := func(name string) {
+		if loadErr != nil {
+			panic("swiftui: " + name + ": " + loadErr.Error())
+		}
+		panic("swiftui: " + name + ": dylib not loaded")
+	}
+	if _SUIText == nil {
+		_SUIText = func(*byte) uintptr { stub("SUIText"); return 0 }
+	}
+	if _SUIImage == nil {
+		_SUIImage = func(*byte) uintptr { stub("SUIImage"); return 0 }
+	}
+	if _SUISpacer == nil {
+		_SUISpacer = func() uintptr { stub("SUISpacer"); return 0 }
+	}
+	if _SUIDivider == nil {
+		_SUIDivider = func() uintptr { stub("SUIDivider"); return 0 }
+	}
+	if _SUILabel == nil {
+		_SUILabel = func(*byte, *byte) uintptr { stub("SUILabel"); return 0 }
+	}
+	if _SUIProgressViewSpinning == nil {
+		_SUIProgressViewSpinning = func() uintptr { stub("SUIProgressViewSpinning"); return 0 }
+	}
+	if _SUIProgressViewLinear == nil {
+		_SUIProgressViewLinear = func(float64, float64) uintptr { stub("SUIProgressViewLinear"); return 0 }
+	}
+	if _SUIEmptyView == nil {
+		_SUIEmptyView = func() uintptr { stub("SUIEmptyView"); return 0 }
+	}
+	if _SUIColor == nil {
+		_SUIColor = func(float64, float64, float64, float64) uintptr { stub("SUIColor"); return 0 }
+	}
+	if _SUICircle == nil {
+		_SUICircle = func() uintptr { stub("SUICircle"); return 0 }
+	}
+	if _SUIRectangle == nil {
+		_SUIRectangle = func() uintptr { stub("SUIRectangle"); return 0 }
+	}
+	if _SUIRoundedRectangle == nil {
+		_SUIRoundedRectangle = func(float64) uintptr { stub("SUIRoundedRectangle"); return 0 }
+	}
+	if _SUICapsule == nil {
+		_SUICapsule = func() uintptr { stub("SUICapsule"); return 0 }
+	}
+	if _SUILink == nil {
+		_SUILink = func(*byte, *byte) uintptr { stub("SUILink"); return 0 }
+	}
+	if _SUIGauge == nil {
+		_SUIGauge = func(float64, *byte) uintptr { stub("SUIGauge"); return 0 }
+	}
+	if _SUIVStack == nil {
+		_SUIVStack = func(*uintptr, int32) uintptr { stub("SUIVStack"); return 0 }
+	}
+	if _SUIVStackSpaced == nil {
+		_SUIVStackSpaced = func(*uintptr, int32, float64) uintptr { stub("SUIVStackSpaced"); return 0 }
+	}
+	if _SUIHStack == nil {
+		_SUIHStack = func(*uintptr, int32) uintptr { stub("SUIHStack"); return 0 }
+	}
+	if _SUIHStackSpaced == nil {
+		_SUIHStackSpaced = func(*uintptr, int32, float64) uintptr { stub("SUIHStackSpaced"); return 0 }
+	}
+	if _SUIGroupBox == nil {
+		_SUIGroupBox = func(*byte, uintptr) uintptr { stub("SUIGroupBox"); return 0 }
+	}
+	if _SUIScrollView == nil {
+		_SUIScrollView = func(uintptr) uintptr { stub("SUIScrollView"); return 0 }
+	}
+	if _SUIZStack == nil {
+		_SUIZStack = func(*uintptr, int32) uintptr { stub("SUIZStack"); return 0 }
+	}
+	if _SUILazyVStack == nil {
+		_SUILazyVStack = func(*uintptr, int32) uintptr { stub("SUILazyVStack"); return 0 }
+	}
+	if _SUILazyHStack == nil {
+		_SUILazyHStack = func(*uintptr, int32) uintptr { stub("SUILazyHStack"); return 0 }
+	}
+	if _SUIList == nil {
+		_SUIList = func(*uintptr, int32) uintptr { stub("SUIList"); return 0 }
+	}
+	if _SUIForm == nil {
+		_SUIForm = func(*uintptr, int32) uintptr { stub("SUIForm"); return 0 }
+	}
+	if _SUISection == nil {
+		_SUISection = func(*byte, uintptr) uintptr { stub("SUISection"); return 0 }
+	}
+	if _SUITabView == nil {
+		_SUITabView = func(*uintptr, int32) uintptr { stub("SUITabView"); return 0 }
+	}
+	if _SUIButton == nil {
+		_SUIButton = func(*byte, uintptr) uintptr { stub("SUIButton"); return 0 }
+	}
+	if _SUIButtonWithImage == nil {
+		_SUIButtonWithImage = func(*byte, uintptr) uintptr { stub("SUIButtonWithImage"); return 0 }
+	}
+	if _SUIButtonWithLabel == nil {
+		_SUIButtonWithLabel = func(*byte, *byte, uintptr) uintptr { stub("SUIButtonWithLabel"); return 0 }
+	}
+	if _SUITextFromState == nil {
+		_SUITextFromState = func(uintptr) uintptr { stub("SUITextFromState"); return 0 }
+	}
+	if _SUITextFromStringState == nil {
+		_SUITextFromStringState = func(uintptr) uintptr { stub("SUITextFromStringState"); return 0 }
+	}
+	if _SUIToggle == nil {
+		_SUIToggle = func(*byte, uintptr, uintptr) uintptr { stub("SUIToggle"); return 0 }
+	}
+	if _SUITextField == nil {
+		_SUITextField = func(*byte, uintptr, uintptr) uintptr { stub("SUITextField"); return 0 }
+	}
+	if _SUISecureField == nil {
+		_SUISecureField = func(*byte, uintptr, uintptr) uintptr { stub("SUISecureField"); return 0 }
+	}
+	if _SUITextEditor == nil {
+		_SUITextEditor = func(uintptr) uintptr { stub("SUITextEditor"); return 0 }
+	}
+	if _SUISlider == nil {
+		_SUISlider = func(*byte, uintptr, float64, float64, uintptr) uintptr { stub("SUISlider"); return 0 }
+	}
+	if _SUIPickerSegmented == nil {
+		_SUIPickerSegmented = func(*byte, uintptr, uintptr, uintptr) uintptr { stub("SUIPickerSegmented"); return 0 }
+	}
+	if _SUIStepperInt == nil {
+		_SUIStepperInt = func(*byte, uintptr, int32, int32, uintptr) uintptr { stub("SUIStepperInt"); return 0 }
+	}
+	if _SUIDynamicView == nil {
+		_SUIDynamicView = func(uintptr, uintptr) uintptr { stub("SUIDynamicView"); return 0 }
+	}
+	if _SUIAnimatedDynamicView == nil {
+		_SUIAnimatedDynamicView = func(uintptr, int32, uintptr) uintptr { stub("SUIAnimatedDynamicView"); return 0 }
+	}
+	if _SUIViewPadding == nil {
+		_SUIViewPadding = func(uintptr, float64) uintptr { stub("SUIViewPadding"); return 0 }
+	}
+	if _SUIViewPaddingEdge == nil {
+		_SUIViewPaddingEdge = func(uintptr, int32, float64) uintptr { stub("SUIViewPaddingEdge"); return 0 }
+	}
+	if _SUIViewFont == nil {
+		_SUIViewFont = func(uintptr, uintptr) uintptr { stub("SUIViewFont"); return 0 }
+	}
+	if _SUIViewFrame == nil {
+		_SUIViewFrame = func(uintptr, float64, float64) uintptr { stub("SUIViewFrame"); return 0 }
+	}
+	if _SUIViewMaxFrame == nil {
+		_SUIViewMaxFrame = func(uintptr, float64, float64) uintptr { stub("SUIViewMaxFrame"); return 0 }
+	}
+	if _SUIViewForegroundStyle == nil {
+		_SUIViewForegroundStyle = func(uintptr, float64, float64, float64, float64) uintptr { stub("SUIViewForegroundStyle"); return 0 }
+	}
+	if _SUIViewForegroundStyleName == nil {
+		_SUIViewForegroundStyleName = func(uintptr, *byte) uintptr { stub("SUIViewForegroundStyleName"); return 0 }
+	}
+	if _SUIViewButtonStyle == nil {
+		_SUIViewButtonStyle = func(uintptr, int32) uintptr { stub("SUIViewButtonStyle"); return 0 }
+	}
+	if _SUIViewControlSize == nil {
+		_SUIViewControlSize = func(uintptr, int32) uintptr { stub("SUIViewControlSize"); return 0 }
+	}
+	if _SUIViewImageScale == nil {
+		_SUIViewImageScale = func(uintptr, int32) uintptr { stub("SUIViewImageScale"); return 0 }
+	}
+	if _SUIViewFontWeight == nil {
+		_SUIViewFontWeight = func(uintptr, int32) uintptr { stub("SUIViewFontWeight"); return 0 }
+	}
+	if _SUIViewFontDesign == nil {
+		_SUIViewFontDesign = func(uintptr, int32) uintptr { stub("SUIViewFontDesign"); return 0 }
+	}
+	if _SUIViewMonospacedDigit == nil {
+		_SUIViewMonospacedDigit = func(uintptr) uintptr { stub("SUIViewMonospacedDigit"); return 0 }
+	}
+	if _SUIViewMultilineTextAlignment == nil {
+		_SUIViewMultilineTextAlignment = func(uintptr, int32) uintptr { stub("SUIViewMultilineTextAlignment"); return 0 }
+	}
+	if _SUIViewOpacity == nil {
+		_SUIViewOpacity = func(uintptr, float64) uintptr { stub("SUIViewOpacity"); return 0 }
+	}
+	if _SUIViewDisabled == nil {
+		_SUIViewDisabled = func(uintptr, int32) uintptr { stub("SUIViewDisabled"); return 0 }
+	}
+	if _SUIViewHelp == nil {
+		_SUIViewHelp = func(uintptr, *byte) uintptr { stub("SUIViewHelp"); return 0 }
+	}
+	if _SUIViewBackground == nil {
+		_SUIViewBackground = func(uintptr, float64, float64, float64, float64) uintptr { stub("SUIViewBackground"); return 0 }
+	}
+	if _SUIViewBackgroundRoundedRect == nil {
+		_SUIViewBackgroundRoundedRect = func(uintptr, float64, float64, float64, float64, float64) uintptr {
+			stub("SUIViewBackgroundRoundedRect")
+			return 0
+		}
+	}
+	if _SUIViewClipRoundedRect == nil {
+		_SUIViewClipRoundedRect = func(uintptr, float64) uintptr { stub("SUIViewClipRoundedRect"); return 0 }
+	}
+	if _SUIViewOverlay == nil {
+		_SUIViewOverlay = func(uintptr, uintptr) uintptr { stub("SUIViewOverlay"); return 0 }
+	}
+	if _SUIViewAnimation == nil {
+		_SUIViewAnimation = func(uintptr, int32) uintptr { stub("SUIViewAnimation"); return 0 }
+	}
+	if _SUIViewBackgroundStyle == nil {
+		_SUIViewBackgroundStyle = func(uintptr, *byte) uintptr { stub("SUIViewBackgroundStyle"); return 0 }
+	}
+	if _SUIViewLineLimit == nil {
+		_SUIViewLineLimit = func(uintptr, int32) uintptr { stub("SUIViewLineLimit"); return 0 }
+	}
+	if _SUIViewTextFieldStyle == nil {
+		_SUIViewTextFieldStyle = func(uintptr, int32) uintptr { stub("SUIViewTextFieldStyle"); return 0 }
+	}
+	if _SUIViewShadow == nil {
+		_SUIViewShadow = func(uintptr, float64, float64, float64, float64, float64, float64, float64) uintptr {
+			stub("SUIViewShadow")
+			return 0
+		}
+	}
+	if _SUIViewBorder == nil {
+		_SUIViewBorder = func(uintptr, float64, float64, float64, float64, float64) uintptr { stub("SUIViewBorder"); return 0 }
+	}
+	if _SUIViewCornerRadius == nil {
+		_SUIViewCornerRadius = func(uintptr, float64) uintptr { stub("SUIViewCornerRadius"); return 0 }
+	}
+	if _SUIViewScaleEffect == nil {
+		_SUIViewScaleEffect = func(uintptr, float64) uintptr { stub("SUIViewScaleEffect"); return 0 }
+	}
+	if _SUIViewRotationEffect == nil {
+		_SUIViewRotationEffect = func(uintptr, float64) uintptr { stub("SUIViewRotationEffect"); return 0 }
+	}
+	if _SUIViewOffset == nil {
+		_SUIViewOffset = func(uintptr, float64, float64) uintptr { stub("SUIViewOffset"); return 0 }
+	}
+	if _SUIViewAllowsHitTesting == nil {
+		_SUIViewAllowsHitTesting = func(uintptr, int32) uintptr { stub("SUIViewAllowsHitTesting"); return 0 }
+	}
+	if _SUIViewOnTapGesture == nil {
+		_SUIViewOnTapGesture = func(uintptr, uintptr) uintptr { stub("SUIViewOnTapGesture"); return 0 }
+	}
+	if _SUIViewFocusable == nil {
+		_SUIViewFocusable = func(uintptr, int32) uintptr { stub("SUIViewFocusable"); return 0 }
+	}
+	if _SUIViewNavigationTitle == nil {
+		_SUIViewNavigationTitle = func(uintptr, *byte) uintptr { stub("SUIViewNavigationTitle"); return 0 }
+	}
+	if _SUIViewTabItem == nil {
+		_SUIViewTabItem = func(uintptr, *byte, *byte) uintptr { stub("SUIViewTabItem"); return 0 }
+	}
+	if _SUIViewTag == nil {
+		_SUIViewTag = func(uintptr, int32) uintptr { stub("SUIViewTag"); return 0 }
+	}
+	if _SUIViewFill == nil {
+		_SUIViewFill = func(uintptr, float64, float64, float64, float64) uintptr { stub("SUIViewFill"); return 0 }
+	}
+	if _SUIViewStroke == nil {
+		_SUIViewStroke = func(uintptr, float64, float64, float64, float64, float64) uintptr { stub("SUIViewStroke"); return 0 }
+	}
+	if _SUIViewOnAppear == nil {
+		_SUIViewOnAppear = func(uintptr, uintptr) uintptr { stub("SUIViewOnAppear"); return 0 }
+	}
+	if _SUIViewOnDisappear == nil {
+		_SUIViewOnDisappear = func(uintptr, uintptr) uintptr { stub("SUIViewOnDisappear"); return 0 }
+	}
+	if _SUIViewOnHover == nil {
+		_SUIViewOnHover = func(uintptr, uintptr) uintptr { stub("SUIViewOnHover"); return 0 }
+	}
+	if _SUIViewTint == nil {
+		_SUIViewTint = func(uintptr, float64, float64, float64, float64) uintptr { stub("SUIViewTint"); return 0 }
+	}
+	if _SUIViewFixedSize == nil {
+		_SUIViewFixedSize = func(uintptr) uintptr { stub("SUIViewFixedSize"); return 0 }
+	}
+	if _SUIViewFixedSizeAxis == nil {
+		_SUIViewFixedSizeAxis = func(uintptr, int32, int32) uintptr { stub("SUIViewFixedSizeAxis"); return 0 }
+	}
+	if _SUIViewAspectRatio == nil {
+		_SUIViewAspectRatio = func(uintptr, float64, int32) uintptr { stub("SUIViewAspectRatio"); return 0 }
+	}
+	if _SUIViewSheet == nil {
+		_SUIViewSheet = func(uintptr, uintptr, uintptr) uintptr { stub("SUIViewSheet"); return 0 }
+	}
+	if _SUIViewAlert == nil {
+		_SUIViewAlert = func(uintptr, *byte, *byte, uintptr) uintptr { stub("SUIViewAlert"); return 0 }
+	}
+	if _SUIViewConfirmationDialog == nil {
+		_SUIViewConfirmationDialog = func(uintptr, *byte, uintptr, uintptr) uintptr { stub("SUIViewConfirmationDialog"); return 0 }
+	}
+	if _SUINavigationStack == nil {
+		_SUINavigationStack = func(uintptr) uintptr { stub("SUINavigationStack"); return 0 }
+	}
+	if _SUIMenu == nil {
+		_SUIMenu = func(*byte, uintptr) uintptr { stub("SUIMenu"); return 0 }
+	}
+	if _SUIViewContextMenu == nil {
+		_SUIViewContextMenu = func(uintptr, uintptr) uintptr { stub("SUIViewContextMenu"); return 0 }
+	}
+	if _SUIGeometryReader == nil {
+		_SUIGeometryReader = func(uintptr) uintptr { stub("SUIGeometryReader"); return 0 }
+	}
+	if _SUIViewBold == nil {
+		_SUIViewBold = func(uintptr) uintptr { stub("SUIViewBold"); return 0 }
+	}
+	if _SUIViewItalic == nil {
+		_SUIViewItalic = func(uintptr) uintptr { stub("SUIViewItalic"); return 0 }
+	}
+	if _SUIViewUnderline == nil {
+		_SUIViewUnderline = func(uintptr) uintptr { stub("SUIViewUnderline"); return 0 }
+	}
+	if _SUIViewStrikethrough == nil {
+		_SUIViewStrikethrough = func(uintptr) uintptr { stub("SUIViewStrikethrough"); return 0 }
+	}
+	if _SUIViewTruncationMode == nil {
+		_SUIViewTruncationMode = func(uintptr, int32) uintptr { stub("SUIViewTruncationMode"); return 0 }
+	}
+	if _SUIViewSymbolRenderingMode == nil {
+		_SUIViewSymbolRenderingMode = func(uintptr, int32) uintptr { stub("SUIViewSymbolRenderingMode"); return 0 }
+	}
+	if _SUIViewZIndex == nil {
+		_SUIViewZIndex = func(uintptr, float64) uintptr { stub("SUIViewZIndex"); return 0 }
+	}
+	if _SUIViewLayoutPriority == nil {
+		_SUIViewLayoutPriority = func(uintptr, float64) uintptr { stub("SUIViewLayoutPriority"); return 0 }
+	}
+	if _SUIViewBlur == nil {
+		_SUIViewBlur = func(uintptr, float64) uintptr { stub("SUIViewBlur"); return 0 }
+	}
+	if _SUIViewClipped == nil {
+		_SUIViewClipped = func(uintptr) uintptr { stub("SUIViewClipped"); return 0 }
+	}
+	if _SUIViewMask == nil {
+		_SUIViewMask = func(uintptr, uintptr) uintptr { stub("SUIViewMask"); return 0 }
+	}
+	if _SUIViewAccessibilityLabel == nil {
+		_SUIViewAccessibilityLabel = func(uintptr, *byte) uintptr { stub("SUIViewAccessibilityLabel"); return 0 }
+	}
+	if _SUIViewAccessibilityHint == nil {
+		_SUIViewAccessibilityHint = func(uintptr, *byte) uintptr { stub("SUIViewAccessibilityHint"); return 0 }
+	}
+	if _SUIViewAccessibilityHidden == nil {
+		_SUIViewAccessibilityHidden = func(uintptr, int32) uintptr { stub("SUIViewAccessibilityHidden"); return 0 }
+	}
+	if _SUIViewListStyle == nil {
+		_SUIViewListStyle = func(uintptr, int32) uintptr { stub("SUIViewListStyle"); return 0 }
+	}
+	if _SUIPickerMenu == nil {
+		_SUIPickerMenu = func(*byte, uintptr, uintptr, uintptr) uintptr { stub("SUIPickerMenu"); return 0 }
+	}
+	if _SUIViewListRowBackground == nil {
+		_SUIViewListRowBackground = func(uintptr, uintptr) uintptr { stub("SUIViewListRowBackground"); return 0 }
+	}
+	if _SUIViewWebViewBackForwardNavigationGestures == nil {
+		_SUIViewWebViewBackForwardNavigationGestures = func(uintptr, int32) uintptr { stub("SUIViewWebViewBackForwardNavigationGestures"); return 0 }
+	}
+	if _SUIViewWebViewContentBackground == nil {
+		_SUIViewWebViewContentBackground = func(uintptr, int32) uintptr { stub("SUIViewWebViewContentBackground"); return 0 }
+	}
+	if _SUIViewWebViewElementFullscreenBehavior == nil {
+		_SUIViewWebViewElementFullscreenBehavior = func(uintptr, int32) uintptr { stub("SUIViewWebViewElementFullscreenBehavior"); return 0 }
+	}
+	if _SUIViewWebViewLinkPreviews == nil {
+		_SUIViewWebViewLinkPreviews = func(uintptr, int32) uintptr { stub("SUIViewWebViewLinkPreviews"); return 0 }
+	}
+	if _SUIViewWebViewMagnificationGestures == nil {
+		_SUIViewWebViewMagnificationGestures = func(uintptr, int32) uintptr { stub("SUIViewWebViewMagnificationGestures"); return 0 }
+	}
+	if _SUIViewWebViewTextSelection == nil {
+		_SUIViewWebViewTextSelection = func(uintptr, int32) uintptr { stub("SUIViewWebViewTextSelection"); return 0 }
+	}
+	if _SUIViewPopover == nil {
+		_SUIViewPopover = func(uintptr, uintptr, uintptr) uintptr { stub("SUIViewPopover"); return 0 }
+	}
+	if _SUIViewFullScreenCover == nil {
+		_SUIViewFullScreenCover = func(uintptr, uintptr, uintptr) uintptr { stub("SUIViewFullScreenCover"); return 0 }
+	}
+	if _SUINavigationLink == nil {
+		_SUINavigationLink = func(*byte, uintptr) uintptr { stub("SUINavigationLink"); return 0 }
+	}
+	if _SUIFontSystem == nil {
+		_SUIFontSystem = func(float64) uintptr { stub("SUIFontSystem"); return 0 }
+	}
+	if _SUIFontSystemDesign == nil {
+		_SUIFontSystemDesign = func(float64, int32, int32) uintptr { stub("SUIFontSystemDesign"); return 0 }
+	}
+	if _SUIFontNamed == nil {
+		_SUIFontNamed = func(*byte) uintptr { stub("SUIFontNamed"); return 0 }
+	}
+	if _SUIStateCreateInt == nil {
+		_SUIStateCreateInt = func(int32) uintptr { stub("SUIStateCreateInt"); return 0 }
+	}
+	if _SUIStateGetInt == nil {
+		_SUIStateGetInt = func(uintptr) int32 { stub("SUIStateGetInt"); return 0 }
+	}
+	if _SUIStateSetInt == nil {
+		_SUIStateSetInt = func(uintptr, int32) { stub("SUIStateSetInt") }
+	}
+	if _SUIStateSetIntAnimated == nil {
+		_SUIStateSetIntAnimated = func(uintptr, int32) { stub("SUIStateSetIntAnimated") }
+	}
+	if _SUIStateCreateString == nil {
+		_SUIStateCreateString = func(*byte) uintptr { stub("SUIStateCreateString"); return 0 }
+	}
+	if _SUIStateGetString == nil {
+		_SUIStateGetString = func(uintptr) *byte { stub("SUIStateGetString"); return nil }
+	}
+	if _SUIStateSetString == nil {
+		_SUIStateSetString = func(uintptr, *byte) { stub("SUIStateSetString") }
+	}
+	if _SUIStateCreateColor == nil {
+		_SUIStateCreateColor = func(float64, float64, float64, float64) uintptr { stub("SUIStateCreateColor"); return 0 }
+	}
+	if _SUIStateGetColorR == nil {
+		_SUIStateGetColorR = func(uintptr) float64 { stub("SUIStateGetColorR"); return 0 }
+	}
+	if _SUIStateGetColorG == nil {
+		_SUIStateGetColorG = func(uintptr) float64 { stub("SUIStateGetColorG"); return 0 }
+	}
+	if _SUIStateGetColorB == nil {
+		_SUIStateGetColorB = func(uintptr) float64 { stub("SUIStateGetColorB"); return 0 }
+	}
+	if _SUIStateGetColorA == nil {
+		_SUIStateGetColorA = func(uintptr) float64 { stub("SUIStateGetColorA"); return 0 }
+	}
+	if _SUIStateSetColor == nil {
+		_SUIStateSetColor = func(uintptr, float64, float64, float64, float64) { stub("SUIStateSetColor") }
+	}
+	if _SUIColorPicker == nil {
+		_SUIColorPicker = func(*byte, uintptr, uintptr) uintptr { stub("SUIColorPicker"); return 0 }
+	}
+	if _SUIStateCreateDate == nil {
+		_SUIStateCreateDate = func(float64) uintptr { stub("SUIStateCreateDate"); return 0 }
+	}
+	if _SUIStateGetDate == nil {
+		_SUIStateGetDate = func(uintptr) float64 { stub("SUIStateGetDate"); return 0 }
+	}
+	if _SUIStateSetDate == nil {
+		_SUIStateSetDate = func(uintptr, float64) { stub("SUIStateSetDate") }
+	}
+	if _SUIDatePicker == nil {
+		_SUIDatePicker = func(*byte, uintptr, uintptr) uintptr { stub("SUIDatePicker"); return 0 }
+	}
+	if _SUIStateCreateFloat == nil {
+		_SUIStateCreateFloat = func(float64) uintptr { stub("SUIStateCreateFloat"); return 0 }
+	}
+	if _SUIStateGetFloat == nil {
+		_SUIStateGetFloat = func(uintptr) float64 { stub("SUIStateGetFloat"); return 0 }
+	}
+	if _SUIStateSetFloat == nil {
+		_SUIStateSetFloat = func(uintptr, float64) { stub("SUIStateSetFloat") }
+	}
+	if _SUIStateSetFloatAnimated == nil {
+		_SUIStateSetFloatAnimated = func(uintptr, float64) { stub("SUIStateSetFloatAnimated") }
+	}
+	if _SUIStateCreateBool == nil {
+		_SUIStateCreateBool = func(int32) uintptr { stub("SUIStateCreateBool"); return 0 }
+	}
+	if _SUIStateGetBool == nil {
+		_SUIStateGetBool = func(uintptr) int32 { stub("SUIStateGetBool"); return 0 }
+	}
+	if _SUIStateSetBool == nil {
+		_SUIStateSetBool = func(uintptr, int32) { stub("SUIStateSetBool") }
+	}
+	if _SUIWebPageCreate == nil {
+		_SUIWebPageCreate = func() uintptr { stub("SUIWebPageCreate"); return 0 }
+	}
+	if _SUIWebPageLoadURL == nil {
+		_SUIWebPageLoadURL = func(uintptr, *byte) { stub("SUIWebPageLoadURL") }
+	}
+	if _SUIWebPageReload == nil {
+		_SUIWebPageReload = func(uintptr) { stub("SUIWebPageReload") }
+	}
+	if _SUIFloatSlider == nil {
+		_SUIFloatSlider = func(*byte, uintptr, float64, float64, uintptr) uintptr { stub("SUIFloatSlider"); return 0 }
+	}
+	if _SUIFloatGauge == nil {
+		_SUIFloatGauge = func(*byte, uintptr, float64, float64) uintptr { stub("SUIFloatGauge"); return 0 }
+	}
+	if _SUIFloatProgressView == nil {
+		_SUIFloatProgressView = func(uintptr, float64) uintptr { stub("SUIFloatProgressView"); return 0 }
+	}
+	if _SUIRun == nil {
+		_SUIRun = func(uintptr, *byte, float64, float64) { stub("SUIRun") }
+	}
+	if _SUISetButtonCallback == nil {
+		_SUISetButtonCallback = func(uintptr) { stub("SUISetButtonCallback") }
+	}
+	if _SUISetViewBuilderCallback == nil {
+		_SUISetViewBuilderCallback = func(uintptr) { stub("SUISetViewBuilderCallback") }
+	}
+	if _SUISetGeometryBuilderCallback == nil {
+		_SUISetGeometryBuilderCallback = func(uintptr) { stub("SUISetGeometryBuilderCallback") }
+	}
+	if _SUIRelease == nil {
+		_SUIRelease = func(uintptr) { stub("SUIRelease") }
+	}
+	if _SUIFreeString == nil {
+		_SUIFreeString = func(*byte) { stub("SUIFreeString") }
+	}
+}

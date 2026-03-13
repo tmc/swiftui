@@ -1,0 +1,1 @@
+// QuickLookSwiftUIBridge C header

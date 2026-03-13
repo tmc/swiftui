@@ -1,0 +1,10 @@
+# Swift build artifacts
+**/swift/.build/
+*.dylib
+*.o
+*.a
+*.dia
+*.pcm
+
+# Generation report
+swiftui_generation_report.json

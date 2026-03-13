@@ -1,0 +1,13 @@
+//go:build swiftui_embed
+
+package embeddedbridge
+
+import _ "embed"
+
+//go:embed libSwiftUIBridge.dylib
+var bridge []byte
+
+// Payload returns the embedded SwiftUI bridge dylib payload.
+func Payload() ([]byte, string) {
+	return bridge, "libSwiftUIBridge.dylib"
+}

@@ -1,0 +1,24 @@
+import SceneKit
+import SwiftUI
+
+
+// MARK: - NewSceneView
+
+@_cdecl("SKS_SceneViewCreate")
+@MainActor
+public func SKS_SceneViewCreate(_ scene: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let sc = Unmanaged<SCNScene>.fromOpaque(scene).takeUnretainedValue()
+    let view = AnyView(SceneView(scene: sc))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+// MARK: - NewSceneViewWithOptions
+
+@_cdecl("SKS_SceneViewCreateWithOptions")
+@MainActor
+public func SKS_SceneViewCreateWithOptions(_ scene: UnsafeMutableRawPointer, _ options: Int32) -> UnsafeMutableRawPointer {
+    let sc = Unmanaged<SCNScene>.fromOpaque(scene).takeUnretainedValue()
+    let opts = SceneView.Options(rawValue: Int(options))
+    let view = AnyView(SceneView(scene: sc, options: opts))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}

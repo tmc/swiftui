@@ -1,0 +1,106 @@
+package swiftui
+
+import (
+	"sync"
+
+	"github.com/ebitengine/purego"
+)
+
+var (
+	callbackMu   sync.Mutex
+	callbackMap  = map[uintptr]func(){}
+	callbackNext uintptr
+)
+
+func registerCallback(fn func()) uintptr {
+	callbackMu.Lock()
+	defer callbackMu.Unlock()
+	callbackNext++
+	callbackMap[callbackNext] = fn
+	return callbackNext
+}
+
+// unregisterCallback removes a callback from the callback map.
+// Also checks viewBuilder and geometryBuilder maps since retained
+// tracks all callback types with a single list.
+func unregisterCallback(id uintptr) {
+	callbackMu.Lock()
+	delete(callbackMap, id)
+	callbackMu.Unlock()
+	viewBuilderMu.Lock()
+	delete(viewBuilderMap, id)
+	viewBuilderMu.Unlock()
+	geometryBuilderMu.Lock()
+	delete(geometryBuilderMap, id)
+	geometryBuilderMu.Unlock()
+}
+
+// buttonCallbackTrampoline is called from Swift when a button is pressed.
+func buttonCallbackTrampoline(id uintptr) {
+	callbackMu.Lock()
+	fn := callbackMap[id]
+	callbackMu.Unlock()
+	if fn != nil {
+		fn()
+	}
+}
+
+// buttonCallbackPtr is the purego callback pointer for buttonCallbackTrampoline.
+var buttonCallbackPtr = purego.NewCallback(buttonCallbackTrampoline)
+
+// View builder callbacks: Go functions that return a View given a state value.
+var (
+	viewBuilderMu   sync.Mutex
+	viewBuilderMap  = map[uintptr]func(int) View{}
+	viewBuilderNext uintptr
+)
+
+func registerViewBuilder(fn func(int) View) uintptr {
+	viewBuilderMu.Lock()
+	defer viewBuilderMu.Unlock()
+	viewBuilderNext++
+	viewBuilderMap[viewBuilderNext] = fn
+	return viewBuilderNext
+}
+
+// viewBuilderCallbackTrampoline is called from Swift to rebuild a dynamic view.
+// It returns a View pointer (uintptr) that Swift takes ownership of.
+func viewBuilderCallbackTrampoline(id uintptr, value int) uintptr {
+	viewBuilderMu.Lock()
+	fn := viewBuilderMap[id]
+	viewBuilderMu.Unlock()
+	if fn != nil {
+		return fn(int(value)).ptr
+	}
+	return _SUIEmptyView()
+}
+
+var viewBuilderCallbackPtr = purego.NewCallback(viewBuilderCallbackTrampoline)
+
+// Geometry builder callbacks: Go functions that return a View given dimensions.
+var (
+	geometryBuilderMu   sync.Mutex
+	geometryBuilderMap  = map[uintptr]func(float64, float64) View{}
+	geometryBuilderNext uintptr
+)
+
+func registerGeometryBuilder(fn func(float64, float64) View) uintptr {
+	geometryBuilderMu.Lock()
+	defer geometryBuilderMu.Unlock()
+	geometryBuilderNext++
+	geometryBuilderMap[geometryBuilderNext] = fn
+	return geometryBuilderNext
+}
+
+// geometryBuilderTrampoline is called from Swift with the GeometryProxy dimensions.
+func geometryBuilderTrampoline(id uintptr, width, height float64) uintptr {
+	geometryBuilderMu.Lock()
+	fn := geometryBuilderMap[id]
+	geometryBuilderMu.Unlock()
+	if fn != nil {
+		return fn(width, height).ptr
+	}
+	return _SUIEmptyView()
+}
+
+var geometryBuilderCallbackPtr = purego.NewCallback(geometryBuilderTrampoline)

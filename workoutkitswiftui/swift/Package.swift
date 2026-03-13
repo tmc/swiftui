@@ -1,0 +1,15 @@
+// swift-tools-version: 6.2
+import PackageDescription
+
+let package = Package(
+    name: "WorkoutKitSwiftUIBridge",
+    platforms: [.macOS(.v15)],
+    products: [
+        .library(name: "WorkoutKitSwiftUIBridge", type: .dynamic, targets: ["WorkoutKitSwiftUIBridge"]),
+    ],
+    targets: [
+        .target(name: "WorkoutKitSwiftUIBridge",
+                path: "Sources",
+                swiftSettings: [.unsafeFlags(["-parse-as-library"])])
+    ]
+)

@@ -1,2 +1,19 @@
-// Package swiftui provides Go bindings for Apple's SwiftUI framework.
+// Package swiftui provides Go bindings for Apple's SwiftUI framework,
+// enabling declarative UI construction from pure Go on macOS 26+.
+//
+// SwiftUI is a Swift-only framework. This package includes a vendored
+// Swift bridge (under swift/) that is automatically built on first use.
+// No external dependencies or manual setup required — just go run.
+//
+// # Threading
+//
+// All View construction and modifier calls must happen on the main thread.
+// Call runtime.LockOSThread() in init() or TestMain to pin the main
+// goroutine. State.Set() is safe from any goroutine — the Swift bridge
+// dispatches updates to the MainActor automatically. For view operations
+// from background goroutines, use dispatch.MainQueue().Async().
+//
+// # Environment
+//
+// To override the dylib path, set $LIBSWIFTUI_BRIDGE_PATH.
 package swiftui

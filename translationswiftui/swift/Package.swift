@@ -1,0 +1,15 @@
+// swift-tools-version: 6.2
+import PackageDescription
+
+let package = Package(
+    name: "TranslationSwiftUIBridge",
+    platforms: [.macOS(.v15)],
+    products: [
+        .library(name: "TranslationSwiftUIBridge", type: .dynamic, targets: ["TranslationSwiftUIBridge"]),
+    ],
+    targets: [
+        .target(name: "TranslationSwiftUIBridge",
+                path: "Sources",
+                swiftSettings: [.unsafeFlags(["-parse-as-library"])])
+    ]
+)

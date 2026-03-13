@@ -1,0 +1,15 @@
+// swift-tools-version: 6.2
+import PackageDescription
+
+let package = Package(
+    name: "ARKitSwiftUIBridge",
+    platforms: [.macOS(.v15)],
+    products: [
+        .library(name: "ARKitSwiftUIBridge", type: .dynamic, targets: ["ARKitSwiftUIBridge"]),
+    ],
+    targets: [
+        .target(name: "ARKitSwiftUIBridge",
+                path: "Sources",
+                swiftSettings: [.unsafeFlags(["-parse-as-library"])])
+    ]
+)

@@ -1,0 +1,1 @@
+// TranslationSwiftUIBridge C header

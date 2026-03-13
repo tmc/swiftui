@@ -1,0 +1,6 @@
+package embeddedbridge
+
+// Payload returns an embedded bridge dylib payload when built with embed tags.
+func Payload() ([]byte, string) {
+	return nil, ""
+}

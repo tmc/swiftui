@@ -1,0 +1,15 @@
+// swift-tools-version: 6.2
+import PackageDescription
+
+let package = Package(
+    name: "LocalAuthSwiftUIBridge",
+    platforms: [.macOS(.v15)],
+    products: [
+        .library(name: "LocalAuthSwiftUIBridge", type: .dynamic, targets: ["LocalAuthSwiftUIBridge"]),
+    ],
+    targets: [
+        .target(name: "LocalAuthSwiftUIBridge",
+                path: "Sources",
+                swiftSettings: [.unsafeFlags(["-parse-as-library"])])
+    ]
+)

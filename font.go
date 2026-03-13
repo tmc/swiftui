@@ -1,0 +1,68 @@
+package swiftui
+
+// Font is an opaque handle to a SwiftUI font in the Swift bridge.
+type Font struct {
+	ptr      uintptr
+	retained *retained
+}
+
+// FontSystem returns a system font at the given point size.
+func FontSystem(size float64) Font {
+	ptr := _SUIFontSystem(size)
+	return Font{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// FontSystemDesign returns a system font with explicit weight and design.
+// Use Weight* and Design* constants for the weight and design parameters.
+func FontSystemDesign(size float64, weight Weight, design Design) Font {
+	ptr := _SUIFontSystemDesign(size, int32(weight), int32(design))
+	return Font{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// FontNamed returns a named preset font (e.g. "largeTitle", "body").
+func FontNamed(name string) Font {
+	var ptr uintptr
+	withCString(name, func(nameC *byte) {
+		ptr = _SUIFontNamed(nameC)
+	})
+	return Font{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Release decrements the underlying Swift retain count.
+func (f *Font) Release() {
+	if f == nil || f.retained == nil {
+		return
+	}
+	f.retained.release()
+	f.retained = nil
+	f.ptr = 0
+}
+
+// Preset font variables, initialized after the dylib loads.
+var (
+	FontLargeTitle  Font
+	FontTitle       Font
+	FontTitle2      Font
+	FontTitle3      Font
+	FontHeadline    Font
+	FontSubheadline Font
+	FontBody        Font
+	FontCallout     Font
+	FontFootnote    Font
+	FontCaption     Font
+	FontCaption2    Font
+)
+
+func initFonts() {
+	FontLargeTitle = FontNamed("largeTitle")
+	FontTitle = FontNamed("title")
+	FontTitle2 = FontNamed("title2")
+	FontTitle3 = FontNamed("title3")
+	FontHeadline = FontNamed("headline")
+	FontSubheadline = FontNamed("subheadline")
+	FontBody = FontNamed("body")
+	FontCallout = FontNamed("callout")
+	FontFootnote = FontNamed("footnote")
+	FontCaption = FontNamed("caption")
+	FontCaption2 = FontNamed("caption2")
+}

@@ -1,0 +1,533 @@
+package swiftui
+
+import (
+	"runtime"
+	"unsafe"
+)
+
+// Image creates an image view from an SF Symbol name.
+func Image(systemName string) View {
+	var ptr uintptr
+	withCString(systemName, func(systemNameC *byte) {
+		ptr = _SUIImage(systemNameC)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Spacer creates a flexible space that expands along the major axis.
+func Spacer() View {
+	ptr := _SUISpacer()
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Divider creates a visual divider line.
+func Divider() View {
+	ptr := _SUIDivider()
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ProgressSpinning creates an indeterminate spinning progress indicator.
+func ProgressSpinning() View {
+	ptr := _SUIProgressViewSpinning()
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ProgressLinear creates a determinate linear progress indicator.
+func ProgressLinear(value float64, total float64) View {
+	ptr := _SUIProgressViewLinear(value, total)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// EmptyView creates an invisible empty view.
+func EmptyView() View {
+	ptr := _SUIEmptyView()
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ColorView creates a color view filling available space.
+func ColorView(r float64, g float64, b float64, a float64) View {
+	ptr := _SUIColor(r, g, b, a)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Link creates a navigation link that opens a URL.
+func Link(title string, url string) View {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		withCString(url, func(urlC *byte) {
+			ptr = _SUILink(titleC, urlC)
+		})
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Gauge displays a value within a range.
+func Gauge(value float64, label string) View {
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIGauge(value, labelC)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// VStack arranges child views in a vertical stack.
+func VStack(children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIVStack(head, int32(len(ptrs)))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// VStackSpaced arranges child views in a vertical stack with explicit spacing.
+func VStackSpaced(spacing float64, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIVStackSpaced(head, int32(len(ptrs)), spacing)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// HStack arranges child views in a horizontal stack.
+func HStack(children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIHStack(head, int32(len(ptrs)))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// HStackSpaced arranges child views in a horizontal stack with explicit spacing.
+func HStackSpaced(spacing float64, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIHStackSpaced(head, int32(len(ptrs)), spacing)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// GroupBox creates a titled group box containing the given content.
+func GroupBox(label string, content View) View {
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIGroupBox(labelC, content.ptr)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScrollView wraps content in a vertically scrollable container.
+func ScrollView(content View) View {
+	ptr := _SUIScrollView(content.ptr)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ZStack overlays child views back to front.
+func ZStack(children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIZStack(head, int32(len(ptrs)))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// LazyVStack arranges child views in a vertical stack with lazy rendering.
+func LazyVStack(children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUILazyVStack(head, int32(len(ptrs)))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// LazyHStack arranges child views in a horizontal stack with lazy rendering.
+func LazyHStack(children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUILazyHStack(head, int32(len(ptrs)))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// List displays rows of data with platform-appropriate styling.
+func List(children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIList(head, int32(len(ptrs)))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Form groups controls for data entry.
+func Form(children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIForm(head, int32(len(ptrs)))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Section groups content with a header label.
+func Section(header string, content View) View {
+	var ptr uintptr
+	withCString(header, func(headerC *byte) {
+		ptr = _SUISection(headerC, content.ptr)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// TabView presents multiple child views as tabs.
+func TabView(children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUITabView(head, int32(len(ptrs)))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Button creates a clickable button with a text label.
+func Button(label string, action func()) View {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIButton(labelC, actionID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	return ret
+}
+
+// ButtonWithImage creates a clickable button with an SF Symbol icon.
+func ButtonWithImage(systemName string, action func()) View {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	withCString(systemName, func(systemNameC *byte) {
+		ptr = _SUIButtonWithImage(systemNameC, actionID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	return ret
+}
+
+// ButtonWithLabel creates a clickable button with both text and an SF Symbol icon.
+func ButtonWithLabel(text string, systemImage string, action func()) View {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	withCString(text, func(textC *byte) {
+		withCString(systemImage, func(systemImageC *byte) {
+			ptr = _SUIButtonWithLabel(textC, systemImageC, actionID)
+		})
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	return ret
+}
+
+// Toggle creates a toggle switch bound to an IntState (0=off, nonzero=on).
+func Toggle(label string, state *IntState, onChange func()) View {
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIToggle(labelC, state.ptr, onChangeID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
+}
+
+// TextField creates a text input field bound to a StringState.
+func TextField(placeholder string, state *StringState, onSubmit func()) View {
+	onSubmitID := registerCallback(onSubmit)
+	var ptr uintptr
+	withCString(placeholder, func(placeholderC *byte) {
+		ptr = _SUITextField(placeholderC, state.ptr, onSubmitID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onSubmitID)
+	return ret
+}
+
+// SecureField creates a password input field bound to a StringState.
+func SecureField(placeholder string, state *StringState, onSubmit func()) View {
+	onSubmitID := registerCallback(onSubmit)
+	var ptr uintptr
+	withCString(placeholder, func(placeholderC *byte) {
+		ptr = _SUISecureField(placeholderC, state.ptr, onSubmitID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onSubmitID)
+	return ret
+}
+
+// TextEditor creates a multiline text editor bound to a StringState.
+func TextEditor(state *StringState) View {
+	ptr := _SUITextEditor(state.ptr)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Slider creates a slider bound to an IntState within a range.
+func Slider(label string, state *IntState, min float64, max float64, onChange func()) View {
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUISlider(labelC, state.ptr, min, max, onChangeID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
+}
+
+// PickerSegmented creates a segmented picker bound to an IntState.
+func PickerSegmented(label string, state *IntState, options View, onChange func()) View {
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIPickerSegmented(labelC, state.ptr, options.ptr, onChangeID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
+}
+
+// Stepper creates an increment/decrement control bound to an IntState.
+func Stepper(label string, state *IntState, min int32, max int32, onChange func()) View {
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIStepperInt(labelC, state.ptr, min, max, onChangeID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
+}
+
+// DynamicView creates a view whose content is rebuilt by a Go callback whenever the observed IntState changes.
+func DynamicView(state *IntState, builder func(value int) View) View {
+	builderID := registerViewBuilder(builder)
+	var ptr uintptr
+	ptr = _SUIDynamicView(state.ptr, builderID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(builderID)
+	return ret
+}
+
+// AnimatedDynamicView creates a view with animated transitions between states.
+func AnimatedDynamicView(state *IntState, transition Transition, builder func(value int) View) View {
+	builderID := registerViewBuilder(builder)
+	var ptr uintptr
+	ptr = _SUIAnimatedDynamicView(state.ptr, int32(transition), builderID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(builderID)
+	return ret
+}
+
+// NavigationStack wraps content in a navigation container.
+func NavigationStack(content View) View {
+	ptr := _SUINavigationStack(content.ptr)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Menu creates a dropdown menu with the given label and content.
+func Menu(label string, content View) View {
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIMenu(labelC, content.ptr)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// GeometryReader creates a view whose content is built with the available width and height.
+func GeometryReader(builder func(width, height float64) View) View {
+	builderID := registerGeometryBuilder(builder)
+	var ptr uintptr
+	ptr = _SUIGeometryReader(builderID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(builderID)
+	return ret
+}
+
+// PickerMenu creates a dropdown menu picker bound to an IntState.
+func PickerMenu(label string, state *IntState, options View, onChange func()) View {
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIPickerMenu(labelC, state.ptr, options.ptr, onChangeID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
+}
+
+// NavigationLink creates a link to a destination view within a NavigationStack.
+func NavigationLink(label string, destination View) View {
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUINavigationLink(labelC, destination.ptr)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ColorPicker creates a color picker bound to a ColorState.
+func ColorPicker(label string, state *ColorState, onChange func()) View {
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIColorPicker(labelC, state.ptr, onChangeID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
+}
+
+// DatePicker creates a date picker bound to a DateState.
+func DatePicker(label string, state *DateState, onChange func()) View {
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIDatePicker(labelC, state.ptr, onChangeID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
+}
+
+// FloatSlider creates a slider bound to a FloatState within a range.
+func FloatSlider(label string, state *FloatState, min float64, max float64, onChange func()) View {
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIFloatSlider(labelC, state.ptr, min, max, onChangeID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
+}
+
+// FloatGauge displays a gauge bound to a FloatState.
+func FloatGauge(label string, state *FloatState, min float64, max float64) View {
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIFloatGauge(labelC, state.ptr, min, max)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// FloatProgressView displays a progress bar bound to a FloatState.
+func FloatProgressView(state *FloatState, total float64) View {
+	ptr := _SUIFloatProgressView(state.ptr, total)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Circle creates a circle shape filling available space.
+func Circle() ShapeView {
+	ptr := _SUICircle()
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Rectangle creates a rectangle shape filling available space.
+func Rectangle() ShapeView {
+	ptr := _SUIRectangle()
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// RoundedRectangle creates a rounded rectangle shape.
+func RoundedRectangle(cornerRadius float64) ShapeView {
+	ptr := _SUIRoundedRectangle(cornerRadius)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Capsule creates a capsule shape.
+func Capsule() ShapeView {
+	ptr := _SUICapsule()
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Text creates a text view displaying the given string.
+func Text(s string) TextView {
+	var ptr uintptr
+	withCString(s, func(sC *byte) {
+		ptr = _SUIText(sC)
+	})
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Label creates a label with text and an SF Symbol icon.
+func Label(text string, systemImage string) TextView {
+	var ptr uintptr
+	withCString(text, func(textC *byte) {
+		withCString(systemImage, func(systemImageC *byte) {
+			ptr = _SUILabel(textC, systemImageC)
+		})
+	})
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// TextFrom creates a text view that reactively displays an IntState value.
+func TextFrom(state *IntState) TextView {
+	ptr := _SUITextFromState(state.ptr)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// TextFromString creates a text view that reactively displays a StringState value.
+func TextFromString(state *StringState) TextView {
+	ptr := _SUITextFromStringState(state.ptr)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// withCString converts a Go string to a pinned null-terminated C string pointer,
+// calls fn with the pointer, then unpins the memory. The pointer is only valid
+// for the duration of fn.
+func withCString(s string, fn func(*byte)) {
+	b := append([]byte(s), 0)
+	fn((*byte)(unsafe.Pointer(&b[0])))
+	runtime.KeepAlive(b)
+}
