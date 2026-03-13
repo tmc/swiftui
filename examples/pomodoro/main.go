@@ -65,7 +65,13 @@ func main() {
 		autoStartToken.Add(1)
 	}
 	updateMenuLabel := func(secs int) {
-		swiftui.UpdateMenuBarLabel(fmt.Sprintf("%02d:%02d", secs/60, secs%60))
+		swiftui.UpdateMenuBarLabelStyled(
+			fmt.Sprintf("%02d:%02d", secs/60, secs%60),
+			swiftui.MenuBarLabelStyle{
+				MonospacedDigits: true,
+				Animate:          true,
+			},
+		)
 	}
 
 	// advanceMode transitions to the next stage with an optional sound and
@@ -154,10 +160,11 @@ func main() {
 	}
 
 	swiftui.RunMenuBar(swiftui.MenuBarConfig{
-		Label:       "25:00",
-		SystemImage: "timer",
-		Width:       280,
-		Height:      340,
+		Label:        "25:00",
+		SystemImage:  "timer",
+		Width:        280,
+		Height:       340,
+		OpenOnLaunch: true,
 	}, swiftui.VStackSpaced(16,
 		// Mode label
 		swiftui.DynamicView(mode, func(m int) swiftui.View {
