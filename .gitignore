@@ -9,6 +9,8 @@
 
 # Generation report
 swiftui_generation_report.json
+.applegen-generated
+*/.applegen-generated
 
 # Example build artifacts
 examples/*/*
