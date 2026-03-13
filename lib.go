@@ -379,9 +379,9 @@ var (
 func init() {
 	// Search order:
 	//  1. explicit env override
-	//  2. embedded payload cache
-	//  3. existing build outputs
-	//  4. local rebuild into secure scratch cache
+	//  2. existing build outputs
+	//  3. local rebuild into secure scratch cache
+	//  4. embedded payload cache
 	//  5. compatibility fallback paths
 	var lastErr error
 
@@ -393,21 +393,21 @@ func init() {
 		}
 	}
 
-	// Try embedded bridge payload before any untrusted search path.
-	if libHandle == 0 {
-		if handle, err := loadEmbeddedBridge(); err == nil {
-			libHandle = handle
-		} else {
-			lastErr = err
-		}
-	}
-
 	if libHandle == 0 {
 		if path, err := discoverBuiltDylib(); err == nil {
 			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
 			if err != nil {
 				lastErr = err
 			}
+		} else {
+			lastErr = err
+		}
+	}
+
+	// Try embedded bridge payload before compatibility fallback paths.
+	if libHandle == 0 {
+		if handle, err := loadEmbeddedBridge(); err == nil {
+			libHandle = handle
 		} else {
 			lastErr = err
 		}
