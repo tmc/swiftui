@@ -30,6 +30,7 @@ jobs:
 
       - name: Build universal dylibs
         run: |
+          set -euo pipefail
           pkgs=()
           while IFS= read -r file; do
             pkg=$(dirname "$file")
@@ -38,10 +39,45 @@ jobs:
             fi
             pkgs+=("$pkg")
           done < <(find . -mindepth 1 -maxdepth 2 -name generate.go -print | sort)
-          go generate -run 'lipo -create' "${pkgs[@]}"
+          for pkg in "${pkgs[@]}"; do
+            libgo="$pkg/lib.go"
+            if [ "$pkg" = "." ]; then
+              libgo="./lib.go"
+            fi
+            dylib=$(sed -n 's/.*DiscoverBuiltDylib(swiftBridgeDir(), "\(lib[^"]*\.dylib\)").*/\1/p' "$libgo" | head -n 1)
+            if [ -z "$dylib" ]; then
+              dylib=$(sed -n 's/.*BuildSwiftBridge(swiftBridgeDir(), "[^"]*", "\(lib[^"]*\.dylib\)".*/\1/p' "$libgo" | head -n 1)
+            fi
+            if [ -z "$dylib" ]; then
+              echo "failed to determine dylib name from $libgo" >&2
+              exit 1
+            fi
+
+            product="${dylib#lib}"
+            product="${product%.dylib}"
+            swift_dir="$pkg/internal/swift"
+            if [ "$pkg" = "." ]; then
+              swift_dir="./internal/swift"
+            fi
+            arm_scratch="$swift_dir/.build/universal-arm64"
+            x86_scratch="$swift_dir/.build/universal-x86_64"
+            out_dir="$swift_dir/.build/universal/release"
+            out_dylib="$out_dir/$dylib"
+
+            echo "building $product ($dylib) in $swift_dir"
+            rm -rf "$arm_scratch" "$x86_scratch"
+            swift build -c release --quiet --product "$product" --triple arm64-apple-macosx --scratch-path "$arm_scratch" --package-path "$swift_dir"
+            swift build -c release --quiet --product "$product" --triple x86_64-apple-macosx --scratch-path "$x86_scratch" --package-path "$swift_dir"
+            mkdir -p "$out_dir"
+            lipo -create -output "$out_dylib" \
+              "$arm_scratch/arm64-apple-macosx/release/$dylib" \
+              "$x86_scratch/x86_64-apple-macosx/release/$dylib"
+            lipo -info "$out_dylib"
+          done
 
       - name: Collect artifacts
         run: |
+          set -euo pipefail
           rm -rf dist
           mkdir -p dist/universal-dylibs
           while IFS= read -r dylib; do
@@ -49,6 +85,10 @@ jobs:
             mkdir -p "$(dirname "$dest")"
             cp "$dylib" "$dest"
           done < <(find . -path '*/.build/universal/release/*.dylib' -type f | sort)
+          if [ -z "$(find dist/universal-dylibs -type f -name '*.dylib' -print -quit)" ]; then
+            echo "no universal dylibs were produced" >&2
+            exit 1
+          fi
           tar -C dist -czf dist/universal-dylibs.tar.gz universal-dylibs
 
       - name: Upload workflow artifact
