@@ -3,11 +3,17 @@
 package bridgeutil
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"strings"
 )
 
 // EnsurePrivateDir makes sure path exists as a non-symlink directory with 0700 permissions.
@@ -109,11 +115,15 @@ func DiscoverBuiltDylib(baseDir, dylibName string) (string, error) {
 }
 
 // BuildSwiftBridge builds a Swift bridge dylib to a writable secure scratch directory.
-func BuildSwiftBridge(swiftDir, cacheKey, dylibName, errPrefix string) (string, error) {
+func BuildSwiftBridge(swiftDir, dylibName, errPrefix string) (string, error) {
 	if path, err := DiscoverBuiltDylib(swiftDir, dylibName); err == nil {
 		return path, nil
 	}
 
+	cacheKey, err := swiftBuildCacheKey(swiftDir, dylibName)
+	if err != nil {
+		return "", fmt.Errorf("%s: compute swift build cache key: %w", errPrefix, err)
+	}
 	scratchDir, err := SwiftUICacheDir("swift-build", cacheKey)
 	if err != nil {
 		return "", fmt.Errorf("%s: prepare swift build cache: %w", errPrefix, err)
@@ -138,4 +148,98 @@ func BuildSwiftBridge(swiftDir, cacheKey, dylibName, errPrefix string) (string, 
 		return "", fmt.Errorf("%s: %w", errPrefix, err)
 	}
 	return path, nil
+}
+
+func swiftBuildCacheKey(swiftDir, dylibName string) (string, error) {
+	base := cacheKeyBase(dylibName)
+	sourceHash, err := swiftSourceHash(swiftDir)
+	if err != nil {
+		return "", err
+	}
+	version, err := swiftToolchainVersion()
+	if err != nil {
+		return "", err
+	}
+	versionHash := shortDigest([]byte(version))
+	return fmt.Sprintf("%s-%s-swift%s-%s", base, sourceHash, versionHash, runtime.GOARCH), nil
+}
+
+func cacheKeyBase(dylibName string) string {
+	base := strings.TrimSuffix(strings.TrimPrefix(dylibName, "lib"), ".dylib")
+	base = strings.ToLower(base)
+	if base == "" {
+		return "bridge"
+	}
+	var b strings.Builder
+	for _, r := range base {
+		switch {
+		case r >= 'a' && r <= 'z':
+			b.WriteRune(r)
+		case r >= '0' && r <= '9':
+			b.WriteRune(r)
+		default:
+			b.WriteByte('-')
+		}
+	}
+	return strings.Trim(b.String(), "-")
+}
+
+func swiftSourceHash(swiftDir string) (string, error) {
+	if _, err := os.Stat(filepath.Join(swiftDir, "Package.swift")); err != nil {
+		return "", fmt.Errorf("swift bridge source not found at %s", swiftDir)
+	}
+
+	h := sha256.New()
+	err := filepath.WalkDir(swiftDir, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if path == filepath.Join(swiftDir, ".build") {
+			return filepath.SkipDir
+		}
+		if d.IsDir() {
+			return nil
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		rel, err := filepath.Rel(swiftDir, path)
+		if err != nil {
+			return err
+		}
+		if _, err := io.WriteString(h, filepath.ToSlash(rel)); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(h, "\x00"); err != nil {
+			return err
+		}
+		f, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if _, err := io.Copy(h, f); err != nil {
+			return err
+		}
+		_, err = io.WriteString(h, "\x00")
+		return err
+	})
+	if err != nil {
+		return "", fmt.Errorf("hash swift bridge sources: %w", err)
+	}
+	return shortDigest(h.Sum(nil)), nil
+}
+
+func swiftToolchainVersion() (string, error) {
+	cmd := exec.Command("swift", "--version")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("run swift --version: %w", err)
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
+func shortDigest(data []byte) string {
+	sum := sha256.Sum256(data)
+	return hex.EncodeToString(sum[:6])
 }

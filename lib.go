@@ -173,7 +173,7 @@ func loadEmbeddedBridge() (uintptr, error) {
 
 // buildSwiftBridge builds the vendored Swift bridge dylib if it doesn't already exist.
 func buildSwiftBridge() (string, error) {
-	return bridgeutil.BuildSwiftBridge(swiftBridgeDir(), "root", "libSwiftUIBridge.dylib", "swiftui")
+	return bridgeutil.BuildSwiftBridge(swiftBridgeDir(), "libSwiftUIBridge.dylib", "swiftui")
 }
 
 // tryRegisterLibFunc attempts to register a C function from the dylib.

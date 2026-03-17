@@ -5,6 +5,7 @@ package translation
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -16,6 +17,7 @@ import (
 
 // libHandle is the handle to the loaded libTranslationSwiftUIBridge dylib.
 var libHandle uintptr
+var loadErr error
 
 // swiftBridgeDir returns the path to the vendored Swift bridge source directory.
 func swiftBridgeDir() string {
@@ -34,7 +36,7 @@ func discoverBuiltDylib() (string, error) {
 
 // buildSwiftBridge builds the vendored Swift bridge dylib if needed.
 func buildSwiftBridge() (string, error) {
-	return bridgeutil.BuildSwiftBridge(swiftBridgeDir(), "translation", "libTranslationSwiftUIBridge.dylib", "translation")
+	return bridgeutil.BuildSwiftBridge(swiftBridgeDir(), "libTranslationSwiftUIBridge.dylib", "translation")
 }
 
 // tryRegisterLibFunc attempts to register a C function from the dylib.
@@ -54,20 +56,35 @@ var (
 
 func init() {
 	envKey := "LIB" + strings.ToUpper("TranslationSwiftUIBridge") + "_PATH"
+	var lastErr error
 
 	if path := os.Getenv(envKey); path != "" {
-		libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		var err error
+		libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		if err != nil {
+			lastErr = fmt.Errorf("dlopen %s: %w", path, err)
+		}
 	}
 
 	if libHandle == 0 {
 		if path, err := discoverBuiltDylib(); err == nil {
-			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			if err != nil {
+				lastErr = fmt.Errorf("dlopen %s: %w", path, err)
+			}
+		} else {
+			lastErr = err
 		}
 	}
 
 	if libHandle == 0 {
 		if path, err := buildSwiftBridge(); err == nil {
-			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			if err != nil {
+				lastErr = fmt.Errorf("dlopen %s: %w", path, err)
+			}
+		} else {
+			lastErr = err
 		}
 	}
 
@@ -81,10 +98,18 @@ func init() {
 			if err == nil {
 				break
 			}
+			lastErr = fmt.Errorf("dlopen %s: %w", path, err)
 		}
 	}
 
 	if libHandle == 0 {
+		if _, err := exec.LookPath("swift"); err != nil {
+			loadErr = fmt.Errorf("translation: swift toolchain not found; install Xcode or Command Line Tools")
+		} else if lastErr != nil {
+			loadErr = fmt.Errorf("translation: failed to load bridge dylib: %w", lastErr)
+		} else {
+			loadErr = fmt.Errorf("translation: bridge dylib not loaded")
+		}
 		setUnavailableStubs()
 		return
 	}
@@ -97,7 +122,12 @@ func init() {
 }
 
 func setUnavailableStubs() {
-	stub := func(name string) { panic("translation: " + name + ": dylib not loaded") }
+	stub := func(name string) {
+		if loadErr != nil {
+			panic("translation: " + name + ": " + loadErr.Error())
+		}
+		panic("translation: " + name + ": dylib not loaded")
+	}
 	if _TRS_TranslationPresentation == nil {
 		_TRS_TranslationPresentation = func(uintptr, *byte) uintptr { stub("TRS_TranslationPresentation"); return 0 }
 	}

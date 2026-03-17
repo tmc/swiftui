@@ -5,6 +5,7 @@ package spritekit
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -16,6 +17,7 @@ import (
 
 // libHandle is the handle to the loaded libSpriteKitSwiftUIBridge dylib.
 var libHandle uintptr
+var loadErr error
 
 // swiftBridgeDir returns the path to the vendored Swift bridge source directory.
 func swiftBridgeDir() string {
@@ -34,7 +36,7 @@ func discoverBuiltDylib() (string, error) {
 
 // buildSwiftBridge builds the vendored Swift bridge dylib if needed.
 func buildSwiftBridge() (string, error) {
-	return bridgeutil.BuildSwiftBridge(swiftBridgeDir(), "spritekit", "libSpriteKitSwiftUIBridge.dylib", "spritekit")
+	return bridgeutil.BuildSwiftBridge(swiftBridgeDir(), "libSpriteKitSwiftUIBridge.dylib", "spritekit")
 }
 
 // tryRegisterLibFunc attempts to register a C function from the dylib.
@@ -56,20 +58,35 @@ var (
 
 func init() {
 	envKey := "LIB" + strings.ToUpper("SpriteKitSwiftUIBridge") + "_PATH"
+	var lastErr error
 
 	if path := os.Getenv(envKey); path != "" {
-		libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		var err error
+		libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+		if err != nil {
+			lastErr = fmt.Errorf("dlopen %s: %w", path, err)
+		}
 	}
 
 	if libHandle == 0 {
 		if path, err := discoverBuiltDylib(); err == nil {
-			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			if err != nil {
+				lastErr = fmt.Errorf("dlopen %s: %w", path, err)
+			}
+		} else {
+			lastErr = err
 		}
 	}
 
 	if libHandle == 0 {
 		if path, err := buildSwiftBridge(); err == nil {
-			libHandle, _ = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+			if err != nil {
+				lastErr = fmt.Errorf("dlopen %s: %w", path, err)
+			}
+		} else {
+			lastErr = err
 		}
 	}
 
@@ -83,10 +100,18 @@ func init() {
 			if err == nil {
 				break
 			}
+			lastErr = fmt.Errorf("dlopen %s: %w", path, err)
 		}
 	}
 
 	if libHandle == 0 {
+		if _, err := exec.LookPath("swift"); err != nil {
+			loadErr = fmt.Errorf("spritekit: swift toolchain not found; install Xcode or Command Line Tools")
+		} else if lastErr != nil {
+			loadErr = fmt.Errorf("spritekit: failed to load bridge dylib: %w", lastErr)
+		} else {
+			loadErr = fmt.Errorf("spritekit: bridge dylib not loaded")
+		}
 		setUnavailableStubs()
 		return
 	}
@@ -101,7 +126,12 @@ func init() {
 }
 
 func setUnavailableStubs() {
-	stub := func(name string) { panic("spritekit: " + name + ": dylib not loaded") }
+	stub := func(name string) {
+		if loadErr != nil {
+			panic("spritekit: " + name + ": " + loadErr.Error())
+		}
+		panic("spritekit: " + name + ": dylib not loaded")
+	}
 	if _SPS_SpriteViewCreate == nil {
 		_SPS_SpriteViewCreate = func(uintptr) uintptr { stub("SPS_SpriteViewCreate"); return 0 }
 	}

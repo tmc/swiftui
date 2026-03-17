@@ -12,7 +12,7 @@ Auto-generated from Apple developer documentation via
 
 ## Requirements
 
-- macOS with the Swift toolchain available in `PATH`
+- macOS 26 or later with the Swift toolchain available in `PATH`
 - Xcode or Command Line Tools if the vendored bridge needs to be built
 
 The vendored Swift bridge is loaded at runtime. If no prebuilt dylib is
