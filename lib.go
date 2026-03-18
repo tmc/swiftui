@@ -370,6 +370,7 @@ var (
 	_SUISetViewBuilderCallback      func(uintptr)
 	_SUISetFloatViewBuilderCallback func(uintptr)
 	_SUISetGeometryBuilderCallback  func(uintptr)
+	_SUIRenderPNG                   func(uintptr, *byte, float64, float64, float64) *byte
 
 	// Memory.
 	_SUIRelease    func(uintptr)
@@ -379,9 +380,9 @@ var (
 func init() {
 	// Search order:
 	//  1. explicit env override
-	//  2. existing build outputs
-	//  3. local rebuild into secure scratch cache
-	//  4. embedded payload cache
+	//  2. embedded payload cache
+	//  3. existing build outputs
+	//  4. local rebuild into secure scratch cache
 	//  5. compatibility fallback paths
 	var lastErr error
 
@@ -393,21 +394,21 @@ func init() {
 		}
 	}
 
+	// Try embedded bridge payload before any untrusted search path.
+	if libHandle == 0 {
+		if handle, err := loadEmbeddedBridge(); err == nil {
+			libHandle = handle
+		} else {
+			lastErr = err
+		}
+	}
+
 	if libHandle == 0 {
 		if path, err := discoverBuiltDylib(); err == nil {
 			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
 			if err != nil {
 				lastErr = err
 			}
-		} else {
-			lastErr = err
-		}
-	}
-
-	// Try embedded bridge payload before compatibility fallback paths.
-	if libHandle == 0 {
-		if handle, err := loadEmbeddedBridge(); err == nil {
-			libHandle = handle
 		} else {
 			lastErr = err
 		}
@@ -636,6 +637,7 @@ func init() {
 	tryRegisterLibFunc(&_SUISetViewBuilderCallback, libHandle, "SUISetViewBuilderCallback")
 	tryRegisterLibFunc(&_SUISetFloatViewBuilderCallback, libHandle, "SUISetFloatViewBuilderCallback")
 	tryRegisterLibFunc(&_SUISetGeometryBuilderCallback, libHandle, "SUISetGeometryBuilderCallback")
+	tryRegisterLibFunc(&_SUIRenderPNG, libHandle, "SUIRenderPNG")
 
 	// Memory.
 	tryRegisterLibFunc(&_SUIRelease, libHandle, "SUIRelease")
