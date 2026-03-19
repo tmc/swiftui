@@ -1,7 +1,7 @@
 # Swift build artifacts
 **/internal/swift/.build/
 *.dylib
-!internal/embeddedbridge/libSwiftUIBridge.dylib
+!**/internal/embeddedbridge/*.dylib
 *.o
 *.a
 *.dia
