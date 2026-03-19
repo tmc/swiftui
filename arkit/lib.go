@@ -3,6 +3,8 @@
 package arkit
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,6 +13,8 @@ import (
 	"strings"
 
 	"github.com/tmc/swiftui/internal/bridgeutil"
+
+	embeddedbridge "github.com/tmc/swiftui/arkit/internal/embeddedbridge"
 
 	"github.com/ebitengine/purego"
 )
@@ -37,6 +41,54 @@ func discoverBuiltDylib() (string, error) {
 // buildSwiftBridge builds the vendored Swift bridge dylib if needed.
 func buildSwiftBridge() (string, error) {
 	return bridgeutil.BuildSwiftBridge(swiftBridgeDir(), "libARKitSwiftUIBridge.dylib", "arkit")
+}
+
+// materializeEmbeddedBridge writes the embedded bridge payload to a cache directory.
+func materializeEmbeddedBridge(data []byte, name string) (string, error) {
+	if len(data) == 0 {
+		return "", nil
+	}
+	if name == "" {
+		name = "libARKitSwiftUIBridge.dylib"
+	}
+	sum := sha256.Sum256(data)
+	cacheDir := filepath.Join(os.TempDir(), "arkit-bridge-cache")
+	if err := os.MkdirAll(cacheDir, 0o755); err != nil {
+		return "", fmt.Errorf("arkit: create bridge cache: %w", err)
+	}
+	path := filepath.Join(cacheDir, hex.EncodeToString(sum[:])+"-"+name)
+	if _, err := os.Stat(path); err == nil {
+		return path, nil
+	}
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o755); err != nil {
+		return "", fmt.Errorf("arkit: write embedded bridge: %w", err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		if _, statErr := os.Stat(path); statErr == nil {
+			_ = os.Remove(tmp)
+			return path, nil
+		}
+		return "", fmt.Errorf("arkit: finalize embedded bridge: %w", err)
+	}
+	return path, nil
+}
+
+// loadEmbeddedBridge attempts to load the bridge from an embedded payload.
+func loadEmbeddedBridge() (uintptr, error) {
+	data, name := embeddedbridge.Payload()
+	if len(data) == 0 {
+		return 0, nil
+	}
+	path, err := materializeEmbeddedBridge(data, name)
+	if err != nil {
+		return 0, err
+	}
+	handle, err := purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
+	if err != nil {
+		return 0, fmt.Errorf("arkit: dlopen embedded bridge %s: %w", path, err)
+	}
+	return handle, nil
 }
 
 // tryRegisterLibFunc attempts to register a C function from the dylib.
@@ -74,6 +126,13 @@ func init() {
 			}
 		} else {
 			lastErr = err
+		}
+	}
+
+	// Try embedded bridge payload before local Swift build.
+	if libHandle == 0 {
+		if handle, err := loadEmbeddedBridge(); err == nil && handle != 0 {
+			libHandle = handle
 		}
 	}
 
