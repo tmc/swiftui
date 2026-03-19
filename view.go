@@ -2,6 +2,8 @@
 
 package swiftui
 
+import "runtime"
+
 // Edge identifies edges for padding and layout.
 type Edge int32
 
