@@ -58,7 +58,10 @@ public func CHBuildChart(_ specPtr: UnsafePointer<CChar>, _ specLen: Int32) -> U
     if let plot = spec.plot, !plot.isEmpty {
         chart = applyPlotStyle(chart, plot: plot)
     }
-    chart = applyScrolling(chart, axes: spec.scrollAxes, position: spec.scrollPosition, visibleLength: spec.visibleLength)
+    chart = applyScrolling(chart, axes: spec.scrollAxes, position: spec.scrollPosition, target: spec.scrollTarget, xBinding: spec.xScrollBinding, yBinding: spec.yScrollBinding, xVisibleLength: spec.xVisibleLength, yVisibleLength: spec.yVisibleLength)
+    chart = applySelections(chart, spec: spec)
+    chart = applyProxyLayers(chart, overlays: spec.overlays, backgrounds: spec.backgrounds)
+    chart = applyProxyGesture(chart, gesture: spec.gesture)
 
     return Unmanaged.passRetained(Box(chart)).toOpaque()
 }
@@ -586,31 +589,4 @@ private func decodeOptionalStrokeStyle(_ spec: LineStyleSpec) -> StrokeStyle? {
 
 private func decodeStrokeStyle(_ spec: LineStyleSpec) -> StrokeStyle {
     decodeStrokeStyle(width: spec.width, dash: spec.dash)
-}
-
-@MainActor
-private func applyScrolling(_ view: AnyView, axes: Int32, position: ScrollPositionSpec?, visibleLength: Double?) -> AnyView {
-    var chart = view
-    switch axes {
-    case 1:
-        chart = AnyView(chart.chartScrollableAxes(.horizontal))
-    case 2:
-        chart = AnyView(chart.chartScrollableAxes(.vertical))
-    case 3:
-        chart = AnyView(chart.chartScrollableAxes([.horizontal, .vertical]))
-    default:
-        break
-    }
-    if let position {
-        switch position.kind {
-        case 1:
-            chart = AnyView(chart.chartScrollPosition(initialX: Date(timeIntervalSince1970: Double(position.time) / 1000)))
-        default:
-            chart = AnyView(chart.chartScrollPosition(initialX: position.number))
-        }
-    }
-    if let visibleLength {
-        chart = AnyView(chart.chartXVisibleDomain(length: visibleLength))
-    }
-    return chart
 }

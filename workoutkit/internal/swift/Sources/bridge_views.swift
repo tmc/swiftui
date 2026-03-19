@@ -11,7 +11,8 @@ import SwiftUI
 public func WKS_WorkoutPreview(_ workout: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
     let w = Unmanaged<AnyObject>.fromOpaque(workout).takeUnretainedValue()
     if let comp = w as? CustomWorkout {
-        let view = AnyView(WorkoutPreview(comp))
+        let plan = WorkoutPlan(.custom(comp))
+        let view = AnyView(Color.clear.workoutPreview(plan, isPresented: .constant(true)))
         return Unmanaged.passRetained(Box(view)).toOpaque()
     }
     let view = AnyView(EmptyView())

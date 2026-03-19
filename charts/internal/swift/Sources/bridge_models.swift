@@ -26,6 +26,19 @@ struct ChartSpec: Decodable {
     let scrollAxes: Int32
     let scrollPosition: ScrollPositionSpec?
     let visibleLength: Double?
+    let xSelection: StateRefSpec?
+    let ySelection: StateRefSpec?
+    let xSelectionRange: StateRefSpec?
+    let ySelectionRange: StateRefSpec?
+    let angleSelection: StateRefSpec?
+    let scrollTarget: ScrollTargetBehaviorSpec?
+    let xScrollBinding: StateRefSpec?
+    let yScrollBinding: StateRefSpec?
+    let xVisibleLength: VisibleDomainLengthSpec?
+    let yVisibleLength: VisibleDomainLengthSpec?
+    let overlays: [ProxyLayerSpec]?
+    let backgrounds: [ProxyLayerSpec]?
+    let gesture: ProxyGestureSpec?
 }
 
 struct ValueSpec: Decodable {
@@ -50,6 +63,9 @@ struct MarkSpec: Decodable {
     let dims: [DimSpec]
     let mods: [MarkModSpec]
     let children: [MarkSpec]?
+    let pointData: [PointPlotDatumSpec]?
+    let rectangleData: [RectanglePlotDatumSpec]?
+    let ruleData: [RulePlotDatumSpec]?
 }
 
 struct MarkModSpec: Decodable {
@@ -225,8 +241,96 @@ struct PlotStyleSpec: Decodable {
 
 struct ScrollPositionSpec: Decodable {
     let kind: Int32
+    let axis: Int32
     let number: Double
     let time: Int64
+}
+
+struct StateRefSpec: Decodable {
+    let kind: Int32
+    let ptr: String
+}
+
+struct DateComponentsSpec: Decodable {
+    let year: Int
+    let month: Int
+    let day: Int
+    let hour: Int
+    let minute: Int
+    let second: Int
+}
+
+struct MajorValueAlignmentSpec: Decodable {
+    let kind: Int32
+    let numberUnit: Double
+    let dateUnit: DateComponentsSpec
+}
+
+struct ScrollTargetBehaviorSpec: Decodable {
+    let kind: Int32
+    let xUnit: Double
+    let yUnit: Double
+    let xDate: DateComponentsSpec
+    let yDate: DateComponentsSpec
+    let xMajor: MajorValueAlignmentSpec?
+    let yMajor: MajorValueAlignmentSpec?
+    let limit: Int32
+}
+
+struct VisibleDomainLengthSpec: Decodable {
+    let kind: Int32
+    let number: Double
+}
+
+struct MarkDimensionSpec: Decodable {
+    let kind: Int32
+    let value: Double
+}
+
+struct PointPlotDatumSpec: Decodable {
+    let x: ValueSpec
+    let y: ValueSpec
+}
+
+struct RectanglePlotDatumSpec: Decodable {
+    let x: ValueSpec?
+    let y: ValueSpec?
+    let xStart: ValueSpec?
+    let xEnd: ValueSpec?
+    let yStart: ValueSpec?
+    let yEnd: ValueSpec?
+    let width: MarkDimensionSpec
+    let height: MarkDimensionSpec
+}
+
+struct RulePlotDatumSpec: Decodable {
+    let x: ValueSpec?
+    let y: ValueSpec?
+    let xStart: ValueSpec?
+    let xEnd: ValueSpec?
+    let yStart: ValueSpec?
+    let yEnd: ValueSpec?
+}
+
+struct ProxyLayerSpec: Decodable {
+    let kind: Int32
+    let alignment: Int32
+    let xState: StateRefSpec?
+    let yState: StateRefSpec?
+    let range: StateRefSpec?
+    let colorR: Double
+    let colorG: Double
+    let colorB: Double
+    let colorA: Double
+    let width: Double
+    let xFormat: ValueFormatSpec
+    let yFormat: ValueFormatSpec
+}
+
+struct ProxyGestureSpec: Decodable {
+    let kind: Int32
+    let state: StateRefSpec?
+    let minDistance: Double
 }
 
 enum PlottableData {
