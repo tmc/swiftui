@@ -242,7 +242,7 @@ func main() {
 
 	swiftui.Run(swiftui.AppConfig{
 		Title:  "Password Generator",
-		Width:  500,
+		Width:  560,
 		Height: 700,
 	}, swiftui.ScrollView(
 		swiftui.VStackSpaced(16,
@@ -308,7 +308,7 @@ func main() {
 						swiftui.Stepper("Every N chars", sepN, 3, 6, onChange),
 					),
 				),
-			).Frame(0, 300),
+			).Frame(500, 300),
 
 			// -- Strength meter --
 			swiftui.GroupBox("Strength",
@@ -325,12 +325,12 @@ func main() {
 						if i <= level {
 							bars[i] = swiftui.RoundedRectangle(3).
 								Fill(cr, cg, cb, 1.0).
-								Frame(0, 8).
+								Frame(112, 8).
 								AsView().MaxFrame(-1, 0)
 						} else {
 							bars[i] = swiftui.RoundedRectangle(3).
 								Fill(0.7, 0.7, 0.7, 0.3).
-								Frame(0, 8).
+								Frame(112, 8).
 								AsView().MaxFrame(-1, 0)
 						}
 					}
@@ -394,7 +394,7 @@ func main() {
 						)
 					}
 					return swiftui.List(rows...)
-				}).Frame(0, 150),
+				}).Frame(500, 150),
 			).MaxFrame(-1, 0),
 		).Padding(20),
 	))

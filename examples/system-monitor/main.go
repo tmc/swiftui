@@ -71,9 +71,6 @@ func main() {
 					Font(swiftui.FontTitle).
 					FontWeight(swiftui.WeightBold),
 				swiftui.Spacer(),
-				swiftui.Label("Live", "circle.fill").
-					ForegroundStyle(0.3, 0.8, 0.4, 1.0).
-					Font(swiftui.FontCaption),
 			),
 
 			// Gauges row

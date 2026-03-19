@@ -25,9 +25,9 @@ func main() {
 	changes := swiftui.NewIntState(0)
 
 	// General tab state
-	username := swiftui.NewStringState("")
-	apiKey := swiftui.NewStringState("")
-	bio := swiftui.NewStringState("")
+	username := swiftui.NewStringState("taylor")
+	apiKey := swiftui.NewStringState("sk-live-demo-4821")
+	bio := swiftui.NewStringState("Designing a native control surface with SwiftUI and Go.")
 	emailNotif := swiftui.NewIntState(1)
 	pushNotif := swiftui.NewIntState(1)
 	soundNotif := swiftui.NewIntState(0)
@@ -49,7 +49,7 @@ func main() {
 	hwAccel := swiftui.NewIntState(1)
 	cacheSize := swiftui.NewIntState(512)
 	analytics := swiftui.NewIntState(0)
-	proxyURL := swiftui.NewStringState("")
+	proxyURL := swiftui.NewStringState("https://proxy.example.internal")
 	timeout := swiftui.NewIntState(30)
 	protocol := swiftui.NewIntState(1)
 	verboseLog := swiftui.NewIntState(0)
@@ -241,7 +241,7 @@ func main() {
 			swiftui.VStack(
 				swiftui.TextField("Username", username, func() { inc() }),
 				swiftui.SecureField("API Key", apiKey, func() { inc() }),
-				swiftui.TextEditor(bio).Frame(0, 80),
+				swiftui.TextEditor(bio).Frame(520, 80),
 			),
 		),
 		swiftui.Section("Notifications",
@@ -382,8 +382,8 @@ func main() {
 
 	swiftui.Run(swiftui.AppConfig{
 		Title:  "Settings",
-		Width:  600,
-		Height: 700,
+		Width:  660,
+		Height: 620,
 	}, swiftui.VStack(
 		swiftui.TabView(
 			generalTab,
