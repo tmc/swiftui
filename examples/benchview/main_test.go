@@ -67,14 +67,14 @@ func TestBuildComparisonMultipleInputs(t *testing.T) {
 	if got, want := len(table.Configs), 3; got != want {
 		t.Fatalf("len(table.Configs) = %d, want %d", got, want)
 	}
-	if table.OldNewDelta {
-		t.Fatal("table.OldNewDelta = true, want false for three inputs")
+	if !table.HasComparisons {
+		t.Fatal("table.HasComparisons = false, want true for baseline comparisons")
 	}
 	if len(table.Rows) == 0 {
 		t.Fatal("len(table.Rows) = 0, want > 0")
 	}
-	if got, want := len(table.Rows[0].Values), 3; got != want {
-		t.Fatalf("len(table.Rows[0].Values) = %d, want %d", got, want)
+	if got, want := len(table.Rows[0].Cells), 3; got != want {
+		t.Fatalf("len(table.Rows[0].Cells) = %d, want %d", got, want)
 	}
 	if got, want := view.Mode, "multi"; got != want {
 		t.Fatalf("view.Mode = %q, want %q", got, want)
@@ -136,8 +136,8 @@ func TestBuildComparisonHighlightsAndMode(t *testing.T) {
 		t.Fatal("len(view.Highlights) = 0, want > 0")
 	}
 	table := view.Tables[0]
-	if !table.OldNewDelta {
-		t.Fatal("table.OldNewDelta = false, want true")
+	if !table.HasComparisons {
+		t.Fatal("table.HasComparisons = false, want true")
 	}
 	if got := table.Domain.MaxValue; got <= 0 {
 		t.Fatalf("table.Domain.MaxValue = %f, want > 0", got)
@@ -166,14 +166,28 @@ func TestBuildComparisonHighlightsAndMode(t *testing.T) {
 
 func TestMetricInsight(t *testing.T) {
 	table := tableView{
-		Metric:      "ns/op",
-		Configs:     []string{"old", "new"},
-		OldNewDelta: true,
-		Improved:    1,
-		Regressed:   1,
+		Metric:         "ns/op",
+		Configs:        []string{"old", "new"},
+		HasComparisons: true,
+		Improved:       1,
+		Regressed:      1,
 		Rows: []rowView{
-			{Name: "BenchmarkFast", Change: 1, PctDelta: -0.20, SpreadPct: 0.04},
-			{Name: "BenchmarkSlow", Change: -1, PctDelta: 0.40, SpreadPct: 0.08},
+			{
+				Name:      "BenchmarkFast",
+				SpreadPct: 0.04,
+				Cells: []valueCellView{
+					{},
+					{HasDelta: true, Change: 1, DeltaPct: -0.20},
+				},
+			},
+			{
+				Name:      "BenchmarkSlow",
+				SpreadPct: 0.08,
+				Cells: []valueCellView{
+					{},
+					{HasDelta: true, Change: -1, DeltaPct: 0.40},
+				},
+			},
 		},
 	}
 
@@ -181,18 +195,18 @@ func TestMetricInsight(t *testing.T) {
 	if got == "" {
 		t.Fatal("metricInsight(table) = empty, want non-empty")
 	}
-	if want := "largest win BenchmarkFast -20.0%"; !containsAll(got, "1 wins", "1 losses", want, "largest loss BenchmarkSlow +40.0%", "widest spread BenchmarkSlow 8.0% spread") {
+	if want := "largest win BenchmarkFast -0.20%"; !containsAll(got, "1 wins", "1 losses", want, "largest loss BenchmarkSlow +0.40%", "widest spread BenchmarkSlow 8.0% spread") {
 		t.Fatalf("metricInsight(table) = %q, want required substrings", got)
 	}
 }
 
 func TestSortTableRows(t *testing.T) {
 	table := tableView{
-		OldNewDelta: true,
+		HasComparisons: true,
 		Rows: []rowView{
-			{Name: "steady", Change: 0, PctDelta: 0.01, SpreadPct: 0.09},
-			{Name: "small-win", Change: 1, PctDelta: -0.10, SpreadPct: 0.02},
-			{Name: "big-loss", Change: -1, PctDelta: 0.35, SpreadPct: 0.01},
+			{Name: "steady", Change: 0, MaxDelta: 0.01, SpreadPct: 0.09},
+			{Name: "small-win", Change: 1, MaxDelta: 0.10, SpreadPct: 0.02},
+			{Name: "big-loss", Change: -1, MaxDelta: 0.35, SpreadPct: 0.01},
 		},
 	}
 
@@ -209,12 +223,67 @@ func TestSortTableRows(t *testing.T) {
 
 func TestMetricSummaryTitleSingleInput(t *testing.T) {
 	table := tableView{
-		Configs: []string{"stdin"},
-		Rows:    []rowView{{Name: "BenchmarkFoo"}, {Name: "BenchmarkBar"}},
+		Configs:      []string{"stdin"},
+		SummaryLabel: "median",
+		Rows:         []rowView{{Name: "BenchmarkFoo"}, {Name: "BenchmarkBar"}},
 	}
 
-	if got, want := metricSummaryTitle(table), "2 rows with spread and mean"; got != want {
+	if got, want := metricSummaryTitle(table), "2 rows with median and confidence interval"; got != want {
 		t.Fatalf("metricSummaryTitle(table) = %q, want %q", got, want)
+	}
+}
+
+func TestBenchmarkLabelParts(t *testing.T) {
+	gotLabel, gotMeta := benchmarkLabelParts("BenchmarkMLXGenerate/model=Qwen3.5-4B-4bit/language=Python/Generation-16")
+	if got, want := gotLabel, "Python Generation 16"; got != want {
+		t.Fatalf("benchmarkLabelParts label = %q, want %q", got, want)
+	}
+	if got, want := gotMeta, "Qwen3.5-4B"; got != want {
+		t.Fatalf("benchmarkLabelParts meta = %q, want %q", got, want)
+	}
+	if got, want := chartRowLabel("BenchmarkMLXGenerate/model=Qwen3.5-4B-4bit/language=Python/Generation-16"), "Py Gen 16"; got != want {
+		t.Fatalf("chartRowLabel = %q, want %q", got, want)
+	}
+}
+
+func TestCompactTableTitle(t *testing.T) {
+	title := ".config=goos=darwin goarch=arm64 pkg=github.com/tmc/mlx-go-lm/benchmarks/perfdelta cpu=Apple-M4-Max"
+	if got, want := compactTableTitle(title), "perfdelta • Apple-M4-Max"; got != want {
+		t.Fatalf("compactTableTitle = %q, want %q", got, want)
+	}
+}
+
+func TestBuildComparisonWithProjectionAndFilter(t *testing.T) {
+	inputs := []inputSpec{
+		{
+			Label: "old",
+			Data: []byte("goos: darwin\npkg: example\n" +
+				"BenchmarkFoo/size=4k-8\t1\t100 ns/op\n" +
+				"BenchmarkFoo/size=8k-8\t1\t200 ns/op\n"),
+		},
+		{
+			Label: "new",
+			Data: []byte("goos: darwin\npkg: example\n" +
+				"BenchmarkFoo/size=4k-8\t1\t90 ns/op\n" +
+				"BenchmarkFoo/size=8k-8\t1\t210 ns/op\n"),
+		},
+	}
+
+	opts := defaultAnalysisOptions()
+	opts.Row = "/size"
+	opts.Filter = "/size:4k"
+	view := buildComparisonWithOptions(inputs, opts)
+	if view.Error != "" {
+		t.Fatalf("view.Error = %q, want empty", view.Error)
+	}
+	if got, want := len(view.Tables), 1; got != want {
+		t.Fatalf("len(view.Tables) = %d, want %d", got, want)
+	}
+	if got, want := len(view.Tables[0].Rows), 1; got != want {
+		t.Fatalf("len(view.Tables[0].Rows) = %d, want %d", got, want)
+	}
+	if got, want := view.Tables[0].Rows[0].Name, "4k"; got != want {
+		t.Fatalf("row name = %q, want %q", got, want)
 	}
 }
 

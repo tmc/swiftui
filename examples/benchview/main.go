@@ -22,39 +22,58 @@ import (
 	"path/filepath"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/tmc/swiftui"
 	swcharts "github.com/tmc/swiftui/charts"
-	"golang.org/x/perf/benchstat"
+	"golang.org/x/perf/benchmath"
+	"golang.org/x/perf/benchproc"
+	"golang.org/x/perf/benchunit"
 )
 
 func init() { runtime.LockOSThread() }
 
 type tableView struct {
-	Metric      string
-	Configs     []string
-	OldNewDelta bool
-	Compared    int
-	Improved    int
-	Regressed   int
-	Unchanged   int
-	Insight     string
-	Domain      metricDomain
-	Rows        []rowView
+	Title          string
+	TableKey       string
+	Metric         string
+	SummaryLabel   string
+	Configs        []string
+	HasComparisons bool
+	Compared       int
+	Improved       int
+	Regressed      int
+	Unchanged      int
+	Insight        string
+	Domain         metricDomain
+	Rows           []rowView
+	Summary        summaryRowView
+	WarningCount   int
+	WarningPreview string
 }
 
 type rowView struct {
-	Name       string
-	Values     []string
-	Stats      []metricStat
-	MeanValues []float64
-	SpreadPct  float64
-	PctDelta   float64
-	Delta      string
-	Note       string
-	Change     int
+	Name      string
+	Cells     []valueCellView
+	SpreadPct float64
+	MaxDelta  float64
+	Change    int
+	Warning   string
+}
+
+type valueCellView struct {
+	Value    string
+	Range    string
+	Stat     metricStat
+	Delta    string
+	DeltaPct float64
+	Note     string
+	Change   int
+	Warning  string
+	HasValue bool
+	HasDelta bool
 }
 
 type metricStat struct {
@@ -69,10 +88,24 @@ type metricDomain struct {
 	MaxDelta float64
 }
 
+type summaryRowView struct {
+	Label string
+	Cells []summaryCellView
+}
+
+type summaryCellView struct {
+	Value    string
+	Delta    string
+	Warning  string
+	HasValue bool
+	HasDelta bool
+}
+
 type highlightView struct {
 	Title     string
 	Metric    string
 	Benchmark string
+	Config    string
 	Detail    string
 	Change    int
 }
@@ -81,6 +114,7 @@ type rowHighlight struct {
 	Valid     bool
 	Metric    string
 	Benchmark string
+	Config    string
 	Detail    string
 	Value     float64
 	Change    int
@@ -99,6 +133,10 @@ type comparisonView struct {
 	HasStreaming   bool
 	StreamingLabel string
 	Highlights     []highlightView
+	Warnings       []string
+	Error          string
+	Options        analysisOptions
+	Preview        string
 }
 
 type displayPrefs struct {
@@ -147,6 +185,15 @@ func main() {
 	inputCount := swiftui.NewIntState(len(inputs))
 	sourceSummary := swiftui.NewStringState(summarizeInputs(inputs))
 	streamSummary := swiftui.NewStringState(streamLabel(inputs))
+	optionError := swiftui.NewStringState("")
+	filterQuery := swiftui.NewStringState(defaultAnalysisOptions().Filter)
+	tableProjection := swiftui.NewStringState(defaultAnalysisOptions().Table)
+	rowProjection := swiftui.NewStringState(defaultAnalysisOptions().Row)
+	colProjection := swiftui.NewStringState(defaultAnalysisOptions().Col)
+	ignoreProjection := swiftui.NewStringState(defaultAnalysisOptions().Ignore)
+	alphaInput := swiftui.NewStringState(trimFloat(defaultAnalysisOptions().Alpha))
+	confidenceInput := swiftui.NewStringState(trimFloat(defaultAnalysisOptions().Confidence))
+	formatMode := swiftui.NewIntState(formatIndex(defaultAnalysisOptions().Format))
 	showSummaryCards := swiftui.NewIntState(1)
 	showChangeBar := swiftui.NewIntState(1)
 	showHighlights := swiftui.NewIntState(1)
@@ -157,11 +204,77 @@ func main() {
 	compactRows := swiftui.NewIntState(1)
 	rowLimit := swiftui.NewIntState(5)
 	showDisplayControls := swiftui.NewIntState(0)
+	var optsMu sync.Mutex
+	appliedOptions := defaultAnalysisOptions()
+	getOptions := func() analysisOptions {
+		optsMu.Lock()
+		defer optsMu.Unlock()
+		return appliedOptions
+	}
+	setOptions := func(opts analysisOptions) {
+		optsMu.Lock()
+		appliedOptions = opts
+		optsMu.Unlock()
+	}
+	rebuild := func() {
+		setView(buildComparisonWithOptions(inputs, getOptions()))
+		updateTick.Set(updateTick.Get() + 1)
+	}
+	applyOptions := func() {
+		opts, err := parseAnalysisOptions(
+			filterQuery.Get(),
+			tableProjection.Get(),
+			rowProjection.Get(),
+			colProjection.Get(),
+			ignoreProjection.Get(),
+			alphaInput.Get(),
+			confidenceInput.Get(),
+			formatFromIndex(formatMode.Get()),
+		)
+		if err != nil {
+			optionError.Set(err.Error())
+			return
+		}
+		optionError.Set("")
+		setOptions(opts)
+		rebuild()
+	}
+	resetOptions := func() {
+		opts := defaultAnalysisOptions()
+		filterQuery.Set(opts.Filter)
+		tableProjection.Set(opts.Table)
+		rowProjection.Set(opts.Row)
+		colProjection.Set(opts.Col)
+		ignoreProjection.Set(opts.Ignore)
+		alphaInput.Set(trimFloat(opts.Alpha))
+		confidenceInput.Set(trimFloat(opts.Confidence))
+		formatMode.Set(formatIndex(opts.Format))
+		optionError.Set("")
+		setOptions(opts)
+		rebuild()
+	}
 
 	if streamIndex >= 0 {
 		liveCount.Set(countBenchmarkLines(inputs[streamIndex].Data))
 	}
-	setView(buildComparison(inputs))
+	setView(buildComparisonWithOptions(inputs, getOptions()))
+
+	reloadFiles := func() {
+		for i := range inputs {
+			if inputs[i].Stream {
+				continue
+			}
+			data, err := os.ReadFile(inputs[i].Path)
+			if err != nil {
+				status.Set(fmt.Sprintf("reload error: %v", err))
+				return
+			}
+			inputs[i].Data = data
+		}
+		setView(buildComparisonWithOptions(inputs, getOptions()))
+		status.Set("Reloaded")
+		updateTick.Set(updateTick.Get() + 1)
+	}
 
 	if streamIndex >= 0 {
 		go func() {
@@ -174,7 +287,7 @@ func main() {
 			tick := updateTick.Get()
 			refresh := func(streamStatus string) {
 				inputs[streamIndex].Data = append(inputs[streamIndex].Data[:0], incoming.Bytes()...)
-				setView(buildComparison(inputs))
+				setView(buildComparisonWithOptions(inputs, getOptions()))
 				status.Set(streamStatus)
 				tick++
 				updateTick.Set(tick)
@@ -226,15 +339,31 @@ func main() {
 		compactRows,
 		rowLimit,
 		showDisplayControls,
+		optionError,
+		filterQuery,
+		tableProjection,
+		rowProjection,
+		colProjection,
+		ignoreProjection,
+		alphaInput,
+		confidenceInput,
+		formatMode,
 		bumpDisplay,
+		reloadFiles,
+		applyOptions,
+		resetOptions,
 	))
 }
 
 func buildComparison(inputs []inputSpec) comparisonView {
-	collection := &benchstat.Collection{}
+	return buildComparisonWithOptions(inputs, defaultAnalysisOptions())
+}
+
+func buildComparisonWithOptions(inputs []inputSpec, opts analysisOptions) comparisonView {
 	view := comparisonView{
-		Inputs: len(inputs),
-		Mode:   comparisonMode(inputs),
+		Inputs:  len(inputs),
+		Mode:    comparisonMode(inputs),
+		Options: opts,
 	}
 	for _, input := range inputs {
 		if input.Stream {
@@ -243,101 +372,162 @@ func buildComparison(inputs []inputSpec) comparisonView {
 			break
 		}
 	}
-	for _, input := range inputs {
-		if len(bytes.TrimSpace(input.Data)) == 0 {
-			continue
-		}
-		collection.AddConfig(input.Label, input.Data)
+	tables, warnings, err := loadAnalysisTables(inputs, opts)
+	view.Warnings = warnings
+	if err != nil {
+		view.Error = err.Error()
+		return view
 	}
-
-	tables := collection.Tables()
+	switch opts.Format {
+	case formatText:
+		view.Preview = tables.TextPreview()
+	case formatCSV:
+		view.Preview = tables.CSVPreview()
+	}
 	var bestWin, bestLoss, noisiest rowHighlight
-	for _, table := range tables {
+	for tableIndex, table := range tables.Tables {
+		tableKey := tables.Keys[tableIndex]
+		title := tableLabel(tableKey)
 		tv := tableView{
-			Metric:      table.Metric,
-			Configs:     append([]string(nil), table.Configs...),
-			OldNewDelta: table.OldNewDelta,
+			Title:          title,
+			TableKey:       tableKey.String(),
+			Metric:         table.Unit,
+			SummaryLabel:   table.Assumption.SummaryLabel(),
+			Configs:        make([]string, len(table.Cols)),
+			HasComparisons: len(table.Cols) > 1,
+			Summary: summaryRowView{
+				Label: table.SummaryLabel,
+				Cells: make([]summaryCellView, len(table.Cols)),
+			},
+		}
+		for i, col := range table.Cols {
+			tv.Configs[i] = keyLabel(col, fmt.Sprintf("col%d", i+1))
 		}
 		for _, row := range table.Rows {
+			scaler := table.rowScaler(row)
 			rv := rowView{
-				Name:       row.Benchmark,
-				PctDelta:   row.PctDelta,
-				Delta:      row.Delta,
-				Note:       row.Note,
-				Change:     row.Change,
-				Values:     make([]string, len(table.Configs)),
-				Stats:      make([]metricStat, len(table.Configs)),
-				MeanValues: make([]float64, len(table.Configs)),
+				Name:  keyLabel(row, row.StringValues()),
+				Cells: make([]valueCellView, len(table.Cols)),
 			}
-			for i := range rv.Values {
-				rv.Values[i] = "n/a"
-				if i < len(row.Metrics) && row.Metrics[i] != nil {
-					rv.Values[i] = row.Metrics[i].Format(row.Scaler)
-					rv.Stats[i] = metricStat{
-						Min:  row.Metrics[i].Min,
-						Mean: row.Metrics[i].Mean,
-						Max:  row.Metrics[i].Max,
+			rowBetter := 0.0
+			rowWarningParts := make([]string, 0, 1)
+			for i, col := range table.Cols {
+				cell, ok := table.Cells[analysisCellKey{Row: row, Col: col}]
+				if !ok {
+					continue
+				}
+				cv := valueCellView{
+					HasValue: true,
+					Value:    scaler.Format(cell.Summary.Center),
+					Range:    cell.Summary.PctRangeString(),
+					Stat: metricStat{
+						Min:  cell.Summary.Lo,
+						Mean: cell.Summary.Center,
+						Max:  cell.Summary.Hi,
 						OK:   true,
-					}
-					rv.MeanValues[i] = row.Metrics[i].Mean
-					tv.Domain.MaxValue = math.Max(tv.Domain.MaxValue, row.Metrics[i].Max)
-					if row.Metrics[i].Mean > 0 {
-						rv.SpreadPct = math.Max(rv.SpreadPct, (row.Metrics[i].Max-row.Metrics[i].Min)/row.Metrics[i].Mean)
+					},
+					Warning: joinWarnings(cell.Sample.Warnings, cell.Summary.Warnings),
+				}
+				if cv.Warning != "" {
+					rowWarningParts = append(rowWarningParts, cv.Warning)
+					tv.WarningCount++
+					if tv.WarningPreview == "" {
+						tv.WarningPreview = cv.Warning
 					}
 				}
+				tv.Domain.MaxValue = math.Max(tv.Domain.MaxValue, cell.Summary.Hi)
+				if spreadPct := summarySpread(cell.Summary); spreadPct > rv.SpreadPct {
+					rv.SpreadPct = spreadPct
+				}
+				if cell.Baseline != nil {
+					cv.HasDelta = true
+					cv.Delta = cell.Comparison.FormatDelta(cell.Baseline.Summary.Center, cell.Summary.Center)
+					cv.Note = cell.Comparison.String()
+					if cell.Baseline.Summary.Center != 0 {
+						cv.DeltaPct = ((cell.Summary.Center / cell.Baseline.Summary.Center) - 1) * 100
+						tv.Domain.MaxDelta = math.Max(tv.Domain.MaxDelta, math.Abs(cv.DeltaPct))
+						rv.MaxDelta = math.Max(rv.MaxDelta, math.Abs(cv.DeltaPct))
+					}
+					cv.Change = comparisonChange(table.Opts.Units.GetBetter(table.Unit), cell.Comparison, cv.DeltaPct, cv.Delta)
+					tv.Compared++
+					view.Compared++
+					switch cv.Change {
+					case 1:
+						tv.Improved++
+						view.Improved++
+					case -1:
+						tv.Regressed++
+						view.Regressed++
+					default:
+						tv.Unchanged++
+						view.Unchanged++
+					}
+					if math.Abs(cv.DeltaPct) >= rowBetter {
+						rowBetter = math.Abs(cv.DeltaPct)
+						rv.Change = cv.Change
+					}
+					if cv.Change == 1 && (!bestWin.Valid || math.Abs(cv.DeltaPct) > bestWin.Value) {
+						bestWin = rowHighlight{
+							Valid:     true,
+							Metric:    table.Unit,
+							Benchmark: rv.Name,
+							Config:    tv.Configs[i],
+							Detail:    formatDeltaPercent(cv.DeltaPct),
+							Value:     math.Abs(cv.DeltaPct),
+							Change:    1,
+						}
+					}
+					if cv.Change == -1 && (!bestLoss.Valid || math.Abs(cv.DeltaPct) > bestLoss.Value) {
+						bestLoss = rowHighlight{
+							Valid:     true,
+							Metric:    table.Unit,
+							Benchmark: rv.Name,
+							Config:    tv.Configs[i],
+							Detail:    formatDeltaPercent(cv.DeltaPct),
+							Value:     math.Abs(cv.DeltaPct),
+							Change:    -1,
+						}
+					}
+				}
+				rv.Cells[i] = cv
 			}
-			if !table.OldNewDelta {
-				rv.Delta = ""
-				rv.Note = ""
-			} else {
-				tv.Domain.MaxDelta = math.Max(tv.Domain.MaxDelta, math.Abs(row.PctDelta))
-			}
+			rv.Warning = strings.Join(uniqueStrings(rowWarningParts), " • ")
 			tv.Rows = append(tv.Rows, rv)
 			view.Rows++
-			if table.OldNewDelta {
-				view.Compared++
-				tv.Compared++
-				switch rv.Change {
-				case 1:
-					view.Improved++
-					tv.Improved++
-				case -1:
-					view.Regressed++
-					tv.Regressed++
-				default:
-					view.Unchanged++
-					tv.Unchanged++
-				}
-			}
 			if rv.SpreadPct > 0 && (!noisiest.Valid || rv.SpreadPct > noisiest.Value) {
 				noisiest = rowHighlight{
 					Valid:     true,
-					Metric:    table.Metric,
+					Metric:    table.Unit,
 					Benchmark: rv.Name,
 					Detail:    fmt.Sprintf("%s spread", formatPercent(rv.SpreadPct)),
 					Value:     rv.SpreadPct,
 				}
 			}
-			if table.OldNewDelta && rv.Change == 1 && (!bestWin.Valid || math.Abs(rv.PctDelta) > bestWin.Value) {
-				bestWin = rowHighlight{
-					Valid:     true,
-					Metric:    table.Metric,
-					Benchmark: rv.Name,
-					Detail:    formatDeltaPercent(rv.PctDelta),
-					Value:     math.Abs(rv.PctDelta),
-					Change:    1,
+		}
+		summaryScale := summaryScaler(table)
+		for i, col := range table.Cols {
+			summary := table.Summary[col]
+			if summary == nil {
+				continue
+			}
+			cell := summaryCellView{
+				Warning: joinWarnings(summary.Warnings),
+			}
+			if summary.HasSummary {
+				cell.HasValue = true
+				cell.Value = summaryScale.Format(summary.Summary)
+			}
+			if i > 0 && summary.HasRatio {
+				cell.HasDelta = true
+				cell.Delta = fmt.Sprintf("%+.2f%%", (summary.Ratio-1)*100)
+			}
+			if cell.Warning != "" {
+				tv.WarningCount++
+				if tv.WarningPreview == "" {
+					tv.WarningPreview = cell.Warning
 				}
 			}
-			if table.OldNewDelta && rv.Change == -1 && (!bestLoss.Valid || math.Abs(rv.PctDelta) > bestLoss.Value) {
-				bestLoss = rowHighlight{
-					Valid:     true,
-					Metric:    table.Metric,
-					Benchmark: rv.Name,
-					Detail:    formatDeltaPercent(rv.PctDelta),
-					Value:     math.Abs(rv.PctDelta),
-					Change:    -1,
-				}
-			}
+			tv.Summary.Cells[i] = cell
 		}
 		if len(tv.Rows) > 0 {
 			sortTableRows(&tv)
@@ -392,7 +582,13 @@ func benchDashboardTab(
 	streamSummary *swiftui.StringState,
 	showSummaryCards, showChangeBar, showHighlights, showAbsolute, showDelta, showRows, showInsights, compactRows, rowLimit *swiftui.IntState,
 	showDisplayControls *swiftui.IntState,
+	optionError *swiftui.StringState,
+	filterQuery, tableProjection, rowProjection, colProjection, ignoreProjection, alphaInput, confidenceInput *swiftui.StringState,
+	formatMode *swiftui.IntState,
 	onChange func(),
+	onReload func(),
+	onApplyOptions func(),
+	onResetOptions func(),
 ) swiftui.View {
 	content := swiftui.ScrollView(
 		swiftui.VStackSpaced(14,
@@ -403,7 +599,13 @@ func benchDashboardTab(
 							Font(swiftui.FontTitle).
 							FontWeight(swiftui.WeightBold),
 						swiftui.Spacer(),
-						swiftui.Button("Display", func() {
+						swiftui.Button("Reload", func() {
+							onReload()
+						}).
+							Padding(8).
+							Background(1, 1, 1, 0.06).
+							CornerRadius(999),
+						swiftui.Button("Options", func() {
 							if showDisplayControls.Get() == 0 {
 								showDisplayControls.Set(1)
 							} else {
@@ -413,12 +615,6 @@ func benchDashboardTab(
 							Padding(8).
 							Background(1, 1, 1, 0.06).
 							CornerRadius(999),
-					),
-					swiftui.HStack(
-						swiftui.Text("Benchstat review across files and optional live stdin.").
-							Font(swiftui.FontCaption).
-							ForegroundStyleNamed("secondary"),
-						swiftui.Spacer(),
 					),
 				).MaxFrame(-1, 0),
 			),
@@ -441,8 +637,17 @@ func benchDashboardTab(
 			}),
 		).Padding(20),
 	)
-	return content.Popover(showDisplayControls, displaySettingsPopover(
+	return content.Popover(showDisplayControls, optionsPopover(
 		updateTick,
+		optionError,
+		filterQuery,
+		tableProjection,
+		rowProjection,
+		colProjection,
+		ignoreProjection,
+		alphaInput,
+		confidenceInput,
+		formatMode,
 		showSummaryCards,
 		showChangeBar,
 		showHighlights,
@@ -452,6 +657,8 @@ func benchDashboardTab(
 		showInsights,
 		compactRows,
 		rowLimit,
+		onApplyOptions,
+		onResetOptions,
 		onChange,
 	))
 }
@@ -461,7 +668,13 @@ func renderDashboard(view comparisonView, prefs displayPrefs) swiftui.View {
 	if prefs.ShowSummaryCards || prefs.ShowChangeBar || prefs.ShowHighlights {
 		sections = append(sections, overviewStrip(view, prefs))
 	}
-	sections = append(sections, renderTables(view, prefs))
+	if view.Error != "" {
+		sections = append(sections, errorPanel(view.Error))
+	} else if view.Options.Format == formatDashboard {
+		sections = append(sections, renderTables(view, prefs))
+	} else {
+		sections = append(sections, previewPanel(view))
+	}
 	return swiftui.VStackSpaced(12, sections...)
 }
 
@@ -485,6 +698,7 @@ func overviewStrip(view comparisonView, prefs displayPrefs) swiftui.View {
 	if len(tokens) > 0 {
 		lines = append(lines, swiftui.HStackSpaced(8, append(tokens, swiftui.Spacer())...))
 	}
+	lines = append(lines, analysisOptionStrip(view.Options, len(view.Warnings)))
 	lines = append(lines,
 		swiftui.HStack(
 			swiftui.Text(modeSummary(view)).
@@ -497,7 +711,7 @@ func overviewStrip(view comparisonView, prefs displayPrefs) swiftui.View {
 		if view.Compared == 0 {
 			lines = append(lines,
 				swiftui.HStack(
-					swiftui.Text("Deltas appear when benchstat can compare exactly two populated inputs.").
+					swiftui.Text("Deltas appear when benchstat can compare populated columns against the first baseline column.").
 						Font(swiftui.FontCaption2).
 						ForegroundStyleNamed("tertiary"),
 					swiftui.Spacer(),
@@ -535,23 +749,45 @@ func metaStrip(
 			tokens = append(tokens, compactStat("live", fmt.Sprintf("%d", liveCount.Get()), 0.95, 0.6, 0.2))
 		}
 		tokens = append(tokens, compactStat("status", status.Get(), 0.35, 0.65, 1.0))
-		return swiftui.VStackSpaced(5,
-			swiftui.HStackSpaced(8, append(tokens, swiftui.Spacer())...),
-			swiftui.HStack(
+		return swiftui.HStackSpaced(8,
+			append(tokens,
 				swiftui.Text(sourceSummary.Get()).
 					Font(swiftui.FontCaption).
 					ForegroundStyleNamed("secondary").
-					LineLimit(1),
+					LineLimit(1).
+					AsView(),
 				swiftui.Spacer(),
 				swiftui.Text(streamSummary.Get()).
 					Font(swiftui.FontCaption2).
 					ForegroundStyleNamed("tertiary").
-					LineLimit(1),
-			),
-		).Padding(10).
+					LineLimit(1).
+					AsView(),
+			)...,
+		).Padding(8).
 			Background(1, 1, 1, 0.03).
 			CornerRadius(10)
 	})
+}
+
+func analysisOptionStrip(opts analysisOptions, warnings int) swiftui.View {
+	tokens := []swiftui.Viewable{
+		compactStat("filter", opts.Filter, 0.42, 0.58, 0.94),
+		compactStat("table", opts.Table, 0.62, 0.62, 0.82),
+		compactStat("row", opts.Row, 0.62, 0.62, 0.82),
+		compactStat("col", opts.Col, 0.62, 0.62, 0.82),
+		compactStat("α", trimFloat(opts.Alpha), 0.35, 0.65, 1.0),
+		compactStat("ci", formatConfidence(opts.Confidence), 0.35, 0.65, 1.0),
+	}
+	if opts.Ignore != "" {
+		tokens = append(tokens, compactStat("ignore", opts.Ignore, 0.62, 0.62, 0.82))
+	}
+	if opts.Format != formatDashboard {
+		tokens = append(tokens, compactStat("view", strings.ToUpper(opts.Format), 0.95, 0.6, 0.2))
+	}
+	if warnings > 0 {
+		tokens = append(tokens, compactStat("warnings", fmt.Sprintf("%d", warnings), 0.9, 0.5, 0.2))
+	}
+	return swiftui.HStackSpaced(8, append(tokens, swiftui.Spacer())...)
 }
 
 func summaryStrip(view comparisonView) swiftui.View {
@@ -602,7 +838,7 @@ func changeOverview(view comparisonView) swiftui.View {
 	if view.Compared == 0 {
 		return swiftui.GroupBox("Change",
 			swiftui.VStackSpaced(6,
-				swiftui.Text("Comparison deltas appear when benchstat has exactly two populated inputs for a metric.").
+				swiftui.Text("Comparison deltas appear when benchstat has populated columns beyond the baseline.").
 					Font(swiftui.FontCaption).
 					ForegroundStyleNamed("secondary"),
 			).Padding(10),
@@ -688,15 +924,18 @@ func renderTables(view comparisonView, prefs displayPrefs) swiftui.View {
 			)
 		}
 		if prefs.ShowRows {
-			rows = append(rows, swiftui.Divider())
 			rows = append(rows, comparisonHeaderRow(displayTable))
 			for _, row := range displayTable.Rows {
 				rows = append(rows, swiftui.Divider())
 				rows = append(rows, comparisonRow(displayTable, row, prefs))
 			}
+			if displayTable.Summary.Label != "" && len(displayTable.Summary.Cells) > 0 {
+				rows = append(rows, swiftui.Divider())
+				rows = append(rows, summaryRow(displayTable))
+			}
 		}
-		groups = append(groups, swiftui.GroupBox(displayTable.Metric,
-			swiftui.VStackSpaced(8, rows...).Padding(12),
+		groups = append(groups, swiftui.GroupBox(tableGroupTitle(displayTable),
+			swiftui.VStackSpaced(6, rows...).Padding(10),
 		).MaxFrame(-1, 0))
 	}
 	return swiftui.VStackSpaced(12, groups...)
@@ -709,40 +948,38 @@ func metricSummary(table tableView, prefs displayPrefs) swiftui.View {
 				Font(swiftui.FontCallout).
 				FontWeight(swiftui.WeightSemibold),
 			swiftui.Spacer(),
+			configChipRow(table.Configs),
 		),
-		configChipRow(table.Configs),
+		swiftui.HStack(
+			swiftui.Text(metricSubtitle(table)).
+				Font(swiftui.FontCaption2).
+				ForegroundStyleNamed("secondary").
+				LineLimit(1),
+			swiftui.Spacer(),
+		),
 	}
 	if prefs.ShowInsights {
 		views = append(views,
 			swiftui.HStack(
 				swiftui.Text(table.Insight).
 					Font(swiftui.FontCaption).
-					ForegroundStyleNamed("secondary"),
+					ForegroundStyleNamed("secondary").
+					LineLimit(1),
 				swiftui.Spacer(),
 			),
 		)
 	}
-	if prefs.ShowAbsolute {
+	if prefs.ShowAbsolute && shouldShowCharts(table) {
 		if chart := benchmarkMetricChart(table); chart.Pointer() != 0 {
 			views = append(views, chart)
 		}
 	}
-	if prefs.ShowDelta {
+	if prefs.ShowDelta && shouldShowCharts(table) {
 		if chart := benchmarkDeltaChart(table); chart.Pointer() != 0 {
 			views = append(views, chart)
 		}
 	}
-	if table.OldNewDelta && prefs.ShowChangeBar {
-		views = append(views,
-			stackedChangeBar(table.Improved, table.Regressed, table.Unchanged, 260),
-			swiftui.HStackSpaced(10,
-				changeCountPill("Wins", table.Improved, 0.3, 0.8, 0.4),
-				changeCountPill("Losses", table.Regressed, 0.9, 0.5, 0.2),
-				changeCountPill("Flat", table.Unchanged, 0.58, 0.62, 0.82),
-			),
-		)
-	}
-	return swiftui.VStackSpaced(8, views...)
+	return swiftui.VStackSpaced(5, views...)
 }
 
 func comparisonHeaderRow(table tableView) swiftui.View {
@@ -750,10 +987,6 @@ func comparisonHeaderRow(table tableView) swiftui.View {
 	width := valueColumnWidth(len(table.Configs))
 	for _, config := range table.Configs {
 		views = append(views, headerText(config, width))
-	}
-	if table.OldNewDelta {
-		views = append(views, headerText("Delta", 90))
-		views = append(views, headerText("Note", 110))
 	}
 	return swiftui.HStackSpaced(12, views...)
 }
@@ -764,34 +997,12 @@ func comparisonRow(table tableView, row rowView, prefs displayPrefs) swiftui.Vie
 		benchmarkCell(table, row, prefs),
 	}
 	width := valueColumnWidth(len(table.Configs))
-	for _, value := range row.Values {
-		views = append(views, monoText(value, width))
-	}
-	if table.OldNewDelta {
-		delta := row.Delta
-		if delta == "" {
-			delta = "n/a"
-		}
-		note := row.Note
-		if note == "" {
-			note = " "
-		}
-		views = append(views,
-			swiftui.Text(delta).
-				Font(swiftui.FontCaption).
-				FontWeight(swiftui.WeightSemibold).
-				MonospacedDigit().
-				ForegroundStyle(r, g, b, 1.0).
-				Frame(90, 0),
-			swiftui.Text(note).
-				Font(swiftui.FontCaption).
-				ForegroundStyleNamed("secondary").
-				Frame(110, 0),
-		)
+	for _, cell := range row.Cells {
+		views = append(views, metricCellView(cell, width))
 	}
 	padding := 10.0
 	if prefs.CompactRows {
-		padding = 6
+		padding = 5
 	}
 	return swiftui.HStackSpaced(12, views...).
 		Padding(padding).
@@ -799,20 +1010,78 @@ func comparisonRow(table tableView, row rowView, prefs displayPrefs) swiftui.Vie
 		CornerRadius(10)
 }
 
-func displaySettingsPopover(
+func summaryRow(table tableView) swiftui.View {
+	views := []swiftui.Viewable{
+		swiftui.Text(table.Summary.Label).
+			Font(swiftui.FontCaption).
+			FontWeight(swiftui.WeightSemibold).
+			ForegroundStyleNamed("secondary").
+			MaxFrame(-1, 0),
+	}
+	width := valueColumnWidth(len(table.Configs))
+	for _, cell := range table.Summary.Cells {
+		views = append(views, summaryCellViewBox(cell, width))
+	}
+	return swiftui.HStackSpaced(12, views...).
+		Padding(8).
+		Background(1, 1, 1, 0.03).
+		CornerRadius(10)
+}
+
+func optionsPopover(
 	updateTick *swiftui.IntState,
-	showSummaryCards, showChangeBar, showHighlights, showAbsolute, showDelta, showRows, showInsights, compactRows, rowLimit *swiftui.IntState,
+	optionError, filterQuery, tableProjection, rowProjection, colProjection, ignoreProjection, alphaInput, confidenceInput *swiftui.StringState,
+	formatMode, showSummaryCards, showChangeBar, showHighlights, showAbsolute, showDelta, showRows, showInsights, compactRows, rowLimit *swiftui.IntState,
+	onApplyOptions func(),
+	onResetOptions func(),
 	onChange func(),
 ) swiftui.View {
 	return swiftui.ScrollView(
 		swiftui.VStackSpaced(10,
 			swiftui.HStack(
-				swiftui.Text("Display").
+				swiftui.Text("Benchstat").
 					Font(swiftui.FontHeadline).
 					FontWeight(swiftui.WeightSemibold),
 				swiftui.Spacer(),
 			),
-			swiftui.GroupBox("Sections",
+			swiftui.GroupBox("Analysis",
+				swiftui.VStackSpaced(8,
+					labeledField("Filter", filterQuery),
+					labeledField("Table", tableProjection),
+					labeledField("Row", rowProjection),
+					labeledField("Col", colProjection),
+					labeledField("Ignore", ignoreProjection),
+					labeledField("Alpha", alphaInput),
+					labeledField("Confidence", confidenceInput),
+					swiftui.PickerSegmented("View", formatMode, segmentedOptions("Dashboard", "Text", "CSV"), func() {}).
+						MaxFrame(-1, 0),
+					swiftui.HStackSpaced(8,
+						swiftui.Button("Apply", onApplyOptions).
+							Padding(8).
+							Background(0.35, 0.65, 1.0, 0.18).
+							CornerRadius(999),
+						swiftui.Button("Defaults", onResetOptions).
+							Padding(8).
+							Background(1, 1, 1, 0.06).
+							CornerRadius(999),
+						swiftui.Spacer(),
+					),
+					swiftui.DynamicView(updateTick, func(_ int) swiftui.View {
+						message := optionError.Get()
+						if message == "" {
+							return swiftui.Text("Defaults mirror benchstat: .config / .fullname / .file / * / α 0.05 / CI 95%.").
+								Font(swiftui.FontCaption2).
+								ForegroundStyleNamed("secondary").
+								AsView()
+						}
+						return swiftui.Text(message).
+							Font(swiftui.FontCaption2).
+							ForegroundStyle(0.9, 0.5, 0.2, 1.0).
+							AsView()
+					}),
+				).Padding(10),
+			),
+			swiftui.GroupBox("Layout",
 				swiftui.VStackSpaced(6,
 					swiftui.Toggle("Summary", showSummaryCards, onChange),
 					swiftui.Toggle("Change", showChangeBar, onChange),
@@ -843,6 +1112,7 @@ func displaySettingsPopover(
 						rowLimit,
 					)
 					return swiftui.VStackSpaced(6,
+						settingsLine("View", []string{"Dashboard", "Text", "CSV"}[clampIndex(formatMode.Get(), 3)]),
 						settingsLine("Summary", onOffLabel(prefs.ShowSummaryCards)),
 						settingsLine("Change", onOffLabel(prefs.ShowChangeBar)),
 						settingsLine("Highlights", onOffLabel(prefs.ShowHighlights)),
@@ -855,6 +1125,19 @@ func displaySettingsPopover(
 				}),
 			),
 		).Padding(14),
+	)
+}
+
+func labeledField(label string, state *swiftui.StringState) swiftui.View {
+	return swiftui.VStackSpaced(4,
+		swiftui.HStack(
+			swiftui.Text(label).
+				Font(swiftui.FontCaption).
+				ForegroundStyleNamed("secondary"),
+			swiftui.Spacer(),
+		),
+		swiftui.TextField(label, state, func() {}).
+			MaxFrame(-1, 0),
 	)
 }
 
@@ -900,19 +1183,25 @@ func compactStat(label, value string, r, g, b float64) swiftui.View {
 
 func highlightLine(highlight highlightView) swiftui.View {
 	r, g, b := changeColor(highlight.Change)
+	label, detail := benchmarkLabelParts(highlight.Benchmark)
+	if detail == "" {
+		detail = highlight.Metric
+	} else {
+		detail = detail + " • " + highlight.Metric
+	}
 	return swiftui.HStackSpaced(8,
 		swiftui.Text(highlight.Title).
 			Font(swiftui.FontCaption2).
 			FontWeight(swiftui.WeightSemibold).
 			ForegroundStyle(r, g, b, 1.0),
-		swiftui.Text(highlight.Benchmark).
+		swiftui.Text(label).
 			Font(swiftui.FontCaption).
 			FontWeight(swiftui.WeightSemibold).
 			LineLimit(1),
 		swiftui.Text(highlight.Detail).
 			Font(swiftui.FontCaption).
 			MonospacedDigit(),
-		swiftui.Text(highlight.Metric).
+		swiftui.Text(detail).
 			Font(swiftui.FontCaption2).
 			ForegroundStyleNamed("secondary").
 			LineLimit(1),
@@ -1031,7 +1320,7 @@ func changeColor(change int) (float64, float64, float64) {
 }
 
 func rowTint(table tableView, row rowView) float64 {
-	if !table.OldNewDelta {
+	if !table.HasComparisons {
 		return 0.03
 	}
 	switch row.Change {
@@ -1060,18 +1349,19 @@ func benchmarkMetricChart(table tableView) swiftui.View {
 		symbols = append(symbols, swcharts.SymbolScale(config, chartSymbol(i)))
 	}
 	for _, row := range table.Rows {
-		benchmarkOrder = append(benchmarkOrder, row.Name)
+		label := chartRowLabel(row.Name)
+		benchmarkOrder = append(benchmarkOrder, label)
 		for i, config := range table.Configs {
-			if i >= len(row.Stats) || !row.Stats[i].OK {
+			if i >= len(row.Cells) || !row.Cells[i].HasValue || !row.Cells[i].Stat.OK {
 				continue
 			}
-			stat := row.Stats[i]
+			stat := row.Cells[i].Stat
 			hasData = true
 			maxValue = math.Max(maxValue, stat.Max)
 			marks = append(marks,
 				swcharts.ErrorBarMark(
 					swcharts.XFloatRange("Spread", stat.Min, stat.Max),
-					swcharts.YString("Benchmark", row.Name),
+					swcharts.YString("Benchmark", label),
 					swcharts.HeightFixed(10),
 				).
 					PositionBy("Input", config).
@@ -1081,7 +1371,7 @@ func benchmarkMetricChart(table tableView) swiftui.View {
 					AccessibilityHidden(true),
 				swcharts.PointMark(
 					swcharts.XFloat("Mean", stat.Mean),
-					swcharts.YString("Benchmark", row.Name),
+					swcharts.YString("Benchmark", label),
 				).
 					PositionBy("Input", config).
 					ForegroundStyleBy("Input", config).
@@ -1090,7 +1380,7 @@ func benchmarkMetricChart(table tableView) swiftui.View {
 					SymbolStroke(swiftui.RGBA(0.12, 0.12, 0.14, 0.9), 1).
 					Opacity(0.95).
 					AccessibilityLabel(fmt.Sprintf("%s %s", row.Name, config)).
-					AccessibilityValue(row.Values[i]),
+					AccessibilityValue(row.Cells[i].Value),
 			)
 		}
 	}
@@ -1128,6 +1418,9 @@ func benchmarkMetricChart(table tableView) swiftui.View {
 			swcharts.PlotBackgroundColor(swiftui.RGBA(1, 1, 1, 0.03)),
 			swcharts.PlotBorder(swiftui.RGBA(1, 1, 1, 0.08), 1),
 		)
+	if chart.Pointer() == 0 {
+		return swiftui.ViewFromPointer(0)
+	}
 	return chart.Frame(-1, height)
 }
 
@@ -1141,15 +1434,16 @@ func benchmarkSingleInputChart(table tableView) swiftui.View {
 		maxValue = 1
 	}
 	for i, row := range table.Rows {
-		benchmarkOrder = append(benchmarkOrder, row.Name)
-		if len(row.Stats) == 0 || !row.Stats[0].OK {
+		label := chartRowLabel(row.Name)
+		benchmarkOrder = append(benchmarkOrder, label)
+		if len(row.Cells) == 0 || !row.Cells[0].HasValue || !row.Cells[0].Stat.OK {
 			continue
 		}
-		stat := row.Stats[0]
+		stat := row.Cells[0].Stat
 		marks = append(marks,
 			swcharts.ErrorBarMark(
 				swcharts.XFloatRange("Spread", stat.Min, stat.Max),
-				swcharts.YString("Benchmark", row.Name),
+				swcharts.YString("Benchmark", label),
 				swcharts.HeightFixed(10),
 			).
 				ForegroundStyle(color).
@@ -1158,15 +1452,15 @@ func benchmarkSingleInputChart(table tableView) swiftui.View {
 		)
 		point := swcharts.PointMark(
 			swcharts.XFloat("Mean", stat.Mean),
-			swcharts.YString("Benchmark", row.Name),
+			swcharts.YString("Benchmark", label),
 		).
 			ForegroundStyle(color).
 			Symbol(swcharts.SymbolCircle).
 			SymbolDiameter(10).
 			AccessibilityLabel(fmt.Sprintf("%s %s", row.Name, config)).
-			AccessibilityValue(row.Values[0])
+			AccessibilityValue(row.Cells[0].Value)
 		if shouldAnnotateSingleInput(table, i) {
-			point = point.TextAnnotation(row.Values[0], swcharts.AnnotationTrailing).
+			point = point.TextAnnotation(row.Cells[0].Value, swcharts.AnnotationTrailing).
 				AnnotationOffset(8, 0).
 				AnnotationOverflow(swcharts.AnnotationOverflowFitPlot, swcharts.AnnotationOverflowFitPlot)
 		}
@@ -1179,7 +1473,7 @@ func benchmarkSingleInputChart(table tableView) swiftui.View {
 	if height > 320 {
 		height = 320
 	}
-	return swcharts.Chart(marks...).
+	chart := swcharts.Chart(marks...).
 		ChartLegend(swcharts.LegendHidden).
 		ChartXScaleDomain(swcharts.NumberDomain(0, maxValue*1.08)).
 		ChartYScaleDomain(swcharts.CategoryDomain(benchmarkOrder...)).
@@ -1194,46 +1488,60 @@ func benchmarkSingleInputChart(table tableView) swiftui.View {
 		ChartPlotStyle(
 			swcharts.PlotBackgroundColor(swiftui.RGBA(1, 1, 1, 0.03)),
 			swcharts.PlotBorder(swiftui.RGBA(1, 1, 1, 0.08), 1),
-		).
-		Frame(-1, height)
+		)
+	if chart.Pointer() == 0 {
+		return swiftui.ViewFromPointer(0)
+	}
+	return chart.Frame(-1, height)
 }
 
 func benchmarkDeltaChart(table tableView) swiftui.View {
-	if !table.OldNewDelta || len(table.Rows) == 0 {
+	if !table.HasComparisons || len(table.Rows) == 0 {
 		return swiftui.ViewFromPointer(0)
 	}
-	marks := make([]swcharts.Mark, 0, len(table.Rows)+1)
+	marks := make([]swcharts.Mark, 0, len(table.Rows)*len(table.Configs))
+	styles := make([]swcharts.StyleScaleEntry, 0, max(0, len(table.Configs)-1))
 	benchmarkOrder := make([]string, 0, len(table.Rows))
 	maxAbs := 0.0
+	for i := 1; i < len(table.Configs); i++ {
+		styles = append(styles, swcharts.StyleScale(table.Configs[i], chartColor(i)))
+	}
 	for _, row := range table.Rows {
-		benchmarkOrder = append(benchmarkOrder, row.Name)
-		value := row.PctDelta
-		maxAbs = math.Max(maxAbs, math.Abs(value))
-		start, end := 0.0, value
-		if value < 0 {
-			start, end = value, 0
-		}
-		mark := swcharts.RangeBarMark(
-			swcharts.XFloatRange("Delta", start, end),
-			swcharts.YString("Benchmark", row.Name),
-		).
-			ForegroundStyle(deltaChartColor(row.Change)).
-			Opacity(0.92).
-			CornerRadius(5).
-			AccessibilityLabel(fmt.Sprintf("%s delta", row.Name)).
-			AccessibilityValue(formatDeltaPercent(row.PctDelta))
-		if shouldAnnotateDelta(table, row) {
-			position := swcharts.AnnotationTrailing
-			offset := 8.0
-			if row.PctDelta < 0 {
-				position = swcharts.AnnotationLeading
-				offset = -8
+		label := chartRowLabel(row.Name)
+		benchmarkOrder = append(benchmarkOrder, label)
+		for i := 1; i < len(row.Cells); i++ {
+			cell := row.Cells[i]
+			if !cell.HasDelta {
+				continue
 			}
-			mark = mark.TextAnnotation(formatDeltaPercent(row.PctDelta), position).
-				AnnotationOffset(offset, 0).
-				AnnotationOverflow(swcharts.AnnotationOverflowFitPlot, swcharts.AnnotationOverflowFitPlot)
+			maxAbs = math.Max(maxAbs, math.Abs(cell.DeltaPct))
+			start, end := 0.0, cell.DeltaPct
+			if cell.DeltaPct < 0 {
+				start, end = cell.DeltaPct, 0
+			}
+			mark := swcharts.RangeBarMark(
+				swcharts.XFloatRange("Delta", start, end),
+				swcharts.YString("Benchmark", label),
+			).
+				PositionBy("Input", table.Configs[i]).
+				ForegroundStyleBy("Input", table.Configs[i]).
+				Opacity(0.9).
+				CornerRadius(5).
+				AccessibilityLabel(fmt.Sprintf("%s %s delta", row.Name, table.Configs[i])).
+				AccessibilityValue(formatDeltaPercent(cell.DeltaPct))
+			if shouldAnnotateDelta(table, cell) {
+				position := swcharts.AnnotationTrailing
+				offset := 8.0
+				if cell.DeltaPct < 0 {
+					position = swcharts.AnnotationLeading
+					offset = -8
+				}
+				mark = mark.TextAnnotation(formatDeltaPercent(cell.DeltaPct), position).
+					AnnotationOffset(offset, 0).
+					AnnotationOverflow(swcharts.AnnotationOverflowFitPlot, swcharts.AnnotationOverflowFitPlot)
+			}
+			marks = append(marks, mark)
 		}
-		marks = append(marks, mark)
 	}
 	if table.Domain.MaxDelta > maxAbs {
 		maxAbs = table.Domain.MaxDelta
@@ -1254,6 +1562,26 @@ func benchmarkDeltaChart(table tableView) swiftui.View {
 	if height > 300 {
 		height = 300
 	}
+	chart := swcharts.Chart(marks...).
+		ChartForegroundStyleScale(styles...).
+		ChartLegend(metricLegend(table)).
+		ChartXScaleDomain(swcharts.NumberDomain(-maxAbs*1.15, maxAbs*1.15)).
+		ChartYScaleDomain(swcharts.CategoryDomain(benchmarkOrder...)).
+		ChartXAxis(swcharts.AxisMarks(
+			swcharts.AxisGridLines(),
+			swcharts.AxisValueLabels(swcharts.PercentFormat(0)),
+		)).
+		ChartYAxis(swcharts.AxisMarks(
+			swcharts.AxisLabels(),
+		)).
+		ChartXAxisLabel("delta %").
+		ChartPlotStyle(
+			swcharts.PlotBackgroundColor(swiftui.RGBA(1, 1, 1, 0.02)),
+			swcharts.PlotBorder(swiftui.RGBA(1, 1, 1, 0.08), 1),
+		)
+	if chart.Pointer() == 0 {
+		return swiftui.ViewFromPointer(0)
+	}
 	return swiftui.VStackSpaced(6,
 		swiftui.HStack(
 			swiftui.Text("Delta vs baseline").
@@ -1262,38 +1590,22 @@ func benchmarkDeltaChart(table tableView) swiftui.View {
 				ForegroundStyleNamed("secondary"),
 			swiftui.Spacer(),
 		),
-		swcharts.Chart(marks...).
-			ChartLegend(swcharts.LegendHidden).
-			ChartXScaleDomain(swcharts.NumberDomain(-maxAbs*1.15, maxAbs*1.15)).
-			ChartYScaleDomain(swcharts.CategoryDomain(benchmarkOrder...)).
-			ChartXAxis(swcharts.AxisMarks(
-				swcharts.AxisGridLines(),
-				swcharts.AxisValueLabels(swcharts.PercentFormat(0)),
-			)).
-			ChartYAxis(swcharts.AxisMarks(
-				swcharts.AxisLabels(),
-			)).
-			ChartXAxisLabel("delta %").
-			ChartPlotStyle(
-				swcharts.PlotBackgroundColor(swiftui.RGBA(1, 1, 1, 0.02)),
-				swcharts.PlotBorder(swiftui.RGBA(1, 1, 1, 0.08), 1),
-			).
-			Frame(-1, height),
+		chart.Frame(-1, height),
 	)
 }
 
 func metricSummaryTitle(table tableView) string {
 	if len(table.Configs) == 1 {
-		return fmt.Sprintf("%d rows with spread and mean", len(table.Rows))
+		return fmt.Sprintf("%d rows with %s and confidence interval", len(table.Rows), table.SummaryLabel)
 	}
-	if !table.OldNewDelta {
+	if !table.HasComparisons {
 		return fmt.Sprintf("%d inputs compared side by side", len(table.Configs))
 	}
-	return fmt.Sprintf("%d comparable rows across %d inputs", table.Compared, len(table.Configs))
+	return fmt.Sprintf("%d comparisons against baseline across %d inputs", table.Compared, len(table.Configs))
 }
 
 func metricInsight(table tableView) string {
-	if table.OldNewDelta {
+	if table.HasComparisons {
 		parts := []string{
 			fmt.Sprintf("%d wins", table.Improved),
 			fmt.Sprintf("%d losses", table.Regressed),
@@ -1306,6 +1618,9 @@ func metricInsight(table tableView) string {
 		}
 		if widest := tableWidestSpread(table); widest.Valid {
 			parts = append(parts, fmt.Sprintf("widest spread %s %s", widest.Benchmark, widest.Detail))
+		}
+		if table.WarningCount > 0 {
+			parts = append(parts, fmt.Sprintf("%d warnings", table.WarningCount))
 		}
 		return strings.Join(parts, " • ")
 	}
@@ -1339,46 +1654,41 @@ func chartSymbol(i int) swcharts.SymbolKind {
 	return symbols[i%len(symbols)]
 }
 
-func deltaChartColor(change int) swiftui.Color {
-	switch change {
-	case 1:
-		return swiftui.RGB(0.3, 0.8, 0.4)
-	case -1:
-		return swiftui.RGB(0.9, 0.5, 0.2)
-	default:
-		return swiftui.RGB(0.62, 0.66, 0.82)
-	}
-}
-
 func benchmarkCell(table tableView, row rowView, prefs displayPrefs) swiftui.View {
-	title := swiftui.VStackSpaced(3,
-		swiftui.HStack(
-			swiftui.Text(row.Name).
-				Font(swiftui.FontCallout).
-				FontWeight(swiftui.WeightSemibold).
-				LineLimit(1),
-			swiftui.Spacer(),
-		),
+	titleLabel, detailLabel := benchmarkLabelParts(row.Name)
+	title := swiftui.HStack(
+		swiftui.Text(titleLabel).
+			Font(swiftui.FontCaption).
+			FontWeight(swiftui.WeightSemibold).
+			LineLimit(1),
+		swiftui.Spacer(),
 	)
-	if row.SpreadPct > 0 && !prefs.CompactRows {
-		title = swiftui.VStackSpaced(3,
-			swiftui.HStack(
-				swiftui.Text(row.Name).
-					Font(swiftui.FontCallout).
-					FontWeight(swiftui.WeightSemibold).
-					LineLimit(1),
-				swiftui.Spacer(),
-			),
-			swiftui.HStack(
-				swiftui.Text(fmt.Sprintf("spread %s", formatPercent(row.SpreadPct))).
-					Font(swiftui.FontCaption2).
-					ForegroundStyleNamed("secondary"),
-				swiftui.Spacer(),
-			),
-		)
+	if !prefs.CompactRows {
+		parts := make([]string, 0, 3)
+		if detailLabel != "" {
+			parts = append(parts, detailLabel)
+		}
+		if row.SpreadPct > 0 {
+			parts = append(parts, fmt.Sprintf("%s spread", formatPercent(row.SpreadPct)))
+		}
+		if row.Warning != "" {
+			parts = append(parts, row.Warning)
+		}
+		if len(parts) > 0 {
+			title = swiftui.VStackSpaced(2,
+				title,
+				swiftui.HStack(
+					swiftui.Text(strings.Join(parts, " • ")).
+						Font(swiftui.FontCaption2).
+						ForegroundStyleNamed("secondary").
+						LineLimit(1),
+					swiftui.Spacer(),
+				),
+			)
+		}
 	}
 	views := []swiftui.Viewable{title.MaxFrame(-1, 0)}
-	if table.OldNewDelta {
+	if table.HasComparisons {
 		views = append(views, outcomePill(row.Change))
 	}
 	return swiftui.HStackSpaced(10, views...).MaxFrame(-1, 0)
@@ -1427,7 +1737,7 @@ func configChipRow(configs []string) swiftui.View {
 	for _, config := range configs {
 		chips = append(chips, configChip(config))
 	}
-	return swiftui.HStackSpaced(8, chips...)
+	return swiftui.HStackSpaced(6, chips...)
 }
 
 func configChip(label string) swiftui.View {
@@ -1440,7 +1750,7 @@ func configChip(label string) swiftui.View {
 			Font(swiftui.FontCaption2).
 			FontWeight(swiftui.WeightSemibold).
 			LineLimit(1),
-	).Padding(6).
+	).Padding(5).
 		Background(r, g, b, 0.18).
 		CornerRadius(999)
 }
@@ -1495,6 +1805,10 @@ func stackedChangeBar(improved, regressed, unchanged int, width float64) swiftui
 
 func highlightCard(highlight highlightView) swiftui.View {
 	r, g, b := changeColor(highlight.Change)
+	detail := highlight.Detail
+	if highlight.Config != "" {
+		detail = highlight.Config + " • " + detail
+	}
 	return swiftui.VStackSpaced(6,
 		swiftui.HStack(
 			swiftui.Text(highlight.Title).
@@ -1517,7 +1831,7 @@ func highlightCard(highlight highlightView) swiftui.View {
 			swiftui.Spacer(),
 		),
 		swiftui.HStack(
-			swiftui.Text(highlight.Detail).
+			swiftui.Text(detail).
 				Font(swiftui.FontCaption2).
 				MonospacedDigit(),
 			swiftui.Spacer(),
@@ -1531,15 +1845,15 @@ func highlightCard(highlight highlightView) swiftui.View {
 func modeSummary(view comparisonView) string {
 	switch view.Mode {
 	case "single":
-		return "Single input: mean and spread only."
+		return "Single input: summary and confidence interval."
 	case "single-live":
 		return fmt.Sprintf("Streaming single input on %s.", view.StreamingLabel)
 	case "compare":
-		return "Two-input compare: spread above, deltas below."
+		return "Two-input compare against the first column baseline."
 	case "stream-compare":
 		return fmt.Sprintf("Streaming comparison on %s.", view.StreamingLabel)
 	default:
-		return "Multi-input side-by-side comparison."
+		return "Multi-input comparison against the first column baseline."
 	}
 }
 
@@ -1579,31 +1893,427 @@ func shouldAnnotateSingleInput(table tableView, index int) bool {
 	return index < 3
 }
 
-func shouldAnnotateDelta(table tableView, row rowView) bool {
-	if row.PctDelta == 0 || table.Domain.MaxDelta == 0 {
+func metricCellView(cell valueCellView, width float64) swiftui.View {
+	if !cell.HasValue {
+		return monoText("n/a", width)
+	}
+	top := []swiftui.Viewable{
+		swiftui.Text(cell.Value).
+			Font(swiftui.FontCaption).
+			FontWeight(swiftui.WeightSemibold).
+			MonospacedDigit().
+			AsView(),
+	}
+	if cell.HasDelta {
+		r, g, b := changeColor(cell.Change)
+		top = append(top,
+			swiftui.Text(cell.Delta).
+				Font(swiftui.FontCaption2).
+				FontWeight(swiftui.WeightSemibold).
+				MonospacedDigit().
+				ForegroundStyle(r, g, b, 1.0).
+				AsView(),
+		)
+	}
+	meta := []string{cell.Range}
+	if cell.HasDelta && cell.Note != "" {
+		meta = append(meta, cell.Note)
+	}
+	if cell.Warning != "" {
+		meta = append(meta, cell.Warning)
+	}
+	return swiftui.VStackSpaced(1,
+		swiftui.HStackSpaced(6, append(top, swiftui.Spacer())...),
+		swiftui.HStack(
+			swiftui.Text(strings.Join(meta, " • ")).
+				Font(swiftui.FontCaption2).
+				ForegroundStyleNamed("secondary").
+				LineLimit(1),
+			swiftui.Spacer(),
+		),
+	).
+		Padding(6).
+		Background(1, 1, 1, 0.025).
+		CornerRadius(6).
+		Frame(width, 0)
+}
+
+func summaryCellViewBox(cell summaryCellView, width float64) swiftui.View {
+	if !cell.HasValue && !cell.HasDelta {
+		return monoText(" ", width)
+	}
+	top := []swiftui.Viewable{}
+	if cell.HasValue {
+		top = append(top,
+			swiftui.Text(cell.Value).
+				Font(swiftui.FontCaption).
+				FontWeight(swiftui.WeightSemibold).
+				MonospacedDigit().
+				AsView(),
+		)
+	}
+	meta := make([]string, 0, 2)
+	if cell.HasDelta {
+		r, g, b := changeColor(changeFromDeltaLabel(cell.Delta))
+		top = append(top,
+			swiftui.Text(cell.Delta).
+				Font(swiftui.FontCaption2).
+				FontWeight(swiftui.WeightSemibold).
+				MonospacedDigit().
+				ForegroundStyle(r, g, b, 1.0).
+				AsView(),
+		)
+	}
+	if cell.Warning != "" {
+		meta = append(meta, cell.Warning)
+	}
+	views := []swiftui.Viewable{
+		swiftui.HStackSpaced(6, append(top, swiftui.Spacer())...),
+	}
+	if len(meta) > 0 {
+		views = append(views,
+			swiftui.HStack(
+				swiftui.Text(strings.Join(meta, " • ")).
+					Font(swiftui.FontCaption2).
+					ForegroundStyleNamed("secondary").
+					LineLimit(1),
+				swiftui.Spacer(),
+			),
+		)
+	}
+	return swiftui.VStackSpaced(1, views...).
+		Padding(6).
+		Background(1, 1, 1, 0.025).
+		CornerRadius(6).
+		Frame(width, 0)
+}
+
+func tableGroupTitle(table tableView) string {
+	if table.Title != "" {
+		return compactTableTitle(table.Title)
+	}
+	return table.Metric
+}
+
+func metricSubtitle(table tableView) string {
+	parts := []string{table.SummaryLabel, table.Metric}
+	if table.WarningCount > 0 {
+		parts = append(parts, fmt.Sprintf("%d warn", table.WarningCount))
+	}
+	return strings.Join(parts, " • ")
+}
+
+func previewPanel(view comparisonView) swiftui.View {
+	title := "Benchstat Preview"
+	if view.Options.Format == formatCSV {
+		title = "CSV Preview"
+	} else if view.Options.Format == formatText {
+		title = "Text Preview"
+	}
+	preview := view.Preview
+	if preview == "" {
+		preview = "No output."
+	}
+	return swiftui.GroupBox(title,
+		swiftui.VStackSpaced(8,
+			swiftui.HStack(
+				swiftui.Text("The preview follows the current benchstat filter and projection settings.").
+					Font(swiftui.FontCaption).
+					ForegroundStyleNamed("secondary"),
+				swiftui.Spacer(),
+			),
+			swiftui.Text(preview).
+				Font(swiftui.FontCaption).
+				LineLimit(0),
+		).Padding(12),
+	).MaxFrame(-1, 0)
+}
+
+func errorPanel(message string) swiftui.View {
+	return swiftui.GroupBox("Analysis Error",
+		swiftui.VStackSpaced(8,
+			swiftui.Text(message).
+				Font(swiftui.FontCallout).
+				ForegroundStyle(0.9, 0.5, 0.2, 1.0),
+			swiftui.Text("Adjust the benchstat options and apply again.").
+				Font(swiftui.FontCaption).
+				ForegroundStyleNamed("secondary"),
+		).Padding(12),
+	).MaxFrame(-1, 0)
+}
+
+func summaryScaler(table *analysisTable) benchunit.Scaler {
+	values := make([]float64, 0, len(table.Cols))
+	for _, col := range table.Cols {
+		summary := table.Summary[col]
+		if summary != nil && summary.HasSummary {
+			values = append(values, summary.Summary)
+		}
+	}
+	return benchunit.CommonScale(values, benchunit.ClassOf(table.Unit))
+}
+
+func keyLabel(key benchproc.Key, fallback string) string {
+	label := key.StringValues()
+	if label != "" {
+		return label
+	}
+	if fallback != "" {
+		return fallback
+	}
+	return "value"
+}
+
+func tableLabel(key benchproc.Key) string {
+	lines := keyLines(key, false)
+	if len(lines) == 0 {
+		return key.Get(key.Projection().FlattenedFields()[len(key.Projection().FlattenedFields())-1])
+	}
+	return strings.Join(lines, " • ")
+}
+
+func summarySpread(summary benchmath.Summary) float64 {
+	if summary.Center == 0 {
+		return 0
+	}
+	return math.Max(summary.Hi/summary.Center-1, 1-summary.Lo/summary.Center)
+}
+
+func comparisonChange(better int, cmp benchmath.Comparison, deltaPct float64, deltaLabel string) int {
+	if deltaLabel == "~" || deltaLabel == "?" || better == 0 || deltaPct == 0 {
+		return 0
+	}
+	if cmp.P > cmp.Alpha {
+		return 0
+	}
+	if deltaPct*float64(better) > 0 {
+		return 1
+	}
+	return -1
+}
+
+func joinWarnings(groups ...[]error) string {
+	parts := make([]string, 0, 4)
+	for _, group := range groups {
+		for _, err := range group {
+			if err == nil {
+				continue
+			}
+			parts = append(parts, err.Error())
+		}
+	}
+	return strings.Join(uniqueStrings(parts), "; ")
+}
+
+func uniqueStrings(in []string) []string {
+	if len(in) == 0 {
+		return nil
+	}
+	seen := make(map[string]bool, len(in))
+	out := make([]string, 0, len(in))
+	for _, s := range in {
+		if s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
+}
+
+func changeFromDeltaLabel(delta string) int {
+	switch {
+	case strings.HasPrefix(delta, "-"):
+		return 1
+	case strings.HasPrefix(delta, "+"):
+		return -1
+	default:
+		return 0
+	}
+}
+
+func shouldShowCharts(table tableView) bool {
+	if len(table.Rows) == 0 {
 		return false
 	}
-	if row.Change != 0 && math.Abs(row.PctDelta) >= table.Domain.MaxDelta*0.6 {
+	limit := 6
+	if len(table.Configs) == 1 {
+		limit = 8
+	}
+	return len(table.Rows) <= limit
+}
+
+func chartRowLabel(name string) string {
+	label, _ := benchmarkLabelParts(name)
+	return abbreviateBenchmarkLabel(label)
+}
+
+func benchmarkLabelParts(name string) (string, string) {
+	raw := strings.TrimPrefix(name, "Benchmark")
+	if raw == "" {
+		return name, ""
+	}
+	parts := strings.Split(raw, "/")
+	base := parts[0]
+	if len(parts) == 1 {
+		base = trimBenchmarkSuffix(base)
+	}
+	attrs := make(map[string]string)
+	segments := make([]string, 0, len(parts))
+	for _, part := range parts[1:] {
+		if key, value, ok := strings.Cut(part, "="); ok {
+			attrs[key] = value
+			continue
+		}
+		segments = append(segments, part)
+	}
+	op := cleanBenchmarkSegment(base, false)
+	if len(segments) > 0 {
+		op = cleanBenchmarkSegment(segments[len(segments)-1], false)
+	}
+	titleParts := make([]string, 0, 2)
+	if language := shortLanguage(attrs["language"]); language != "" {
+		titleParts = append(titleParts, language)
+	}
+	if op != "" {
+		titleParts = append(titleParts, op)
+	}
+	title := strings.Join(titleParts, " ")
+	if title == "" {
+		title = cleanBenchmarkSegment(base, false)
+	}
+	meta := make([]string, 0, 4)
+	for _, key := range []string{"model", "size", "mode"} {
+		if value := attrs[key]; value != "" {
+			meta = append(meta, compactAttrValue(key, value))
+		}
+	}
+	if len(segments) > 1 {
+		for _, segment := range segments[:len(segments)-1] {
+			meta = append(meta, cleanBenchmarkSegment(segment, false))
+		}
+	}
+	return title, strings.Join(meta, " • ")
+}
+
+func abbreviateBenchmarkLabel(label string) string {
+	replacer := strings.NewReplacer(
+		"Python", "Py",
+		"Generation", "Gen",
+	)
+	return replacer.Replace(label)
+}
+
+func compactTableTitle(title string) string {
+	parts := strings.Split(title, " • ")
+	out := make([]string, 0, len(parts))
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		switch {
+		case strings.HasPrefix(part, ".config="):
+			config := strings.TrimPrefix(part, ".config=")
+			for _, field := range strings.Fields(config) {
+				switch {
+				case strings.HasPrefix(field, "pkg="):
+					out = append(out, filepath.Base(strings.TrimPrefix(field, "pkg=")))
+				case strings.HasPrefix(field, "cpu="):
+					out = append(out, strings.TrimPrefix(field, "cpu="))
+				case strings.HasPrefix(field, "goos="), strings.HasPrefix(field, "goarch="):
+				default:
+					out = append(out, field)
+				}
+			}
+		case strings.HasPrefix(part, "pkg="):
+			out = append(out, filepath.Base(strings.TrimPrefix(part, "pkg=")))
+		case strings.HasPrefix(part, "cpu="):
+			out = append(out, strings.TrimPrefix(part, "cpu="))
+		case strings.HasPrefix(part, "goos="), strings.HasPrefix(part, "goarch="):
+		default:
+			out = append(out, part)
+		}
+	}
+	out = uniqueStrings(out)
+	if len(out) == 0 {
+		return title
+	}
+	return strings.Join(out, " • ")
+}
+
+func trimBenchmarkSuffix(name string) string {
+	if i := strings.LastIndex(name, "-"); i >= 0 && allDigits(name[i+1:]) {
+		return name[:i]
+	}
+	return name
+}
+
+func allDigits(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func cleanBenchmarkSegment(segment string, short bool) string {
+	segment = strings.ReplaceAll(segment, "-", " ")
+	segment = strings.ReplaceAll(segment, "_", " ")
+	segment = strings.TrimSpace(segment)
+	if !short {
+		return segment
+	}
+	return abbreviateBenchmarkLabel(segment)
+}
+
+func shortLanguage(value string) string {
+	switch value {
+	case "Go", "Python":
+		return value
+	default:
+		return value
+	}
+}
+
+func compactAttrValue(key, value string) string {
+	switch key {
+	case "model":
+		return strings.TrimSuffix(value, "-4bit")
+	default:
+		return value
+	}
+}
+
+func shouldAnnotateDelta(table tableView, cell valueCellView) bool {
+	if cell.DeltaPct == 0 || table.Domain.MaxDelta == 0 {
+		return false
+	}
+	if cell.Change != 0 && math.Abs(cell.DeltaPct) >= table.Domain.MaxDelta*0.6 {
 		return true
 	}
-	return math.Abs(row.PctDelta) >= table.Domain.MaxDelta*0.9
+	return math.Abs(cell.DeltaPct) >= table.Domain.MaxDelta*0.9
 }
 
 func tableTopDelta(table tableView, change int) rowHighlight {
 	var best rowHighlight
 	for _, row := range table.Rows {
-		if row.Change != change {
-			continue
-		}
-		value := math.Abs(row.PctDelta)
-		if !best.Valid || value > best.Value {
-			best = rowHighlight{
-				Valid:     true,
-				Metric:    table.Metric,
-				Benchmark: row.Name,
-				Detail:    formatDeltaPercent(row.PctDelta),
-				Value:     value,
-				Change:    change,
+		for i, cell := range row.Cells {
+			if !cell.HasDelta || cell.Change != change {
+				continue
+			}
+			value := math.Abs(cell.DeltaPct)
+			if !best.Valid || value > best.Value {
+				best = rowHighlight{
+					Valid:     true,
+					Metric:    table.Metric,
+					Benchmark: row.Name,
+					Config:    table.Configs[i],
+					Detail:    formatDeltaPercent(cell.DeltaPct),
+					Value:     value,
+					Change:    change,
+				}
 			}
 		}
 	}
@@ -1633,14 +2343,14 @@ func sortTableRows(table *tableView) {
 	sort.SliceStable(table.Rows, func(i, j int) bool {
 		a := table.Rows[i]
 		b := table.Rows[j]
-		if table.OldNewDelta {
+		if table.HasComparisons {
 			aSig := a.Change != 0
 			bSig := b.Change != 0
 			if aSig != bSig {
 				return aSig
 			}
-			aDelta := math.Abs(a.PctDelta)
-			bDelta := math.Abs(b.PctDelta)
+			aDelta := a.MaxDelta
+			bDelta := b.MaxDelta
 			if aDelta != bDelta {
 				return aDelta > bDelta
 			}
@@ -1661,10 +2371,88 @@ func formatSignedPercent(value float64) string {
 }
 
 func formatDeltaPercent(value float64) string {
-	if math.Abs(value) <= 1 {
-		return fmt.Sprintf("%+.1f%%", value*100)
+	return fmt.Sprintf("%+.2f%%", value)
+}
+
+func trimFloat(v float64) string {
+	return strconv.FormatFloat(v, 'f', -1, 64)
+}
+
+func formatConfidence(v float64) string {
+	return fmt.Sprintf("%.0f%%", v*100)
+}
+
+func formatIndex(format string) int {
+	switch format {
+	case formatText:
+		return 1
+	case formatCSV:
+		return 2
+	default:
+		return 0
 	}
-	return fmt.Sprintf("%+.1f%%", value)
+}
+
+func formatFromIndex(index int) string {
+	switch index {
+	case 1:
+		return formatText
+	case 2:
+		return formatCSV
+	default:
+		return formatDashboard
+	}
+}
+
+func clampIndex(v, n int) int {
+	if v < 0 {
+		return 0
+	}
+	if v >= n {
+		return n - 1
+	}
+	return v
+}
+
+func segmentedOptions(labels ...string) swiftui.View {
+	children := make([]swiftui.Viewable, 0, len(labels))
+	for i, label := range labels {
+		children = append(children, swiftui.Text(label).AsView().Tag(int32(i)))
+	}
+	return swiftui.VStack(children...)
+}
+
+func parseAnalysisOptions(filter, table, row, col, ignore, alpha, confidence, format string) (analysisOptions, error) {
+	opts := defaultAnalysisOptions()
+	if strings.TrimSpace(filter) != "" {
+		opts.Filter = strings.TrimSpace(filter)
+	}
+	if strings.TrimSpace(table) != "" {
+		opts.Table = strings.TrimSpace(table)
+	}
+	if strings.TrimSpace(row) != "" {
+		opts.Row = strings.TrimSpace(row)
+	}
+	if strings.TrimSpace(col) != "" {
+		opts.Col = strings.TrimSpace(col)
+	}
+	opts.Ignore = strings.TrimSpace(ignore)
+	if strings.TrimSpace(alpha) != "" {
+		v, err := strconv.ParseFloat(strings.TrimSpace(alpha), 64)
+		if err != nil {
+			return analysisOptions{}, fmt.Errorf("invalid alpha: %w", err)
+		}
+		opts.Alpha = v
+	}
+	if strings.TrimSpace(confidence) != "" {
+		v, err := strconv.ParseFloat(strings.TrimSpace(confidence), 64)
+		if err != nil {
+			return analysisOptions{}, fmt.Errorf("invalid confidence: %w", err)
+		}
+		opts.Confidence = v
+	}
+	opts.Format = format
+	return opts, nil
 }
 
 func setView(view comparisonView) {
@@ -1850,11 +2638,11 @@ func benchviewWidth(n int) float64 {
 func valueColumnWidth(n int) float64 {
 	switch {
 	case n >= 6:
-		return 84
+		return 80
 	case n >= 4:
-		return 96
+		return 92
 	default:
-		return 120
+		return 108
 	}
 }
 
