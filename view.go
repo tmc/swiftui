@@ -2,8 +2,6 @@
 
 package swiftui
 
-import "runtime"
-
 // Edge identifies edges for padding and layout.
 type Edge int32
 
@@ -429,7 +427,7 @@ func (v *View) Release() {
 	if v == nil || v.retained == nil {
 		return
 	}
-	v.retained.explicitRelease()
+	v.retained.release()
 	v.retained = nil
 	v.ptr = 0
 }

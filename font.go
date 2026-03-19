@@ -35,7 +35,7 @@ func (f *Font) Release() {
 	if f == nil || f.retained == nil {
 		return
 	}
-	f.retained.explicitRelease()
+	f.retained.release()
 	f.retained = nil
 	f.ptr = 0
 }

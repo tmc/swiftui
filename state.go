@@ -210,7 +210,7 @@ func (s *IntState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
-	s.retained.explicitRelease()
+	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }
@@ -220,7 +220,7 @@ func (s *StringState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
-	s.retained.explicitRelease()
+	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }
@@ -230,7 +230,7 @@ func (s *ColorState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
-	s.retained.explicitRelease()
+	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }
@@ -240,7 +240,7 @@ func (s *DateState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
-	s.retained.explicitRelease()
+	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }
@@ -250,7 +250,7 @@ func (s *FloatState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
-	s.retained.explicitRelease()
+	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }
@@ -260,7 +260,7 @@ func (s *BoolState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
-	s.retained.explicitRelease()
+	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }

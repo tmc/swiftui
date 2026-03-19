@@ -66,7 +66,7 @@ func (p *WebPage) Release() {
 	if p == nil || p.retained == nil {
 		return
 	}
-	p.retained.explicitRelease()
+	p.retained.release()
 	p.retained = nil
 	p.ptr = 0
 }
