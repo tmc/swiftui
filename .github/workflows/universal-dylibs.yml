@@ -99,6 +99,54 @@ jobs:
             dist/universal-dylibs
             dist/universal-dylibs.tar.gz
 
+      - name: Place dylibs into embeddedbridge dirs
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          while IFS= read -r dylib; do
+            pkg_dir=$(echo "$dylib" | sed 's|/internal/swift/.build/universal/release/.*||')
+            if [ "$pkg_dir" = "." ]; then
+              embed_dir="internal/embeddedbridge"
+            else
+              embed_dir="$pkg_dir/internal/embeddedbridge"
+            fi
+            mkdir -p "$embed_dir"
+            dylib_name=$(basename "$dylib")
+            cp "$dylib" "$embed_dir/$dylib_name"
+            # Rewrite payload.go stub to unconditional go:embed
+            cat > "$embed_dir/payload.go" <<GOEOF
+          package embeddedbridge
+
+          import _ "embed"
+
+          //go:embed $dylib_name
+          var bridge []byte
+
+          // Payload returns the embedded bridge dylib payload.
+          func Payload() ([]byte, string) {
+          	return bridge, "$dylib_name"
+          }
+          GOEOF
+            gofmt -w "$embed_dir/payload.go"
+            echo "  $embed_dir/$dylib_name"
+          done < <(find . -path '*/.build/universal/release/*.dylib' -type f | sort)
+
+      - name: Commit dylibs to dylibs/main branch
+        if: github.ref == 'refs/heads/main'
+        run: |
+          set -euo pipefail
+          git checkout -B dylibs/main
+          git add '**/internal/embeddedbridge/*.dylib' '**/internal/embeddedbridge/payload.go'
+          if git diff --cached --quiet; then
+            echo "no dylib changes to commit"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git commit -m "embeddedbridge: update universal dylibs from ${GITHUB_SHA::8}"
+            git push --force origin dylibs/main
+          fi
+          git checkout main
+
       - name: Publish main snapshot
         if: github.ref == 'refs/heads/main'
         env:
