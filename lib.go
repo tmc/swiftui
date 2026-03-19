@@ -52,6 +52,26 @@ func (r *retained) release() {
 		return
 	}
 	r.once.Do(func() {
+		// NOTE: We intentionally do NOT unregister callbacks or call
+		// _SUIRelease from GC finalizers. The Go GC can finalize retained
+		// handles for views that are still active in the Swift view tree
+		// (since container views only pass raw uintptr pointers, not Go
+		// references). Unregistering callbacks here would break DynamicView
+		// builders and button handlers that Swift still invokes.
+		// Calling _SUIRelease from a finalizer goroutine also races with
+		// purego calls on the main thread, causing SIGSEGV/SIGTRAP.
+		// Callbacks and Swift objects are cleaned up on process exit.
+		r.ptr = 0
+	})
+}
+
+// explicitRelease frees callbacks and the Swift object. Only called from
+// the public View.Release / Font.Release methods, not from GC finalizers.
+func (r *retained) explicitRelease() {
+	if r == nil {
+		return
+	}
+	r.once.Do(func() {
 		for _, id := range r.callbackIDs {
 			unregisterCallback(id)
 		}
