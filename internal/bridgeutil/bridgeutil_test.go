@@ -3,7 +3,6 @@ package bridgeutil
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -58,13 +57,13 @@ func TestDiscoverBuiltDylib(t *testing.T) {
 	}
 }
 
-func TestSwiftBuildCacheKeyChangesWithSources(t *testing.T) {
+func TestVersionedScratchCacheKeyChangesWithSources(t *testing.T) {
 	swiftDir := writeTestSwiftPackage(t, "struct Example {}\n")
 	installFakeSwift(t, "Apple Swift version 6.2")
 
-	first, err := swiftBuildCacheKey(swiftDir, "libExampleBridge.dylib")
+	first, err := versionedScratchCacheKey(swiftDir, "libExampleBridge.dylib")
 	if err != nil {
-		t.Fatalf("swiftBuildCacheKey first: %v", err)
+		t.Fatalf("versionedScratchCacheKey first: %v", err)
 	}
 
 	source := filepath.Join(swiftDir, "Sources", "bridge.swift")
@@ -72,37 +71,38 @@ func TestSwiftBuildCacheKeyChangesWithSources(t *testing.T) {
 		t.Fatalf("rewrite source file: %v", err)
 	}
 
-	second, err := swiftBuildCacheKey(swiftDir, "libExampleBridge.dylib")
+	second, err := versionedScratchCacheKey(swiftDir, "libExampleBridge.dylib")
 	if err != nil {
-		t.Fatalf("swiftBuildCacheKey second: %v", err)
+		t.Fatalf("versionedScratchCacheKey second: %v", err)
 	}
 
 	if first == second {
-		t.Fatalf("swiftBuildCacheKey = %q after source change, want different key", second)
+		t.Fatalf("versionedScratchCacheKey = %q after source change, want different key", second)
 	}
-	if !strings.HasSuffix(second, "-"+runtime.GOARCH) {
-		t.Fatalf("swiftBuildCacheKey = %q, want GOARCH suffix %q", second, runtime.GOARCH)
+	wantPrefix := cacheDirLabel("libExampleBridge.dylib") + "-"
+	if !strings.HasPrefix(second, wantPrefix) {
+		t.Fatalf("versionedScratchCacheKey = %q, want prefix %q", second, wantPrefix)
 	}
 }
 
-func TestSwiftBuildCacheKeyChangesWithToolchainVersion(t *testing.T) {
+func TestVersionedScratchCacheKeyChangesWithToolchainVersion(t *testing.T) {
 	swiftDir := writeTestSwiftPackage(t, "struct Example {}\n")
 	installFakeSwift(t, "Apple Swift version 6.1")
 
-	first, err := swiftBuildCacheKey(swiftDir, "libExampleBridge.dylib")
+	first, err := versionedScratchCacheKey(swiftDir, "libExampleBridge.dylib")
 	if err != nil {
-		t.Fatalf("swiftBuildCacheKey first: %v", err)
+		t.Fatalf("versionedScratchCacheKey first: %v", err)
 	}
 
 	installFakeSwift(t, "Apple Swift version 6.2")
 
-	second, err := swiftBuildCacheKey(swiftDir, "libExampleBridge.dylib")
+	second, err := versionedScratchCacheKey(swiftDir, "libExampleBridge.dylib")
 	if err != nil {
-		t.Fatalf("swiftBuildCacheKey second: %v", err)
+		t.Fatalf("versionedScratchCacheKey second: %v", err)
 	}
 
 	if first == second {
-		t.Fatalf("swiftBuildCacheKey = %q after swift version change, want different key", second)
+		t.Fatalf("versionedScratchCacheKey = %q after swift version change, want different key", second)
 	}
 }
 
