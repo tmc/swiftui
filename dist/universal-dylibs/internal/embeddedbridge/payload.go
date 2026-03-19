@@ -2,10 +2,10 @@ package embeddedbridge
 
 import _ "embed"
 
-//go:embed libSpriteKitSwiftUIBridge.dylib
+//go:embed libSwiftUIBridge.dylib
 var bridge []byte
 
 // Payload returns the embedded bridge dylib payload.
 func Payload() ([]byte, string) {
-	return bridge, "libSpriteKitSwiftUIBridge.dylib"
+	return bridge, "libSwiftUIBridge.dylib"
 }
