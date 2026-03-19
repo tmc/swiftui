@@ -135,6 +135,17 @@ func main() {
 	// Queue counter for triggering queue view rebuilds.
 	queueCount := swiftui.NewIntState(0)
 
+	mu.Lock()
+	currentPlaylist = 0
+	currentTrack = 0
+	for j := 1; j < len(playlists[0].tracks); j++ {
+		queue = append(queue, queuedTrack{playlist: 0, track: j})
+	}
+	initialQueue := len(queue)
+	mu.Unlock()
+	trackState.Set(playbackKey(0, 0))
+	queueCount.Set(initialQueue)
+
 	// Playback ticker goroutine.
 	go func() {
 		ticker := time.NewTicker(time.Second)
@@ -270,14 +281,6 @@ func main() {
 		}
 	}
 
-	playNext := func(pl, ti int) {
-		mu.Lock()
-		queue = append([]queuedTrack{{playlist: pl, track: ti}}, queue...)
-		qc := len(queue)
-		mu.Unlock()
-		queueCount.Set(qc)
-	}
-
 	addToQueue := func(pl, ti int) {
 		mu.Lock()
 		queue = append(queue, queuedTrack{playlist: pl, track: ti})
@@ -286,63 +289,153 @@ func main() {
 		queueCount.Set(qc)
 	}
 
-	removeFromQueue := func(pl, ti int) {
-		mu.Lock()
-		for j := 0; j < len(queue); j++ {
-			if queue[j].playlist == pl && queue[j].track == ti {
-				queue = append(queue[:j], queue[j+1:]...)
-				break
-			}
-		}
-		qc := len(queue)
-		mu.Unlock()
-		queueCount.Set(qc)
-	}
-
-	// Build playlist navigation content.
-	var playlistLinks []swiftui.Viewable
+	// Build playlist browse content.
+	var playlistCards []swiftui.Viewable
 	for pi, pl := range playlists {
 		pi, pl := pi, pl
-		var trackRows []swiftui.Viewable
-		for ti, t := range pl.tracks {
-			ti, t := ti, t
-			row := swiftui.HStack(
-				swiftui.Text(fmt.Sprintf("%d", ti+1)).
-					Font(swiftui.FontCaption).
-					ForegroundStyleNamed("secondary").
-					Frame(20, 0),
-				swiftui.VStack(
-					swiftui.Text(t.title).
-						Font(swiftui.FontBody).
-						FontWeight(swiftui.WeightSemibold),
-					swiftui.Text(t.artist).
-						Font(swiftui.FontCaption).
-						ForegroundStyleNamed("secondary"),
-				),
-				swiftui.Spacer(),
-				swiftui.Text(formatDuration(t.duration)).
-					Font(swiftui.FontCaption).
-					ForegroundStyleNamed("secondary"),
-			).Padding(4).ContextMenu(
-				swiftui.VStack(
-					swiftui.Button("Play Next", func() { playNext(pi, ti) }),
-					swiftui.Button("Add to Queue", func() { addToQueue(pi, ti) }),
-					swiftui.Button("Remove from Queue", func() { removeFromQueue(pi, ti) }),
-				),
-			)
-			trackRows = append(trackRows, swiftui.Button(
-				"", func() { selectTrack(pi, ti) },
-			).Overlay(row).ButtonStyle(swiftui.ButtonStylePlain))
-		}
-		dest := swiftui.List(trackRows...).NavigationTitle(pl.name)
-		playlistLinks = append(playlistLinks, swiftui.NavigationLink(
-			fmt.Sprintf("%s  (%d tracks)", pl.name, len(pl.tracks)),
-			dest,
-		))
+		lead := pl.tracks[0]
+		playlistCards = append(playlistCards,
+			swiftui.GroupBox(pl.name,
+				swiftui.VStackSpaced(8,
+					infoLine("Tracks", fmt.Sprintf("%d", len(pl.tracks))),
+					infoLine("Lead", lead.title),
+					infoLine("Style", lead.genre),
+					swiftui.HStackSpaced(8,
+						swiftui.Button("Play", func() {
+							selectTrack(pi, 0)
+						}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
+						swiftui.Button("Queue All", func() {
+							for ti := range pl.tracks {
+								addToQueue(pi, ti)
+							}
+						}).ButtonStyle(swiftui.ButtonStyleBordered),
+					),
+				).Padding(10),
+			).MaxFrame(-1, 0),
+		)
 	}
 
-	navContent := swiftui.NavigationStack(
-		swiftui.List(playlistLinks...).NavigationTitle("Music"),
+	browseContent := swiftui.ScrollView(
+		swiftui.VStackSpaced(16,
+			swiftui.HStack(
+				swiftui.VStackSpaced(4,
+					swiftui.HStack(
+						swiftui.Text("Browse").
+							Font(swiftui.FontTitle).
+							FontWeight(swiftui.WeightBold),
+						swiftui.Spacer(),
+					),
+					swiftui.HStack(
+						swiftui.Text("A compact music surface with playlists, queue context, and a persistent now-playing bar.").
+							Font(swiftui.FontCallout).
+							ForegroundStyleNamed("secondary"),
+						swiftui.Spacer(),
+					),
+				).MaxFrame(-1, 0),
+			),
+			swiftui.DynamicView(trackState, func(_ int) swiftui.View {
+				t, ok := currentTrackInfo()
+				if !ok {
+					return swiftui.Text("").AsView().Frame(0, 0)
+				}
+				return swiftui.HStackSpaced(16,
+					swiftui.ZStack(
+						swiftui.RoundedRectangle(18).
+							Fill(0.15, 0.18, 0.28, 1.0).
+							Frame(150, 150).
+							AsView(),
+						swiftui.Image("music.note.list").
+							ForegroundStyle(0.35, 0.65, 1.0, 1.0).
+							ImageScale(swiftui.ImageScaleLarge),
+					),
+					swiftui.VStackSpaced(8,
+						swiftui.HStack(
+							swiftui.Text("Current Selection").
+								Font(swiftui.FontCaption).
+								ForegroundStyleNamed("secondary"),
+							swiftui.Spacer(),
+						),
+						swiftui.HStack(
+							swiftui.Text(t.title).
+								Font(swiftui.FontTitle2).
+								FontWeight(swiftui.WeightBold),
+							swiftui.Spacer(),
+						),
+						swiftui.HStack(
+							swiftui.Text(t.artist + " • " + t.album).
+								Font(swiftui.FontBody).
+								ForegroundStyleNamed("secondary"),
+							swiftui.Spacer(),
+						),
+						swiftui.HStackSpaced(12,
+							musicBadge("Genre", t.genre),
+							musicBadge("Length", formatDuration(t.duration)),
+						),
+						swiftui.HStackSpaced(8,
+							swiftui.Button("Play", func() {
+								playingState.Set(1)
+								sheetState.Set(1)
+							}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
+							swiftui.Button("Open Queue", func() {
+								queuePopoverState.Set(1)
+							}).ButtonStyle(swiftui.ButtonStyleBordered),
+						),
+					).MaxFrame(-1, 0),
+				).Padding(14).
+					Background(0.18, 0.19, 0.23, 0.7).
+					CornerRadius(16)
+			}),
+			swiftui.HStackSpaced(12,
+				musicStatCard("Playlists", fmt.Sprintf("%d", len(playlists)), "Collections"),
+				musicStatCard("Queue", fmt.Sprintf("%d", queueCount.Get()), "Up next"),
+				musicStatCard("Volume", fmt.Sprintf("%d%%", volumeState.Get()), "Output"),
+			),
+			swiftui.HStackSpaced(12,
+				swiftui.GroupBox("Up Next",
+					swiftui.DynamicView(queueCount, func(_ int) swiftui.View {
+						mu.Lock()
+						q := make([]queuedTrack, len(queue))
+						copy(q, queue)
+						mu.Unlock()
+						if len(q) == 0 {
+							return swiftui.Text("Queue empty").
+								Font(swiftui.FontCaption).
+								ForegroundStyleNamed("secondary").
+								Padding(10).
+								AsView()
+						}
+						limit := len(q)
+						if limit > 4 {
+							limit = 4
+						}
+						rows := make([]swiftui.Viewable, 0, limit)
+						for i := 0; i < limit; i++ {
+							t, ok := trackInfo(q[i].playlist, q[i].track)
+							if !ok {
+								continue
+							}
+							rows = append(rows, swiftui.HStack(
+								swiftui.Text(t.title),
+								swiftui.Spacer(),
+								swiftui.Text(t.artist).
+									Font(swiftui.FontCaption).
+									ForegroundStyleNamed("secondary"),
+							))
+						}
+						return swiftui.VStackSpaced(8, rows...).Padding(10)
+					}),
+				).MaxFrame(-1, 0),
+				swiftui.GroupBox("Playback",
+					swiftui.VStackSpaced(10,
+						infoLine("State", playbackStateLabel(playingState.Get())),
+						infoLine("Current", currentTrackLabel()),
+						infoLine("Visualizer", "8 animated bars"),
+						infoLine("Sheet", "Detailed now-playing surface"),
+					).Padding(10),
+				).MaxFrame(-1, 0),
+			),
+			swiftui.HStackSpaced(12, playlistCards...),
+		).Padding(20),
 	)
 
 	// Visualizer view.
@@ -533,9 +626,73 @@ func main() {
 	swiftui.Run(swiftui.AppConfig{
 		Title:  "Music Player",
 		Width:  600,
-		Height: 700,
+		Height: 760,
 	}, swiftui.VStack(
-		navContent,
+		browseContent,
 		nowPlayingBar,
 	).Sheet(sheetState, sheetContent))
+}
+
+func musicBadge(label, value string) swiftui.View {
+	return swiftui.VStackSpaced(2,
+		swiftui.Text(label).
+			Font(swiftui.FontCaption2).
+			ForegroundStyleNamed("secondary"),
+		swiftui.Text(value).
+			Font(swiftui.FontCaption).
+			FontWeight(swiftui.WeightSemibold),
+	).Padding(8).
+		Background(1, 1, 1, 0.05).
+		CornerRadius(8)
+}
+
+func musicStatCard(label, value, note string) swiftui.View {
+	return swiftui.VStackSpaced(6,
+		swiftui.HStack(
+			swiftui.Text(label).
+				Font(swiftui.FontCaption).
+				ForegroundStyleNamed("secondary"),
+			swiftui.Spacer(),
+		),
+		swiftui.HStack(
+			swiftui.Text(value).
+				Font(swiftui.FontTitle2).
+				FontWeight(swiftui.WeightBold),
+			swiftui.Spacer(),
+		),
+		swiftui.HStack(
+			swiftui.Text(note).
+				Font(swiftui.FontCaption2).
+				ForegroundStyleNamed("tertiary"),
+			swiftui.Spacer(),
+		),
+	).Padding(12).
+		Background(0.18, 0.19, 0.23, 0.62).
+		CornerRadius(10)
+}
+
+func playbackStateLabel(v int) string {
+	if v == 1 {
+		return "Playing"
+	}
+	return "Paused"
+}
+
+func currentTrackLabel() string {
+	t, ok := currentTrackInfo()
+	if !ok {
+		return "None"
+	}
+	return t.title
+}
+
+func infoLine(label, value string) swiftui.View {
+	return swiftui.HStack(
+		swiftui.Text(label).
+			ForegroundStyleNamed("secondary"),
+		swiftui.Spacer(),
+		swiftui.Text(value).
+			Font(swiftui.FontCaption).
+			FontWeight(swiftui.WeightMedium),
+	)
 }

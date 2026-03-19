@@ -77,35 +77,107 @@ func main() {
 
 	swiftui.Run(swiftui.AppConfig{
 		Title:  "Web Browser",
-		Width:  900,
-		Height: 700,
-	}, swiftui.VStack(
-		// Toolbar
-		swiftui.HStackSpaced(4,
-			swiftui.ButtonWithImage("house", func() {
-				loadAddress(homeURL)
-			}).
-				ButtonStyle(swiftui.ButtonStyleBorderless),
-			swiftui.ButtonWithImage("arrow.clockwise", func() {
-				page.Reload()
-			}).ButtonStyle(swiftui.ButtonStyleBorderless),
-			swiftui.TextField("Search or enter URL", urlState, func() {
-				loadAddress(urlState.Get())
-			}).TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
-			swiftui.ButtonWithImage("safari", func() {
-				resolved := normalizeAddress(urlState.Get())
-				if resolved == "" {
-					return
-				}
-				urlState.Set(resolved)
-				_ = exec.Command("open", resolved).Start()
-			}).
-				ButtonStyle(swiftui.ButtonStyleBorderless),
-		).Padding(6),
+		Width:  1000,
+		Height: 720,
+	}, swiftui.VStackSpaced(0,
+		swiftui.VStackSpaced(10,
+			swiftui.HStack(
+				swiftui.Text("Browser").
+					Font(swiftui.FontTitle2).
+					FontWeight(swiftui.WeightBold),
+				swiftui.Spacer(),
+				swiftui.Label("Embedded WKWebView", "safari.fill").
+					Font(swiftui.FontCaption).
+					ForegroundStyleNamed("secondary"),
+			),
+			swiftui.HStackSpaced(8,
+				swiftui.ButtonWithImage("house", func() {
+					loadAddress(homeURL)
+				}).
+					ButtonStyle(swiftui.ButtonStyleBorderless),
+				swiftui.ButtonWithImage("arrow.clockwise", func() {
+					page.Reload()
+				}).
+					ButtonStyle(swiftui.ButtonStyleBorderless),
+				swiftui.TextField("Search or enter URL", urlState, func() {
+					loadAddress(urlState.Get())
+				}).TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
+				swiftui.Button("Open in Safari", func() {
+					resolved := normalizeAddress(urlState.Get())
+					if resolved == "" {
+						return
+					}
+					urlState.Set(resolved)
+					_ = exec.Command("open", resolved).Start()
+				}).ButtonStyle(swiftui.ButtonStyleBordered),
+			),
+		).Padding(16).
+			Background(0.16, 0.17, 0.19, 0.95),
 		swiftui.Divider(),
-		// Web content
-		webView.
-			WebViewBackForwardNavigationGestures(swiftui.WebViewBehaviorEnabled).
-			WebViewMagnificationGestures(swiftui.WebViewBehaviorEnabled),
+		swiftui.HStackSpaced(0,
+			swiftui.VStackSpaced(14,
+				swiftui.GroupBox("Favorites",
+					swiftui.VStackSpaced(8,
+						bookmarkButton("Go", "bolt.fill", "https://go.dev", loadAddress),
+						bookmarkButton("SwiftUI", "sparkles", "https://developer.apple.com/xcode/swiftui/", loadAddress),
+						bookmarkButton("GitHub", "chevron.left.forwardslash.chevron.right", "https://github.com/tmc/swiftui", loadAddress),
+						bookmarkButton("Search Go FFI", "magnifyingglass", "purego ffi patterns", loadAddress),
+					).Padding(10),
+				).MaxFrame(-1, 0),
+				swiftui.GroupBox("Quick Notes",
+					swiftui.VStackSpaced(10,
+						infoLine("Navigation", "Home, reload, search"),
+						infoLine("Gestures", "Swipe + zoom"),
+						infoLine("Intent", "Host shell around the page"),
+					).Padding(10),
+				).MaxFrame(-1, 0),
+				swiftui.Spacer(),
+			).Padding(16).
+				Frame(260, 0).
+				Background(0.13, 0.14, 0.16, 1.0),
+			swiftui.Divider(),
+			webView.
+				WebViewBackForwardNavigationGestures(swiftui.WebViewBehaviorEnabled).
+				WebViewMagnificationGestures(swiftui.WebViewBehaviorEnabled).
+				WebViewContentBackground(swiftui.WebViewContentBackgroundHidden).
+				MaxFrame(-1, -1),
+		).MaxFrame(-1, -1),
+		swiftui.Divider(),
+		swiftui.HStack(
+			swiftui.Text("Address").
+				Font(swiftui.FontCaption).
+				ForegroundStyleNamed("secondary"),
+			swiftui.Spacer(),
+			swiftui.Text(urlState.Get()).
+				Font(swiftui.FontCaption).
+				MonospacedDigit().
+				ForegroundStyleNamed("secondary"),
+		).Padding(10).
+			Background(0.14, 0.15, 0.17, 0.95),
 	))
+}
+
+func bookmarkButton(label, icon, target string, load func(string)) swiftui.View {
+	return swiftui.HStack(
+		swiftui.Image(icon).
+			ForegroundStyle(0.35, 0.65, 1.0, 1.0).
+			ImageScale(swiftui.ImageScaleSmall).
+			Frame(16, 0),
+		swiftui.Button(label, func() {
+			load(target)
+		}).
+			ButtonStyle(swiftui.ButtonStyleBorderless),
+		swiftui.Spacer(),
+	)
+}
+
+func infoLine(label, value string) swiftui.View {
+	return swiftui.HStack(
+		swiftui.Text(label).
+			ForegroundStyleNamed("secondary"),
+		swiftui.Spacer(),
+		swiftui.Text(value).
+			Font(swiftui.FontCaption).
+			FontWeight(swiftui.WeightMedium),
+	)
 }

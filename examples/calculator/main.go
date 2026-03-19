@@ -155,54 +155,75 @@ func main() {
 
 	swiftui.Run(swiftui.AppConfig{
 		Title:  "Calculator",
-		Width:  280,
-		Height: 400,
-	}, swiftui.VStack(
-		// Display.
+		Width:  320,
+		Height: 450,
+	}, swiftui.VStackSpaced(14,
 		swiftui.HStack(
-			swiftui.Spacer(),
-			swiftui.TextFromString(c.display).
-				Font(swiftui.FontSystem(48)).
-				FontWeight(swiftui.WeightLight).
-				MonospacedDigit(),
-		).Padding(8),
+			swiftui.VStackSpaced(4,
+				swiftui.HStack(
+					swiftui.Text("Calculator").
+						Font(swiftui.FontTitle3).
+						FontWeight(swiftui.WeightBold),
+					swiftui.Spacer(),
+				),
+				swiftui.HStack(
+					swiftui.Text("Standard arithmetic with reactive Go state.").
+						Font(swiftui.FontCaption).
+						ForegroundStyleNamed("secondary"),
+					swiftui.Spacer(),
+				),
+			).MaxFrame(-1, 0),
+		),
 
-		swiftui.Divider(),
+		swiftui.VStackSpaced(8,
+			swiftui.HStack(
+				swiftui.Spacer(),
+				swiftui.Text("Result").
+					Font(swiftui.FontCaption).
+					ForegroundStyleNamed("secondary"),
+			),
+			swiftui.HStack(
+				swiftui.Spacer(),
+				swiftui.TextFromString(c.display).
+					Font(swiftui.FontSystem(52)).
+					FontWeight(swiftui.WeightLight).
+					MonospacedDigit(),
+			),
+		).Padding(16).
+			Background(0.18, 0.19, 0.22, 0.55).
+			CornerRadius(18),
 
-		// Row 1: C ± % ÷
-		swiftui.HStackSpaced(6,
-			funcBtn("C", c.clear),
-			funcBtn("±", c.toggleSign),
-			funcBtn("%", c.percent),
-			opBtn("÷"),
+		swiftui.VStackSpaced(8,
+			swiftui.HStackSpaced(8,
+				funcBtn("C", c.clear),
+				funcBtn("±", c.toggleSign),
+				funcBtn("%", c.percent),
+				opBtn("÷"),
+			),
+			swiftui.HStackSpaced(8,
+				numBtn("7"), numBtn("8"), numBtn("9"),
+				opBtn("×"),
+			),
+			swiftui.HStackSpaced(8,
+				numBtn("4"), numBtn("5"), numBtn("6"),
+				opBtn("-"),
+			),
+			swiftui.HStackSpaced(8,
+				numBtn("1"), numBtn("2"), numBtn("3"),
+				opBtn("+"),
+			),
+			swiftui.HStackSpaced(8,
+				numBtn("0"),
+				swiftui.Button(".", func() { c.inputDot() }).
+					ControlSize(swiftui.ControlSizeLarge).
+					ButtonStyle(swiftui.ButtonStyleBordered).
+					MaxFrame(-1, 0),
+				swiftui.Button("=", func() { c.evaluate() }).
+					ControlSize(swiftui.ControlSizeLarge).
+					ButtonStyle(swiftui.ButtonStyleBorderedProminent).
+					Tint(0.2, 0.6, 1.0, 1.0).
+					MaxFrame(-1, 0),
+			),
 		),
-		// Row 2: 7 8 9 ×
-		swiftui.HStackSpaced(6,
-			numBtn("7"), numBtn("8"), numBtn("9"),
-			opBtn("×"),
-		),
-		// Row 3: 4 5 6 -
-		swiftui.HStackSpaced(6,
-			numBtn("4"), numBtn("5"), numBtn("6"),
-			opBtn("-"),
-		),
-		// Row 4: 1 2 3 +
-		swiftui.HStackSpaced(6,
-			numBtn("1"), numBtn("2"), numBtn("3"),
-			opBtn("+"),
-		),
-		// Row 5: 0 . =
-		swiftui.HStackSpaced(6,
-			numBtn("0"),
-			swiftui.Button(".", func() { c.inputDot() }).
-				ControlSize(swiftui.ControlSizeLarge).
-				ButtonStyle(swiftui.ButtonStyleBordered).
-				MaxFrame(-1, 0),
-			swiftui.Button("=", func() { c.evaluate() }).
-				ControlSize(swiftui.ControlSizeLarge).
-				ButtonStyle(swiftui.ButtonStyleBorderedProminent).
-				Tint(0.2, 0.6, 1.0, 1.0).
-				MaxFrame(-1, 0),
-		),
-	).Padding(12))
+	).Padding(18))
 }
