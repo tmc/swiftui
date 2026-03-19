@@ -108,11 +108,11 @@ type analysisBuilderCell struct {
 	residue map[benchproc.Key]struct{}
 }
 
-func newAnalysisBuilder(tableBy, rowBy, colBy, residue *benchproc.Projection) *analysisBuilder {
+func newAnalysisBuilder(tableBy, rowBy, colBy, residue *benchproc.Projection) (*analysisBuilder, error) {
 	fields := tableBy.Fields()
 	unitField := fields[len(fields)-1]
 	if unitField.Name != ".unit" {
-		panic("analysis table projection missing .unit")
+		return nil, fmt.Errorf("analysis table projection missing .unit")
 	}
 	return &analysisBuilder{
 		tableBy:   tableBy,
@@ -121,7 +121,7 @@ func newAnalysisBuilder(tableBy, rowBy, colBy, residue *benchproc.Projection) *a
 		residue:   residue,
 		unitField: unitField,
 		tables:    make(map[benchproc.Key]*analysisBuilderTable),
-	}
+	}, nil
 }
 
 func (b *analysisBuilder) Add(result *benchfmt.Result) {
@@ -417,7 +417,10 @@ func loadAnalysisTables(inputs []inputSpec, opts analysisOptions) (*analysisTabl
 		return nil, nil, fmt.Errorf("-confidence must be in range [0, 1]")
 	}
 
-	builder := newAnalysisBuilder(tableBy, rowBy, colBy, residue)
+	builder, err := newAnalysisBuilder(tableBy, rowBy, colBy, residue)
+	if err != nil {
+		return nil, nil, err
+	}
 	units := make(benchfmt.UnitMetadataMap)
 	var warnings []string
 

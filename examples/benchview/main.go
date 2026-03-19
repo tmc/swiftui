@@ -1,5 +1,4 @@
 //go:build darwin
-// +build darwin
 
 // Command benchview renders a live benchstat comparison window.
 //
@@ -790,34 +789,6 @@ func analysisOptionStrip(opts analysisOptions, warnings int) swiftui.View {
 	return swiftui.HStackSpaced(8, append(tokens, swiftui.Spacer())...)
 }
 
-func summaryStrip(view comparisonView) swiftui.View {
-	tokens := []swiftui.Viewable{
-		compactStat("rows", fmt.Sprintf("%d", view.Rows), 0.58, 0.62, 0.82),
-	}
-	if view.Compared > 0 {
-		tokens = append(tokens,
-			compactStat("compared", fmt.Sprintf("%d", view.Compared), 0.35, 0.65, 1.0),
-			compactStat("wins", fmt.Sprintf("%d", view.Improved), 0.3, 0.8, 0.4),
-			compactStat("losses", fmt.Sprintf("%d", view.Regressed), 0.9, 0.5, 0.2),
-			compactStat("flat", fmt.Sprintf("%d", view.Unchanged), 0.58, 0.62, 0.82),
-		)
-	}
-	if view.HasStreaming {
-		tokens = append(tokens, compactStat("stream", fmt.Sprintf("%d", view.LiveResults), 0.95, 0.6, 0.2))
-	}
-	return swiftui.GroupBox("Summary",
-		swiftui.VStackSpaced(6,
-			swiftui.HStackSpaced(8, append(tokens, swiftui.Spacer())...),
-			swiftui.HStack(
-				swiftui.Text(modeSummary(view)).
-					Font(swiftui.FontCaption).
-					ForegroundStyleNamed("secondary"),
-				swiftui.Spacer(),
-			),
-		).Padding(10),
-	).MaxFrame(-1, 0)
-}
-
 func currentDisplayPrefs(
 	showSummaryCards, showChangeBar, showHighlights, showAbsolute, showDelta, showRows, showInsights, compactRows, rowLimit *swiftui.IntState,
 ) displayPrefs {
@@ -832,63 +803,6 @@ func currentDisplayPrefs(
 		CompactRows:      compactRows.Get() != 0,
 		RowLimit:         rowLimit.Get(),
 	}
-}
-
-func changeOverview(view comparisonView) swiftui.View {
-	if view.Compared == 0 {
-		return swiftui.GroupBox("Change",
-			swiftui.VStackSpaced(6,
-				swiftui.Text("Comparison deltas appear when benchstat has populated columns beyond the baseline.").
-					Font(swiftui.FontCaption).
-					ForegroundStyleNamed("secondary"),
-			).Padding(10),
-		).MaxFrame(-1, 0)
-	}
-	return swiftui.GroupBox("Change",
-		swiftui.VStackSpaced(6,
-			swiftui.HStack(
-				swiftui.Text(fmt.Sprintf("%d compared rows", view.Compared)).
-					Font(swiftui.FontCaption).
-					FontWeight(swiftui.WeightSemibold).
-					ForegroundStyleNamed("secondary"),
-				swiftui.Spacer(),
-				changeCountPill("Wins", view.Improved, 0.3, 0.8, 0.4),
-				changeCountPill("Losses", view.Regressed, 0.9, 0.5, 0.2),
-				changeCountPill("Flat", view.Unchanged, 0.58, 0.62, 0.82),
-			),
-			stackedChangeBar(view.Improved, view.Regressed, view.Unchanged, 560),
-		).Padding(10),
-	).MaxFrame(-1, 0)
-}
-
-func highlightOverview(view comparisonView) swiftui.View {
-	if len(view.Highlights) == 0 {
-		return swiftui.GroupBox("Highlights",
-			swiftui.VStackSpaced(6,
-				swiftui.HStack(
-					swiftui.Text(modeSummary(view)).
-						Font(swiftui.FontCaption).
-						ForegroundStyleNamed("secondary"),
-					swiftui.Spacer(),
-				),
-			).Padding(10),
-		).MaxFrame(-1, 0)
-	}
-	lines := make([]swiftui.Viewable, 0, len(view.Highlights)+1)
-	lines = append(lines,
-		swiftui.HStack(
-			swiftui.Text(modeSummary(view)).
-				Font(swiftui.FontCaption).
-				ForegroundStyleNamed("secondary"),
-			swiftui.Spacer(),
-		),
-	)
-	for _, highlight := range view.Highlights {
-		lines = append(lines, highlightLine(highlight))
-	}
-	return swiftui.GroupBox("Highlights",
-		swiftui.VStackSpaced(5, lines...).Padding(10),
-	).MaxFrame(-1, 0)
 }
 
 func renderTables(view comparisonView, prefs displayPrefs) swiftui.View {
@@ -906,7 +820,6 @@ func renderTables(view comparisonView, prefs displayPrefs) swiftui.View {
 
 	groups := make([]swiftui.Viewable, 0, len(view.Tables))
 	for _, table := range view.Tables {
-		table := table
 		displayTable := table
 		if prefs.RowLimit > 0 && len(displayTable.Rows) > prefs.RowLimit {
 			displayTable.Rows = append([]rowView(nil), displayTable.Rows[:prefs.RowLimit]...)
@@ -1207,105 +1120,6 @@ func highlightLine(highlight highlightView) swiftui.View {
 			LineLimit(1),
 		swiftui.Spacer(),
 	)
-}
-
-func stringCard(icon, label, value, note string, r, g, b float64) swiftui.View {
-	return swiftui.VStackSpaced(6,
-		swiftui.HStack(
-			swiftui.Image(icon).
-				ForegroundStyle(r, g, b, 1.0).
-				ImageScale(swiftui.ImageScaleSmall),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.Text(value).
-				Font(swiftui.FontTitle3).
-				FontWeight(swiftui.WeightBold).
-				LineLimit(1),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.Text(label).
-				Font(swiftui.FontCaption).
-				ForegroundStyleNamed("secondary"),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.Text(note).
-				Font(swiftui.FontCaption2).
-				ForegroundStyleNamed("tertiary"),
-			swiftui.Spacer(),
-		),
-	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.42).
-		CornerRadius(12).
-		MaxFrame(-1, 0)
-}
-
-func intCard(icon, label string, state *swiftui.IntState, note string, r, g, b float64) swiftui.View {
-	return swiftui.VStackSpaced(6,
-		swiftui.HStack(
-			swiftui.Image(icon).
-				ForegroundStyle(r, g, b, 1.0).
-				ImageScale(swiftui.ImageScaleSmall),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.TextFrom(state).
-				Font(swiftui.FontTitle3).
-				FontWeight(swiftui.WeightBold).
-				MonospacedDigit(),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.Text(label).
-				Font(swiftui.FontCaption).
-				ForegroundStyleNamed("secondary"),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.Text(note).
-				Font(swiftui.FontCaption2).
-				ForegroundStyleNamed("tertiary"),
-			swiftui.Spacer(),
-		),
-	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.42).
-		CornerRadius(12).
-		MaxFrame(-1, 0)
-}
-
-func stateStringCard(icon, label string, state *swiftui.StringState, note string, r, g, b float64) swiftui.View {
-	return swiftui.VStackSpaced(6,
-		swiftui.HStack(
-			swiftui.Image(icon).
-				ForegroundStyle(r, g, b, 1.0).
-				ImageScale(swiftui.ImageScaleSmall),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.TextFromString(state).
-				Font(swiftui.FontCallout).
-				FontWeight(swiftui.WeightSemibold).
-				LineLimit(1),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.Text(label).
-				Font(swiftui.FontCaption).
-				ForegroundStyleNamed("secondary"),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.Text(note).
-				Font(swiftui.FontCaption2).
-				ForegroundStyleNamed("tertiary"),
-			swiftui.Spacer(),
-		),
-	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.42).
-		CornerRadius(12).
-		MaxFrame(-1, 0)
 }
 
 func changeColor(change int) (float64, float64, float64) {
@@ -1755,20 +1569,6 @@ func configChip(label string) swiftui.View {
 		CornerRadius(999)
 }
 
-func changeCountPill(label string, count int, r, g, b float64) swiftui.View {
-	return swiftui.HStackSpaced(4,
-		swiftui.Text(fmt.Sprintf("%d", count)).
-			Font(swiftui.FontCaption).
-			FontWeight(swiftui.WeightBold).
-			MonospacedDigit(),
-		swiftui.Text(label).
-			Font(swiftui.FontCaption2).
-			ForegroundStyleNamed("secondary"),
-	).Padding(6).
-		Background(r, g, b, 0.14).
-		CornerRadius(999)
-}
-
 func stackedChangeBar(improved, regressed, unchanged int, width float64) swiftui.View {
 	total := improved + regressed + unchanged
 	if total == 0 {
@@ -1801,45 +1601,6 @@ func stackedChangeBar(improved, regressed, unchanged int, width float64) swiftui
 	return swiftui.HStackSpaced(0, segments...).
 		Background(1, 1, 1, 0.04).
 		CornerRadius(999)
-}
-
-func highlightCard(highlight highlightView) swiftui.View {
-	r, g, b := changeColor(highlight.Change)
-	detail := highlight.Detail
-	if highlight.Config != "" {
-		detail = highlight.Config + " • " + detail
-	}
-	return swiftui.VStackSpaced(6,
-		swiftui.HStack(
-			swiftui.Text(highlight.Title).
-				Font(swiftui.FontCaption).
-				FontWeight(swiftui.WeightSemibold).
-				ForegroundStyle(r, g, b, 1.0),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.Text(highlight.Benchmark).
-				Font(swiftui.FontCallout).
-				FontWeight(swiftui.WeightSemibold).
-				LineLimit(1),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.Text(highlight.Metric).
-				Font(swiftui.FontCaption2).
-				ForegroundStyleNamed("secondary"),
-			swiftui.Spacer(),
-		),
-		swiftui.HStack(
-			swiftui.Text(detail).
-				Font(swiftui.FontCaption2).
-				MonospacedDigit(),
-			swiftui.Spacer(),
-		),
-	).Padding(10).
-		Background(r, g, b, 0.12).
-		CornerRadius(12).
-		MaxFrame(-1, 0)
 }
 
 func modeSummary(view comparisonView) string {
@@ -2172,7 +1933,7 @@ func benchmarkLabelParts(name string) (string, string) {
 		op = cleanBenchmarkSegment(segments[len(segments)-1], false)
 	}
 	titleParts := make([]string, 0, 2)
-	if language := shortLanguage(attrs["language"]); language != "" {
+	if language := attrs["language"]; language != "" {
 		titleParts = append(titleParts, language)
 	}
 	if op != "" {
@@ -2268,15 +2029,6 @@ func cleanBenchmarkSegment(segment string, short bool) string {
 	return abbreviateBenchmarkLabel(segment)
 }
 
-func shortLanguage(value string) string {
-	switch value {
-	case "Go", "Python":
-		return value
-	default:
-		return value
-	}
-}
-
 func compactAttrValue(key, value string) string {
 	switch key {
 	case "model":
@@ -2364,10 +2116,6 @@ func sortTableRows(table *tableView) {
 
 func formatPercent(value float64) string {
 	return fmt.Sprintf("%.1f%%", value*100)
-}
-
-func formatSignedPercent(value float64) string {
-	return fmt.Sprintf("%+.1f%%", value*100)
 }
 
 func formatDeltaPercent(value float64) string {
