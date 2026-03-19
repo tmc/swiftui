@@ -63,7 +63,7 @@ func init() {
 		var err error
 		libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
 		if err != nil {
-			lastErr = fmt.Errorf("dlopen %s: %w", path, err)
+			lastErr = err
 		}
 	}
 
@@ -71,7 +71,7 @@ func init() {
 		if path, err := discoverBuiltDylib(); err == nil {
 			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
 			if err != nil {
-				lastErr = fmt.Errorf("dlopen %s: %w", path, err)
+				lastErr = err
 			}
 		} else {
 			lastErr = err
@@ -82,7 +82,7 @@ func init() {
 		if path, err := buildSwiftBridge(); err == nil {
 			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
 			if err != nil {
-				lastErr = fmt.Errorf("dlopen %s: %w", path, err)
+				lastErr = err
 			}
 		} else {
 			lastErr = err
@@ -99,7 +99,7 @@ func init() {
 			if err == nil {
 				break
 			}
-			lastErr = fmt.Errorf("dlopen %s: %w", path, err)
+			lastErr = err
 		}
 	}
 
