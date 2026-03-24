@@ -753,9 +753,20 @@ func (c ChartView) cloneBuilder() *chartBuilder {
 			yScaleType: ScaleTypeAutomatic,
 		}
 	}
-	out := *c.builder
-	out.marks = append([]Mark(nil), c.builder.marks...)
-	out.plot = append([]PlotStyleOption(nil), c.builder.plot...)
+	out := &chartBuilder{
+		marks:           append([]Mark(nil), c.builder.marks...),
+		xScaleType:      c.builder.xScaleType,
+		yScaleType:      c.builder.yScaleType,
+		plot:            append([]PlotStyleOption(nil), c.builder.plot...),
+		scrollAxes:      c.builder.scrollAxes,
+		xSelection:      c.builder.xSelection,
+		xSelectionRange: c.builder.xSelectionRange,
+		ySelection:      c.builder.ySelection,
+		ySelectionRange: c.builder.ySelectionRange,
+		angleSelection:  c.builder.angleSelection,
+		xScrollBinding:  c.builder.xScrollBinding,
+		yScrollBinding:  c.builder.yScrollBinding,
+	}
 	if c.builder.xDomain != nil {
 		d := *c.builder.xDomain
 		d.categories = append([]string(nil), d.categories...)
@@ -834,9 +845,7 @@ func (c ChartView) cloneBuilder() *chartBuilder {
 		gesture := *c.builder.gesture
 		out.gesture = &gesture
 	}
-	out.once = sync.Once{}
-	out.view = swiftui.View{}
-	return &out
+	return out
 }
 
 func (c ChartView) with(mut func(*chartBuilder)) ChartView {
