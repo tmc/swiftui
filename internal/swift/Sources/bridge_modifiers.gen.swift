@@ -10,7 +10,7 @@ import WebKit
 public func SUIViewPadding(_ viewRef: UnsafeMutableRawPointer, _ amount: Double) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
     let view = AnyView(base.padding(amount))
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    return retainDerivedView(from: viewRef, view)
 }
 
 @_cdecl("SUIViewPaddingEdge")
@@ -18,7 +18,7 @@ public func SUIViewPaddingEdge(_ viewRef: UnsafeMutableRawPointer, _ edges: Int3
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
     let edgeSet = Edge.Set(rawValue: Int8(edges))
     let view = AnyView(base.padding(edgeSet, amount))
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    return retainDerivedView(from: viewRef, view)
 }
 
 @_cdecl("SUIViewFont")
@@ -33,7 +33,7 @@ public func SUIViewFont(_ viewRef: UnsafeMutableRawPointer, _ fontRef: UnsafeMut
 public func SUIViewFrame(_ viewRef: UnsafeMutableRawPointer, _ width: Double, _ height: Double) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
     let view = AnyView(base.frame(width: width, height: height))
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    return retainDerivedView(from: viewRef, view)
 }
 
 @_cdecl("SUIViewMaxFrame")
@@ -44,7 +44,7 @@ public func SUIViewMaxFrame(_ viewRef: UnsafeMutableRawPointer, _ maxWidth: Doub
     var h: CGFloat? = nil
     if maxHeight < 0 { h = .infinity } else if maxHeight > 0 { h = CGFloat(maxHeight) }
     let view = AnyView(base.frame(maxWidth: w, maxHeight: h))
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    return retainDerivedView(from: viewRef, view)
 }
 
 @_cdecl("SUIViewForegroundStyle")
@@ -205,7 +205,8 @@ public func SUIViewBackground(_ viewRef: UnsafeMutableRawPointer, _ r: Double, _
 public func SUIViewBackgroundRoundedRect(_ viewRef: UnsafeMutableRawPointer, _ r: Double, _ g: Double, _ b: Double, _ a: Double, _ cornerRadius: Double) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
     let color = Color(red: r, green: g, blue: b, opacity: a)
-    let view = AnyView(base.background(RoundedRectangle(cornerRadius: cornerRadius).fill(color)))
+    let shape = RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+    let view = AnyView(base.background(color, in: shape))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -241,6 +242,13 @@ public func SUIViewBackgroundStyle(_ viewRef: UnsafeMutableRawPointer, _ name: U
     case "textBackground": view = AnyView(base.background(Color(nsColor: .textBackgroundColor)))
     default: view = AnyView(base.background(.background))
     }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewLabelsHidden")
+public func SUIViewLabelsHidden(_ viewRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.labelsHidden())
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -438,18 +446,24 @@ public func SUIViewTag(_ viewRef: UnsafeMutableRawPointer, _ tag: Int32) -> Unsa
 public func SUIViewFill(_ viewRef: UnsafeMutableRawPointer, _ r: Double, _ g: Double, _ b: Double, _ a: Double) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
     let color = Color(red: r, green: g, blue: b, opacity: a)
-    let view = AnyView(base.foregroundStyle(color))
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    if let shape = shapeForViewRef(viewRef) {
+        return retainView(AnyView(shape.fill(color)))
+    }
+    let view = AnyView(color.mask(base))
+    return retainView(view)
 }
 
 @_cdecl("SUIViewStroke")
 public func SUIViewStroke(_ viewRef: UnsafeMutableRawPointer, _ r: Double, _ g: Double, _ b: Double, _ a: Double, _ lineWidth: Double) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
     let color = Color(red: r, green: g, blue: b, opacity: a)
+    if let shape = shapeForViewRef(viewRef) {
+        return retainView(AnyView(shape.stroke(color, lineWidth: lineWidth)))
+    }
     let view = AnyView(base.overlay(
         RoundedRectangle(cornerRadius: 0).stroke(color, lineWidth: lineWidth)
     ))
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    return retainView(view)
 }
 
 // MARK: - Lifecycle and interaction modifiers

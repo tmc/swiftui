@@ -20,6 +20,24 @@ public func SUIImage(_ systemName: UnsafePointer<CChar>) -> UnsafeMutableRawPoin
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+private func suiHorizontalAlignment(_ raw: Int32) -> HorizontalAlignment {
+    switch raw {
+    case 0: return .leading
+    case 2: return .trailing
+    default: return .center
+    }
+}
+
+private func suiVerticalAlignment(_ raw: Int32) -> VerticalAlignment {
+    switch raw {
+    case 0: return .top
+    case 2: return .bottom
+    case 3: return .firstTextBaseline
+    case 4: return .lastTextBaseline
+    default: return .center
+    }
+}
+
 @_cdecl("SUIVStack")
 public func SUIVStack(_ children: UnsafePointer<UnsafeMutableRawPointer>, _ count: Int32) -> UnsafeMutableRawPointer {
     let views = (0..<Int(count)).map { i in
@@ -46,6 +64,32 @@ public func SUIVStackSpaced(_ children: UnsafePointer<UnsafeMutableRawPointer>, 
     return Unmanaged.passRetained(Box(stack)).toOpaque()
 }
 
+@_cdecl("SUIVStackAligned")
+public func SUIVStackAligned(_ children: UnsafePointer<UnsafeMutableRawPointer>, _ count: Int32, _ alignment: Int32) -> UnsafeMutableRawPointer {
+    let views = (0..<Int(count)).map { i in
+        Unmanaged<Box<AnyView>>.fromOpaque(children[i]).takeUnretainedValue().value
+    }
+    let stack = AnyView(VStack(alignment: suiHorizontalAlignment(alignment)) {
+        ForEach(views.indices, id: \.self) { i in
+            views[i]
+        }
+    })
+    return Unmanaged.passRetained(Box(stack)).toOpaque()
+}
+
+@_cdecl("SUIVStackAlignedSpaced")
+public func SUIVStackAlignedSpaced(_ children: UnsafePointer<UnsafeMutableRawPointer>, _ count: Int32, _ alignment: Int32, _ spacing: Double) -> UnsafeMutableRawPointer {
+    let views = (0..<Int(count)).map { i in
+        Unmanaged<Box<AnyView>>.fromOpaque(children[i]).takeUnretainedValue().value
+    }
+    let stack = AnyView(VStack(alignment: suiHorizontalAlignment(alignment), spacing: spacing) {
+        ForEach(views.indices, id: \.self) { i in
+            views[i]
+        }
+    })
+    return Unmanaged.passRetained(Box(stack)).toOpaque()
+}
+
 @_cdecl("SUIHStack")
 public func SUIHStack(_ children: UnsafePointer<UnsafeMutableRawPointer>, _ count: Int32) -> UnsafeMutableRawPointer {
     let views = (0..<Int(count)).map { i in
@@ -65,6 +109,32 @@ public func SUIHStackSpaced(_ children: UnsafePointer<UnsafeMutableRawPointer>, 
         Unmanaged<Box<AnyView>>.fromOpaque(children[i]).takeUnretainedValue().value
     }
     let stack = AnyView(HStack(spacing: spacing) {
+        ForEach(views.indices, id: \.self) { i in
+            views[i]
+        }
+    })
+    return Unmanaged.passRetained(Box(stack)).toOpaque()
+}
+
+@_cdecl("SUIHStackAligned")
+public func SUIHStackAligned(_ children: UnsafePointer<UnsafeMutableRawPointer>, _ count: Int32, _ alignment: Int32) -> UnsafeMutableRawPointer {
+    let views = (0..<Int(count)).map { i in
+        Unmanaged<Box<AnyView>>.fromOpaque(children[i]).takeUnretainedValue().value
+    }
+    let stack = AnyView(HStack(alignment: suiVerticalAlignment(alignment)) {
+        ForEach(views.indices, id: \.self) { i in
+            views[i]
+        }
+    })
+    return Unmanaged.passRetained(Box(stack)).toOpaque()
+}
+
+@_cdecl("SUIHStackAlignedSpaced")
+public func SUIHStackAlignedSpaced(_ children: UnsafePointer<UnsafeMutableRawPointer>, _ count: Int32, _ alignment: Int32, _ spacing: Double) -> UnsafeMutableRawPointer {
+    let views = (0..<Int(count)).map { i in
+        Unmanaged<Box<AnyView>>.fromOpaque(children[i]).takeUnretainedValue().value
+    }
+    let stack = AnyView(HStack(alignment: suiVerticalAlignment(alignment), spacing: spacing) {
         ForEach(views.indices, id: \.self) { i in
             views[i]
         }
@@ -278,31 +348,31 @@ public func SUIMenu(_ labelPtr: UnsafePointer<CChar>, _ contentRef: UnsafeMutabl
 @_cdecl("SUIColor")
 public func SUIColor(_ r: Double, _ g: Double, _ b: Double, _ a: Double) -> UnsafeMutableRawPointer {
     let view = AnyView(Color(red: r, green: g, blue: b, opacity: a))
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    return retainView(view)
 }
 
 @_cdecl("SUICircle")
 public func SUICircle() -> UnsafeMutableRawPointer {
-    let view = AnyView(Circle())
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    let shape = Circle()
+    return retainView(AnyView(shape), shape: AnyShape(shape))
 }
 
 @_cdecl("SUIRectangle")
 public func SUIRectangle() -> UnsafeMutableRawPointer {
-    let view = AnyView(Rectangle())
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    let shape = Rectangle()
+    return retainView(AnyView(shape), shape: AnyShape(shape))
 }
 
 @_cdecl("SUIRoundedRectangle")
 public func SUIRoundedRectangle(_ cornerRadius: Double) -> UnsafeMutableRawPointer {
-    let view = AnyView(RoundedRectangle(cornerRadius: cornerRadius))
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    let shape = RoundedRectangle(cornerRadius: cornerRadius)
+    return retainView(AnyView(shape), shape: AnyShape(shape))
 }
 
 @_cdecl("SUICapsule")
 public func SUICapsule() -> UnsafeMutableRawPointer {
-    let view = AnyView(Capsule())
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    let shape = Capsule()
+    return retainView(AnyView(shape), shape: AnyShape(shape))
 }
 
 @_cdecl("SUILink")

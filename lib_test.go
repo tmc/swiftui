@@ -2,6 +2,24 @@ package swiftui
 
 import "testing"
 
+func TestBridgeRegistersGeneratedLayoutSymbols(t *testing.T) {
+	if loadErr != nil {
+		t.Fatalf("load bridge: %v", loadErr)
+	}
+	if libHandle == 0 {
+		t.Fatal("bridge dylib not loaded")
+	}
+	if _SUIVStackAligned == nil {
+		t.Fatal("SUIVStackAligned not registered")
+	}
+	if _SUIHStackAlignedSpaced == nil {
+		t.Fatal("SUIHStackAlignedSpaced not registered")
+	}
+	if _SUIViewLabelsHidden == nil {
+		t.Fatal("SUIViewLabelsHidden not registered")
+	}
+}
+
 func TestRetainedReleaseIsIdempotent(t *testing.T) {
 	oldHandle := libHandle
 	oldRelease := _SUIRelease

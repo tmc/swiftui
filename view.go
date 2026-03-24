@@ -609,6 +609,13 @@ func (v View) BackgroundStyle(name string) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// LabelsHidden hides labels for controls that support label presentation.
+func (v View) LabelsHidden() View {
+	ptr := _SUIViewLabelsHidden(v.ptr)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // TextFieldStyle sets the style for text fields.
 func (v View) TextFieldStyle(style TextFieldStyleKind) View {
 	ptr := _SUIViewTextFieldStyle(v.ptr, int32(style))

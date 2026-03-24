@@ -200,8 +200,12 @@ var (
 	_SUIGauge                    func(float64, *byte) uintptr
 	_SUIVStack                   func(*uintptr, int32) uintptr
 	_SUIVStackSpaced             func(*uintptr, int32, float64) uintptr
+	_SUIVStackAligned            func(*uintptr, int32, int32) uintptr
+	_SUIVStackAlignedSpaced      func(*uintptr, int32, int32, float64) uintptr
 	_SUIHStack                   func(*uintptr, int32) uintptr
 	_SUIHStackSpaced             func(*uintptr, int32, float64) uintptr
+	_SUIHStackAligned            func(*uintptr, int32, int32) uintptr
+	_SUIHStackAlignedSpaced      func(*uintptr, int32, int32, float64) uintptr
 	_SUIGroupBox                 func(*byte, uintptr) uintptr
 	_SUIScrollView               func(uintptr) uintptr
 	_SUIZStack                   func(*uintptr, int32) uintptr
@@ -264,6 +268,7 @@ var (
 	_SUIViewOverlay                              func(uintptr, uintptr) uintptr
 	_SUIViewAnimation                            func(uintptr, int32) uintptr
 	_SUIViewBackgroundStyle                      func(uintptr, *byte) uintptr
+	_SUIViewLabelsHidden                         func(uintptr) uintptr
 	_SUIViewLineLimit                            func(uintptr, int32) uintptr
 	_SUIViewTextFieldStyle                       func(uintptr, int32) uintptr
 	_SUIViewShadow                               func(uintptr, float64, float64, float64, float64, float64, float64, float64) uintptr
@@ -471,8 +476,12 @@ func init() {
 	tryRegisterLibFunc(&_SUIGauge, libHandle, "SUIGauge")
 	tryRegisterLibFunc(&_SUIVStack, libHandle, "SUIVStack")
 	tryRegisterLibFunc(&_SUIVStackSpaced, libHandle, "SUIVStackSpaced")
+	tryRegisterLibFunc(&_SUIVStackAligned, libHandle, "SUIVStackAligned")
+	tryRegisterLibFunc(&_SUIVStackAlignedSpaced, libHandle, "SUIVStackAlignedSpaced")
 	tryRegisterLibFunc(&_SUIHStack, libHandle, "SUIHStack")
 	tryRegisterLibFunc(&_SUIHStackSpaced, libHandle, "SUIHStackSpaced")
+	tryRegisterLibFunc(&_SUIHStackAligned, libHandle, "SUIHStackAligned")
+	tryRegisterLibFunc(&_SUIHStackAlignedSpaced, libHandle, "SUIHStackAlignedSpaced")
 	tryRegisterLibFunc(&_SUIGroupBox, libHandle, "SUIGroupBox")
 	tryRegisterLibFunc(&_SUIScrollView, libHandle, "SUIScrollView")
 	tryRegisterLibFunc(&_SUIZStack, libHandle, "SUIZStack")
@@ -535,6 +544,7 @@ func init() {
 	tryRegisterLibFunc(&_SUIViewOverlay, libHandle, "SUIViewOverlay")
 	tryRegisterLibFunc(&_SUIViewAnimation, libHandle, "SUIViewAnimation")
 	tryRegisterLibFunc(&_SUIViewBackgroundStyle, libHandle, "SUIViewBackgroundStyle")
+	tryRegisterLibFunc(&_SUIViewLabelsHidden, libHandle, "SUIViewLabelsHidden")
 	tryRegisterLibFunc(&_SUIViewLineLimit, libHandle, "SUIViewLineLimit")
 	tryRegisterLibFunc(&_SUIViewTextFieldStyle, libHandle, "SUIViewTextFieldStyle")
 	tryRegisterLibFunc(&_SUIViewShadow, libHandle, "SUIViewShadow")
@@ -719,11 +729,23 @@ func setUnavailableStubs() {
 	if _SUIVStackSpaced == nil {
 		_SUIVStackSpaced = func(*uintptr, int32, float64) uintptr { stub("SUIVStackSpaced"); return 0 }
 	}
+	if _SUIVStackAligned == nil {
+		_SUIVStackAligned = func(*uintptr, int32, int32) uintptr { stub("SUIVStackAligned"); return 0 }
+	}
+	if _SUIVStackAlignedSpaced == nil {
+		_SUIVStackAlignedSpaced = func(*uintptr, int32, int32, float64) uintptr { stub("SUIVStackAlignedSpaced"); return 0 }
+	}
 	if _SUIHStack == nil {
 		_SUIHStack = func(*uintptr, int32) uintptr { stub("SUIHStack"); return 0 }
 	}
 	if _SUIHStackSpaced == nil {
 		_SUIHStackSpaced = func(*uintptr, int32, float64) uintptr { stub("SUIHStackSpaced"); return 0 }
+	}
+	if _SUIHStackAligned == nil {
+		_SUIHStackAligned = func(*uintptr, int32, int32) uintptr { stub("SUIHStackAligned"); return 0 }
+	}
+	if _SUIHStackAlignedSpaced == nil {
+		_SUIHStackAlignedSpaced = func(*uintptr, int32, int32, float64) uintptr { stub("SUIHStackAlignedSpaced"); return 0 }
 	}
 	if _SUIGroupBox == nil {
 		_SUIGroupBox = func(*byte, uintptr) uintptr { stub("SUIGroupBox"); return 0 }
@@ -877,6 +899,9 @@ func setUnavailableStubs() {
 	}
 	if _SUIViewBackgroundStyle == nil {
 		_SUIViewBackgroundStyle = func(uintptr, *byte) uintptr { stub("SUIViewBackgroundStyle"); return 0 }
+	}
+	if _SUIViewLabelsHidden == nil {
+		_SUIViewLabelsHidden = func(uintptr) uintptr { stub("SUIViewLabelsHidden"); return 0 }
 	}
 	if _SUIViewLineLimit == nil {
 		_SUIViewLineLimit = func(uintptr, int32) uintptr { stub("SUIViewLineLimit"); return 0 }

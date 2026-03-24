@@ -100,6 +100,34 @@ func VStackSpaced(spacing float64, children ...Viewable) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// VStackAligned arranges child views in a vertical stack with explicit horizontal alignment.
+func VStackAligned(alignment HorizontalAlignment, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIVStackAligned(head, int32(len(ptrs)), int32(alignment))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// VStackAlignedSpaced arranges child views in a vertical stack with explicit alignment and spacing.
+func VStackAlignedSpaced(alignment HorizontalAlignment, spacing float64, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIVStackAlignedSpaced(head, int32(len(ptrs)), int32(alignment), spacing)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // HStack arranges child views in a horizontal stack.
 func HStack(children ...Viewable) View {
 	ptrs := make([]uintptr, len(children))
@@ -125,6 +153,34 @@ func HStackSpaced(spacing float64, children ...Viewable) View {
 		head = &ptrs[0]
 	}
 	ptr := _SUIHStackSpaced(head, int32(len(ptrs)), spacing)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// HStackAligned arranges child views in a horizontal stack with explicit vertical alignment.
+func HStackAligned(alignment VerticalAlignment, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIHStackAligned(head, int32(len(ptrs)), int32(alignment))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// HStackAlignedSpaced arranges child views in a horizontal stack with explicit alignment and spacing.
+func HStackAlignedSpaced(alignment VerticalAlignment, spacing float64, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIHStackAlignedSpaced(head, int32(len(ptrs)), int32(alignment), spacing)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
