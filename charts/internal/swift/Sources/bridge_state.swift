@@ -1,38 +1,99 @@
 import Foundation
 
+private let stateKindNumber: Int32 = 0
+private let stateKindDate: Int32 = 1
+private let stateKindOptionalNumber: Int32 = 2
+private let stateKindOptionalDate: Int32 = 3
+private let stateKindNumberRange: Int32 = 4
+private let stateKindDateRange: Int32 = 5
+
+nonisolated(unsafe) var _CHStateChangeCallback: (@convention(c) (UInt, Int32, Double, Double, Int32) -> Void)?
+
+@_cdecl("CHSetStateChangeCallback")
+public func CHSetStateChangeCallback(_ fn: @convention(c) (UInt, Int32, Double, Double, Int32) -> Void) {
+    _CHStateChangeCallback = fn
+}
+
+@MainActor
+private func notifyStateChange(
+    _ object: AnyObject,
+    kind: Int32,
+    value0: Double,
+    value1: Double = 0,
+    hasValue: Bool = true
+) {
+    let ptr = UInt(bitPattern: Unmanaged.passUnretained(object).toOpaque())
+    _CHStateChangeCallback?(ptr, kind, value0, value1, hasValue ? 1 : 0)
+}
+
 @MainActor
 final class NumberBindingState: ObservableObject {
-    @Published var value: Double
+    @Published var value: Double {
+        didSet { notifyStateChange(self, kind: stateKindNumber, value0: value) }
+    }
     init(_ value: Double) { self.value = value }
 }
 
 @MainActor
 final class DateBindingState: ObservableObject {
-    @Published var value: Date
+    @Published var value: Date {
+        didSet { notifyStateChange(self, kind: stateKindDate, value0: value.timeIntervalSince1970) }
+    }
     init(_ value: Date) { self.value = value }
 }
 
 @MainActor
 final class OptionalNumberBindingState: ObservableObject {
-    @Published var value: Double?
+    @Published var value: Double? {
+        didSet { notifyStateChange(self, kind: stateKindOptionalNumber, value0: value ?? 0, hasValue: value != nil) }
+    }
     init(_ value: Double?) { self.value = value }
 }
 
 @MainActor
 final class OptionalDateBindingState: ObservableObject {
-    @Published var value: Date?
+    @Published var value: Date? {
+        didSet {
+            notifyStateChange(
+                self,
+                kind: stateKindOptionalDate,
+                value0: value?.timeIntervalSince1970 ?? 0,
+                hasValue: value != nil
+            )
+        }
+    }
     init(_ value: Date?) { self.value = value }
 }
 
 @MainActor
 final class NumberRangeBindingState: ObservableObject {
-    @Published var value: ClosedRange<Double>?
+    @Published var value: ClosedRange<Double>? {
+        didSet {
+            notifyStateChange(
+                self,
+                kind: stateKindNumberRange,
+                value0: value?.lowerBound ?? 0,
+                value1: value?.upperBound ?? 0,
+                hasValue: value != nil
+            )
+        }
+    }
     init(_ value: ClosedRange<Double>?) { self.value = value }
 }
 
 @MainActor
 final class DateRangeBindingState: ObservableObject {
-    @Published var value: ClosedRange<Date>?
+    @Published var value: ClosedRange<Date>? {
+        didSet {
+            notifyStateChange(
+                self,
+                kind: stateKindDateRange,
+                value0: value?.lowerBound.timeIntervalSince1970 ?? 0,
+                value1: value?.upperBound.timeIntervalSince1970 ?? 0,
+                hasValue: value != nil
+            )
+        }
+    }
     init(_ value: ClosedRange<Date>?) { self.value = value }
 }
 

@@ -2,6 +2,8 @@ package charts
 
 import "time"
 
+func noopCancel() {}
+
 type stateBinding interface {
 	statePointer() uintptr
 	stateKind() int32
@@ -42,17 +44,34 @@ func (s *NumberState) Set(v float64) {
 	_CHStateSetNumber(s.ptr, v)
 }
 
+// OnChange registers a callback for changes to the state value.
+// The returned function removes the observer.
+func (s *NumberState) OnChange(fn func(float64)) func() {
+	if s == nil || s.ptr == 0 || fn == nil {
+		return noopCancel
+	}
+	return registerStateObserver(s.ptr, func(snapshot stateSnapshot) {
+		fn(snapshot.value0)
+	})
+}
+
 func (s *NumberState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
+	clearStateObservers(s.ptr)
 	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }
 
-func (s *NumberState) statePointer() uintptr { return s.ptr }
-func (s *NumberState) stateKind() int32      { return stateKindNumber }
+func (s *NumberState) statePointer() uintptr {
+	if s == nil {
+		return 0
+	}
+	return s.ptr
+}
+func (s *NumberState) stateKind() int32 { return stateKindNumber }
 
 // DateState is a bindable time-based chart state.
 type DateState struct {
@@ -81,17 +100,34 @@ func (s *DateState) Set(v time.Time) {
 	_CHStateSetDate(s.ptr, float64(v.UnixMilli())/1000.0)
 }
 
+// OnChange registers a callback for changes to the state value.
+// The returned function removes the observer.
+func (s *DateState) OnChange(fn func(time.Time)) func() {
+	if s == nil || s.ptr == 0 || fn == nil {
+		return noopCancel
+	}
+	return registerStateObserver(s.ptr, func(snapshot stateSnapshot) {
+		fn(time.UnixMilli(int64(snapshot.value0 * 1000)))
+	})
+}
+
 func (s *DateState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
+	clearStateObservers(s.ptr)
 	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }
 
-func (s *DateState) statePointer() uintptr { return s.ptr }
-func (s *DateState) stateKind() int32      { return stateKindDate }
+func (s *DateState) statePointer() uintptr {
+	if s == nil {
+		return 0
+	}
+	return s.ptr
+}
+func (s *DateState) stateKind() int32 { return stateKindDate }
 
 // OptionalNumberState is a bindable optional numeric selection state.
 type OptionalNumberState struct {
@@ -133,17 +169,34 @@ func (s *OptionalNumberState) Clear() {
 	_CHStateClearOptionalNumber(s.ptr)
 }
 
+// OnChange registers a callback for changes to the selection state.
+// The returned function removes the observer.
+func (s *OptionalNumberState) OnChange(fn func(float64, bool)) func() {
+	if s == nil || s.ptr == 0 || fn == nil {
+		return noopCancel
+	}
+	return registerStateObserver(s.ptr, func(snapshot stateSnapshot) {
+		fn(snapshot.value0, snapshot.hasValue)
+	})
+}
+
 func (s *OptionalNumberState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
+	clearStateObservers(s.ptr)
 	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }
 
-func (s *OptionalNumberState) statePointer() uintptr { return s.ptr }
-func (s *OptionalNumberState) stateKind() int32      { return stateKindOptionalNumber }
+func (s *OptionalNumberState) statePointer() uintptr {
+	if s == nil {
+		return 0
+	}
+	return s.ptr
+}
+func (s *OptionalNumberState) stateKind() int32 { return stateKindOptionalNumber }
 
 // OptionalDateState is a bindable optional time-based selection state.
 type OptionalDateState struct {
@@ -186,17 +239,34 @@ func (s *OptionalDateState) Clear() {
 	_CHStateClearOptionalDate(s.ptr)
 }
 
+// OnChange registers a callback for changes to the selection state.
+// The returned function removes the observer.
+func (s *OptionalDateState) OnChange(fn func(time.Time, bool)) func() {
+	if s == nil || s.ptr == 0 || fn == nil {
+		return noopCancel
+	}
+	return registerStateObserver(s.ptr, func(snapshot stateSnapshot) {
+		fn(time.UnixMilli(int64(snapshot.value0*1000)), snapshot.hasValue)
+	})
+}
+
 func (s *OptionalDateState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
+	clearStateObservers(s.ptr)
 	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }
 
-func (s *OptionalDateState) statePointer() uintptr { return s.ptr }
-func (s *OptionalDateState) stateKind() int32      { return stateKindOptionalDate }
+func (s *OptionalDateState) statePointer() uintptr {
+	if s == nil {
+		return 0
+	}
+	return s.ptr
+}
+func (s *OptionalDateState) stateKind() int32 { return stateKindOptionalDate }
 
 // NumberRangeState is a bindable numeric range selection state.
 type NumberRangeState struct {
@@ -238,17 +308,34 @@ func (s *NumberRangeState) Clear() {
 	_CHStateClearNumberRange(s.ptr)
 }
 
+// OnChange registers a callback for changes to the range state.
+// The returned function removes the observer.
+func (s *NumberRangeState) OnChange(fn func(float64, float64, bool)) func() {
+	if s == nil || s.ptr == 0 || fn == nil {
+		return noopCancel
+	}
+	return registerStateObserver(s.ptr, func(snapshot stateSnapshot) {
+		fn(snapshot.value0, snapshot.value1, snapshot.hasValue)
+	})
+}
+
 func (s *NumberRangeState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
+	clearStateObservers(s.ptr)
 	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }
 
-func (s *NumberRangeState) statePointer() uintptr { return s.ptr }
-func (s *NumberRangeState) stateKind() int32      { return stateKindNumberRange }
+func (s *NumberRangeState) statePointer() uintptr {
+	if s == nil {
+		return 0
+	}
+	return s.ptr
+}
+func (s *NumberRangeState) stateKind() int32 { return stateKindNumberRange }
 
 // DateRangeState is a bindable time-based range selection state.
 type DateRangeState struct {
@@ -300,14 +387,35 @@ func (s *DateRangeState) Clear() {
 	_CHStateClearDateRange(s.ptr)
 }
 
+// OnChange registers a callback for changes to the range state.
+// The returned function removes the observer.
+func (s *DateRangeState) OnChange(fn func(time.Time, time.Time, bool)) func() {
+	if s == nil || s.ptr == 0 || fn == nil {
+		return noopCancel
+	}
+	return registerStateObserver(s.ptr, func(snapshot stateSnapshot) {
+		fn(
+			time.UnixMilli(int64(snapshot.value0*1000)),
+			time.UnixMilli(int64(snapshot.value1*1000)),
+			snapshot.hasValue,
+		)
+	})
+}
+
 func (s *DateRangeState) Release() {
 	if s == nil || s.retained == nil {
 		return
 	}
+	clearStateObservers(s.ptr)
 	s.retained.release()
 	s.retained = nil
 	s.ptr = 0
 }
 
-func (s *DateRangeState) statePointer() uintptr { return s.ptr }
-func (s *DateRangeState) stateKind() int32      { return stateKindDateRange }
+func (s *DateRangeState) statePointer() uintptr {
+	if s == nil {
+		return 0
+	}
+	return s.ptr
+}
+func (s *DateRangeState) stateKind() int32 { return stateKindDateRange }

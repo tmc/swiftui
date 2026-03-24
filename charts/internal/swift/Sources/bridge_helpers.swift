@@ -67,5 +67,15 @@ public func CHRetain(_ ref: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer 
 
 @_cdecl("CHRelease")
 public func CHRelease(_ ref: UnsafeMutableRawPointer) {
-    Unmanaged<AnyObject>.fromOpaque(ref).release()
+    if Thread.isMainThread {
+        Unmanaged<AnyObject>.fromOpaque(ref).release()
+        return
+    }
+    let address = UInt(bitPattern: ref)
+    DispatchQueue.main.async {
+        guard let ref = UnsafeMutableRawPointer(bitPattern: address) else {
+            return
+        }
+        Unmanaged<AnyObject>.fromOpaque(ref).release()
+    }
 }

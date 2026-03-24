@@ -2,12 +2,85 @@ package charts
 
 import (
 	"sync"
+
+	"github.com/ebitengine/purego"
 )
 
 type retained struct {
 	ptr  uintptr
 	once sync.Once
 }
+
+var (
+	stateObserverMu   sync.Mutex
+	stateObserverMap  = map[uintptr]map[uintptr]func(stateSnapshot){}
+	stateObserverNext uintptr
+)
+
+type stateSnapshot struct {
+	kind     int32
+	value0   float64
+	value1   float64
+	hasValue bool
+}
+
+func registerStateObserver(ptr uintptr, fn func(stateSnapshot)) func() {
+	if ptr == 0 || fn == nil {
+		return func() {}
+	}
+	stateObserverMu.Lock()
+	defer stateObserverMu.Unlock()
+	stateObserverNext++
+	id := stateObserverNext
+	observers := stateObserverMap[ptr]
+	if observers == nil {
+		observers = make(map[uintptr]func(stateSnapshot))
+		stateObserverMap[ptr] = observers
+	}
+	observers[id] = fn
+	return func() {
+		stateObserverMu.Lock()
+		defer stateObserverMu.Unlock()
+		observers := stateObserverMap[ptr]
+		if observers == nil {
+			return
+		}
+		delete(observers, id)
+		if len(observers) == 0 {
+			delete(stateObserverMap, ptr)
+		}
+	}
+}
+
+func clearStateObservers(ptr uintptr) {
+	if ptr == 0 {
+		return
+	}
+	stateObserverMu.Lock()
+	delete(stateObserverMap, ptr)
+	stateObserverMu.Unlock()
+}
+
+func stateChangeCallbackTrampoline(ptr uintptr, kind int32, value0, value1 float64, hasValue int32) {
+	stateObserverMu.Lock()
+	observers := stateObserverMap[ptr]
+	callbacks := make([]func(stateSnapshot), 0, len(observers))
+	for _, fn := range observers {
+		callbacks = append(callbacks, fn)
+	}
+	stateObserverMu.Unlock()
+	snapshot := stateSnapshot{
+		kind:     kind,
+		value0:   value0,
+		value1:   value1,
+		hasValue: hasValue != 0,
+	}
+	for _, fn := range callbacks {
+		fn(snapshot)
+	}
+}
+
+var stateChangeCallbackPtr = purego.NewCallback(stateChangeCallbackTrampoline)
 
 func newRetained(ptr uintptr) *retained {
 	if ptr == 0 {
@@ -58,6 +131,7 @@ var (
 	_CHStateGetDateRangeEnd      func(uintptr) float64
 	_CHStateSetDateRange         func(uintptr, float64, float64)
 	_CHStateClearDateRange       func(uintptr)
+	_CHSetStateChangeCallback    func(uintptr)
 )
 
 var extraLibOnce sync.Once
@@ -93,6 +167,9 @@ func ensureExtraLibFuncs() {
 			tryRegisterLibFunc(&_CHStateGetDateRangeEnd, libHandle, "CHStateGetDateRangeEnd")
 			tryRegisterLibFunc(&_CHStateSetDateRange, libHandle, "CHStateSetDateRange")
 			tryRegisterLibFunc(&_CHStateClearDateRange, libHandle, "CHStateClearDateRange")
+			if tryRegisterLibFunc(&_CHSetStateChangeCallback, libHandle, "CHSetStateChangeCallback") {
+				_CHSetStateChangeCallback(stateChangeCallbackPtr)
+			}
 		}
 		setExtraUnavailableStubs()
 	})
@@ -188,5 +265,8 @@ func setExtraUnavailableStubs() {
 	}
 	if _CHStateClearDateRange == nil {
 		_CHStateClearDateRange = func(uintptr) { stub("CHStateClearDateRange") }
+	}
+	if _CHSetStateChangeCallback == nil {
+		_CHSetStateChangeCallback = func(uintptr) {}
 	}
 }

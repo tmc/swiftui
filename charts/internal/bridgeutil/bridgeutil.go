@@ -71,10 +71,10 @@ func DiscoverBuiltDylib(baseDir, dylibName string) (string, error) {
 		baseDir,
 	}
 	rels := []string{
-		filepath.Join("universal", "release", dylibName),
 		filepath.Join("release", dylibName),
 		filepath.Join("arm64-apple-macosx", "release", dylibName),
 		filepath.Join("x86_64-apple-macosx", "release", dylibName),
+		filepath.Join("universal", "release", dylibName),
 	}
 
 	seen := make(map[string]bool)
