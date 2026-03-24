@@ -12,6 +12,12 @@ swiftui_generation_report.json
 .applegen-generated
 */.applegen-generated
 
+# Local tool state
+.claude/
+benchview
+calculator
+dashboard
+
 # Example build artifacts
 examples/*/*
 !examples/*/*.go
