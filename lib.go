@@ -32,11 +32,7 @@ func newRetained(ptr uintptr) *retained {
 	if ptr == 0 || libHandle == 0 {
 		return nil
 	}
-	r := &retained{ptr: ptr}
-	runtime.SetFinalizer(r, func(rr *retained) {
-		rr.release()
-	})
-	return r
+	return &retained{ptr: ptr}
 }
 
 // addCallbackID records a callback map entry so it is cleaned up on release.
