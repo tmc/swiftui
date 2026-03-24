@@ -10,7 +10,17 @@ final class Box<T>: @unchecked Sendable {
 
 @_cdecl("SUIRelease")
 public func SUIRelease(_ ref: UnsafeMutableRawPointer) {
-    Unmanaged<AnyObject>.fromOpaque(ref).release()
+    if Thread.isMainThread {
+        Unmanaged<AnyObject>.fromOpaque(ref).release()
+        return
+    }
+    let address = UInt(bitPattern: ref)
+    DispatchQueue.main.async {
+        guard let ref = UnsafeMutableRawPointer(bitPattern: address) else {
+            return
+        }
+        Unmanaged<AnyObject>.fromOpaque(ref).release()
+    }
 }
 
 @_cdecl("SUIFreeString")
@@ -20,8 +30,20 @@ public func SUIFreeString(_ s: UnsafeMutablePointer<CChar>) {
 
 // Button callback function pointer, set by Go at init time.
 nonisolated(unsafe) var _SUIButtonCallback: (@convention(c) (UInt) -> Void)?
+nonisolated(unsafe) var _SUIBoolCallback: (@convention(c) (UInt, Int32) -> Void)?
+nonisolated(unsafe) var _SUIHoverCallback: (@convention(c) (UInt, Int32, Double, Double) -> Void)?
 
 @_cdecl("SUISetButtonCallback")
 public func SUISetButtonCallback(_ fn: @convention(c) (UInt) -> Void) {
     _SUIButtonCallback = fn
+}
+
+@_cdecl("SUISetBoolCallback")
+public func SUISetBoolCallback(_ fn: @convention(c) (UInt, Int32) -> Void) {
+    _SUIBoolCallback = fn
+}
+
+@_cdecl("SUISetHoverCallback")
+public func SUISetHoverCallback(_ fn: @convention(c) (UInt, Int32, Double, Double) -> Void) {
+    _SUIHoverCallback = fn
 }

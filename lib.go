@@ -283,6 +283,8 @@ var (
 	_SUIViewOnAppear                             func(uintptr, uintptr) uintptr
 	_SUIViewOnDisappear                          func(uintptr, uintptr) uintptr
 	_SUIViewOnHover                              func(uintptr, uintptr) uintptr
+	_SUIViewOnHoverPhase                         func(uintptr, uintptr) uintptr
+	_SUIViewOnHoverLocation                      func(uintptr, uintptr) uintptr
 	_SUIViewTint                                 func(uintptr, float64, float64, float64, float64) uintptr
 	_SUIViewFixedSize                            func(uintptr) uintptr
 	_SUIViewFixedSizeAxis                        func(uintptr, int32, int32) uintptr
@@ -366,6 +368,8 @@ var (
 	_SUISetViewBuilderCallback      func(uintptr)
 	_SUISetFloatViewBuilderCallback func(uintptr)
 	_SUISetGeometryBuilderCallback  func(uintptr)
+	_SUISetBoolCallback             func(uintptr)
+	_SUISetHoverCallback            func(uintptr)
 	_SUIRenderPNG                   func(uintptr, *byte, float64, float64, float64) *byte
 
 	// Memory.
@@ -376,8 +380,8 @@ var (
 func init() {
 	// Search order:
 	//  1. explicit env override
-	//  2. embedded payload cache
-	//  3. existing build outputs
+	//  2. existing build outputs
+	//  3. embedded payload cache
 	//  4. local rebuild into secure scratch cache
 	//  5. compatibility fallback paths
 	var lastErr error
@@ -390,21 +394,21 @@ func init() {
 		}
 	}
 
-	// Try embedded bridge payload before any untrusted search path.
-	if libHandle == 0 {
-		if handle, err := loadEmbeddedBridge(); err == nil {
-			libHandle = handle
-		} else {
-			lastErr = err
-		}
-	}
-
 	if libHandle == 0 {
 		if path, err := discoverBuiltDylib(); err == nil {
 			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
 			if err != nil {
 				lastErr = err
 			}
+		} else {
+			lastErr = err
+		}
+	}
+
+	// Try embedded bridge payload before any untrusted search path.
+	if libHandle == 0 {
+		if handle, err := loadEmbeddedBridge(); err == nil {
+			libHandle = handle
 		} else {
 			lastErr = err
 		}
@@ -550,6 +554,8 @@ func init() {
 	tryRegisterLibFunc(&_SUIViewOnAppear, libHandle, "SUIViewOnAppear")
 	tryRegisterLibFunc(&_SUIViewOnDisappear, libHandle, "SUIViewOnDisappear")
 	tryRegisterLibFunc(&_SUIViewOnHover, libHandle, "SUIViewOnHover")
+	tryRegisterLibFunc(&_SUIViewOnHoverPhase, libHandle, "SUIViewOnHoverPhase")
+	tryRegisterLibFunc(&_SUIViewOnHoverLocation, libHandle, "SUIViewOnHoverLocation")
 	tryRegisterLibFunc(&_SUIViewTint, libHandle, "SUIViewTint")
 	tryRegisterLibFunc(&_SUIViewFixedSize, libHandle, "SUIViewFixedSize")
 	tryRegisterLibFunc(&_SUIViewFixedSizeAxis, libHandle, "SUIViewFixedSizeAxis")
@@ -633,6 +639,8 @@ func init() {
 	tryRegisterLibFunc(&_SUISetViewBuilderCallback, libHandle, "SUISetViewBuilderCallback")
 	tryRegisterLibFunc(&_SUISetFloatViewBuilderCallback, libHandle, "SUISetFloatViewBuilderCallback")
 	tryRegisterLibFunc(&_SUISetGeometryBuilderCallback, libHandle, "SUISetGeometryBuilderCallback")
+	tryRegisterLibFunc(&_SUISetBoolCallback, libHandle, "SUISetBoolCallback")
+	tryRegisterLibFunc(&_SUISetHoverCallback, libHandle, "SUISetHoverCallback")
 	tryRegisterLibFunc(&_SUIRenderPNG, libHandle, "SUIRenderPNG")
 
 	// Memory.
@@ -646,6 +654,8 @@ func init() {
 	_SUISetViewBuilderCallback(viewBuilderCallbackPtr)
 	_SUISetFloatViewBuilderCallback(floatViewBuilderCallbackPtr)
 	_SUISetGeometryBuilderCallback(geometryBuilderCallbackPtr)
+	_SUISetBoolCallback(boolCallbackPtr)
+	_SUISetHoverCallback(hoverCallbackPtr)
 
 	// Initialize preset font constants.
 	initFonts()
@@ -928,6 +938,12 @@ func setUnavailableStubs() {
 	if _SUIViewOnHover == nil {
 		_SUIViewOnHover = func(uintptr, uintptr) uintptr { stub("SUIViewOnHover"); return 0 }
 	}
+	if _SUIViewOnHoverPhase == nil {
+		_SUIViewOnHoverPhase = func(uintptr, uintptr) uintptr { stub("SUIViewOnHoverPhase"); return 0 }
+	}
+	if _SUIViewOnHoverLocation == nil {
+		_SUIViewOnHoverLocation = func(uintptr, uintptr) uintptr { stub("SUIViewOnHoverLocation"); return 0 }
+	}
 	if _SUIViewTint == nil {
 		_SUIViewTint = func(uintptr, float64, float64, float64, float64) uintptr { stub("SUIViewTint"); return 0 }
 	}
@@ -1178,6 +1194,12 @@ func setUnavailableStubs() {
 	}
 	if _SUISetGeometryBuilderCallback == nil {
 		_SUISetGeometryBuilderCallback = func(uintptr) { stub("SUISetGeometryBuilderCallback") }
+	}
+	if _SUISetBoolCallback == nil {
+		_SUISetBoolCallback = func(uintptr) { stub("SUISetBoolCallback") }
+	}
+	if _SUISetHoverCallback == nil {
+		_SUISetHoverCallback = func(uintptr) { stub("SUISetHoverCallback") }
 	}
 	if _SUIRelease == nil {
 		_SUIRelease = func(uintptr) { stub("SUIRelease") }

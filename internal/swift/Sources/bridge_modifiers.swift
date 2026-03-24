@@ -478,6 +478,31 @@ public func SUIViewOnHover(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UIn
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIViewOnHoverPhase")
+public func SUIViewOnHoverPhase(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = callbackID
+    let view = AnyView(base.onHover { inside in
+        _SUIBoolCallback?(id, inside ? 1 : 0)
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewOnHoverLocation")
+public func SUIViewOnHoverLocation(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = callbackID
+    let view = AnyView(base.onContinuousHover(coordinateSpace: .local) { phase in
+        switch phase {
+        case .active(let location):
+            _SUIHoverCallback?(id, 1, location.x, location.y)
+        case .ended:
+            _SUIHoverCallback?(id, 0, 0, 0)
+        }
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIViewTint")
 public func SUIViewTint(_ viewRef: UnsafeMutableRawPointer, _ r: Double, _ g: Double, _ b: Double, _ a: Double) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value

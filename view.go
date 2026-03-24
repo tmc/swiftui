@@ -753,6 +753,28 @@ func (v View) OnHover(action func()) View {
 	return ret
 }
 
+// OnHoverPhase adds a hover callback that reports whether the pointer is inside the view.
+func (v View) OnHoverPhase(action func(bool)) View {
+	actionID := registerBoolCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnHoverPhase(v.ptr, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
+// OnHoverLocation adds a hover callback that reports phase and local pointer coordinates.
+func (v View) OnHoverLocation(action func(bool, float64, float64)) View {
+	actionID := registerHoverCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnHoverLocation(v.ptr, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
 // Tint applies a tint color to the view.
 func (v View) Tint(r float64, g float64, b float64, a float64) View {
 	ptr := _SUIViewTint(v.ptr, r, g, b, a)

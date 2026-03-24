@@ -3,6 +3,92 @@
 import AppKit
 import SwiftUI
 
+@MainActor
+private func pumpRunLoop(iterations: Int, interval: TimeInterval) {
+    guard iterations > 0, interval > 0 else {
+        return
+    }
+    for _ in 0..<iterations {
+        RunLoop.main.run(until: Date(timeIntervalSinceNow: interval))
+    }
+}
+
+@MainActor
+private func snapshotPNG(
+    view: AnyView,
+    width: Double,
+    height: Double,
+    scale: Double
+) -> Data? {
+    let targetSize = NSSize(width: width, height: height)
+    let renderScale = scale > 0 ? scale : 1
+
+    _ = NSApplication.shared
+
+    let sized = AnyView(
+        view.frame(
+            minWidth: width,
+            idealWidth: width,
+            maxWidth: width,
+            minHeight: height,
+            idealHeight: height,
+            maxHeight: height,
+            alignment: .topLeading
+        )
+    )
+    let hostingView = NSHostingView(rootView: sized)
+    hostingView.frame = NSRect(origin: .zero, size: targetSize)
+    hostingView.autoresizingMask = [.width, .height]
+
+    let window = NSWindow(
+        contentRect: NSRect(origin: .zero, size: targetSize),
+        styleMask: [.borderless],
+        backing: .buffered,
+        defer: false
+    )
+    window.isOpaque = false
+    window.backgroundColor = .clear
+    window.hasShadow = false
+    window.ignoresMouseEvents = true
+    window.alphaValue = 0
+    window.setFrameOrigin(NSPoint(x: -10000, y: -10000))
+    window.contentView = hostingView
+
+    defer {
+        window.orderOut(nil)
+        window.contentView = nil
+    }
+
+    window.orderFront(nil)
+    hostingView.layoutSubtreeIfNeeded()
+    hostingView.displayIfNeeded()
+    window.displayIfNeeded()
+    pumpRunLoop(iterations: 3, interval: 0.02)
+    hostingView.layoutSubtreeIfNeeded()
+    hostingView.displayIfNeeded()
+    window.displayIfNeeded()
+
+    let pixelsWide = max(Int((width * renderScale).rounded(.up)), 1)
+    let pixelsHigh = max(Int((height * renderScale).rounded(.up)), 1)
+    guard let bitmap = NSBitmapImageRep(
+        bitmapDataPlanes: nil,
+        pixelsWide: pixelsWide,
+        pixelsHigh: pixelsHigh,
+        bitsPerSample: 8,
+        samplesPerPixel: 4,
+        hasAlpha: true,
+        isPlanar: false,
+        colorSpaceName: .deviceRGB,
+        bytesPerRow: 0,
+        bitsPerPixel: 0
+    ) else {
+        return nil
+    }
+    bitmap.size = targetSize
+    hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
+    return bitmap.representation(using: .png, properties: [:])
+}
+
 @_cdecl("SUIRenderPNG")
 @MainActor
 public func SUIRenderPNG(
@@ -15,22 +101,7 @@ public func SUIRenderPNG(
     let view = Unmanaged<Box<AnyView>>.fromOpaque(rootView).takeUnretainedValue().value
     let outputPath = String(cString: path)
     let outputURL = URL(fileURLWithPath: outputPath)
-    let sized = AnyView(view.frame(width: width, height: height))
-
-    let renderer = ImageRenderer(content: sized)
-    renderer.proposedSize = ProposedViewSize(width: width, height: height)
-    renderer.scale = scale > 0 ? scale : 1
-
-    guard let image = renderer.nsImage else {
-        return strdup("failed to render view")
-    }
-    guard let tiff = image.tiffRepresentation else {
-        return strdup("failed to capture TIFF representation")
-    }
-    guard let bitmap = NSBitmapImageRep(data: tiff) else {
-        return strdup("failed to create bitmap representation")
-    }
-    guard let png = bitmap.representation(using: .png, properties: [:]) else {
+    guard let png = snapshotPNG(view: view, width: width, height: height, scale: scale) else {
         return strdup("failed to encode png representation")
     }
 

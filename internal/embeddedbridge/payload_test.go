@@ -1,3 +1,5 @@
+//go:build swiftui_embed
+
 package embeddedbridge
 
 import "testing"

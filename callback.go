@@ -9,9 +9,11 @@ import (
 )
 
 var (
-	callbackMu   sync.Mutex
-	callbackMap  = map[uintptr]func(){}
-	callbackNext uintptr
+	callbackMu       sync.Mutex
+	callbackMap      = map[uintptr]func(){}
+	boolCallbackMap  = map[uintptr]func(bool){}
+	hoverCallbackMap = map[uintptr]func(bool, float64, float64){}
+	callbackNext     uintptr
 )
 
 func registerCallback(fn func()) uintptr {
@@ -22,12 +24,30 @@ func registerCallback(fn func()) uintptr {
 	return callbackNext
 }
 
+func registerBoolCallback(fn func(bool)) uintptr {
+	callbackMu.Lock()
+	defer callbackMu.Unlock()
+	callbackNext++
+	boolCallbackMap[callbackNext] = fn
+	return callbackNext
+}
+
+func registerHoverCallback(fn func(bool, float64, float64)) uintptr {
+	callbackMu.Lock()
+	defer callbackMu.Unlock()
+	callbackNext++
+	hoverCallbackMap[callbackNext] = fn
+	return callbackNext
+}
+
 // unregisterCallback removes a callback from the callback map.
-// Also checks viewBuilder, floatViewBuilder, and geometryBuilder maps since retained
-// tracks all callback types with a single list.
+// Also checks viewBuilder, floatViewBuilder, and geometryBuilder maps since
+// retained tracks all callback types with a single list.
 func unregisterCallback(id uintptr) {
 	callbackMu.Lock()
 	delete(callbackMap, id)
+	delete(boolCallbackMap, id)
+	delete(hoverCallbackMap, id)
 	callbackMu.Unlock()
 	viewBuilderMu.Lock()
 	delete(viewBuilderMap, id)
@@ -52,6 +72,28 @@ func buttonCallbackTrampoline(id uintptr) {
 
 // buttonCallbackPtr is the purego callback pointer for buttonCallbackTrampoline.
 var buttonCallbackPtr = purego.NewCallback(buttonCallbackTrampoline)
+
+func boolCallbackTrampoline(id uintptr, value int32) {
+	callbackMu.Lock()
+	fn := boolCallbackMap[id]
+	callbackMu.Unlock()
+	if fn != nil {
+		fn(value != 0)
+	}
+}
+
+var boolCallbackPtr = purego.NewCallback(boolCallbackTrampoline)
+
+func hoverCallbackTrampoline(id uintptr, inside int32, x, y float64) {
+	callbackMu.Lock()
+	fn := hoverCallbackMap[id]
+	callbackMu.Unlock()
+	if fn != nil {
+		fn(inside != 0, x, y)
+	}
+}
+
+var hoverCallbackPtr = purego.NewCallback(hoverCallbackTrampoline)
 
 // View builder callbacks: Go functions that return a View given a state value.
 var (
