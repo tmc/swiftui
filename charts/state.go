@@ -22,19 +22,22 @@ const (
 type NumberState struct {
 	ptr      uintptr
 	retained *retained
+	mirror   *stateMirror
 }
 
 func NewNumberState(initial float64) *NumberState {
 	ensureExtraLibFuncs()
 	ptr := _CHStateCreateNumber(initial)
-	return &NumberState{ptr: ptr, retained: newRetained(ptr)}
+	mirror := newStateMirror(stateKindNumber, initial, 0, true)
+	registerStateMirror(ptr, mirror)
+	return &NumberState{ptr: ptr, retained: newRetained(ptr), mirror: mirror}
 }
 
 func (s *NumberState) Get() float64 {
 	if s == nil {
 		return 0
 	}
-	return _CHStateGetNumber(s.ptr)
+	return s.mirror.load().value0
 }
 
 func (s *NumberState) Set(v float64) {
@@ -42,6 +45,7 @@ func (s *NumberState) Set(v float64) {
 		return
 	}
 	_CHStateSetNumber(s.ptr, v)
+	s.mirror.store(stateSnapshot{kind: stateKindNumber, value0: v, hasValue: true})
 }
 
 // OnChange registers a callback for changes to the state value.
@@ -60,8 +64,10 @@ func (s *NumberState) Release() {
 		return
 	}
 	clearStateObservers(s.ptr)
+	clearStateMirror(s.ptr)
 	s.retained.release()
 	s.retained = nil
+	s.mirror = nil
 	s.ptr = 0
 }
 
@@ -77,19 +83,23 @@ func (s *NumberState) stateKind() int32 { return stateKindNumber }
 type DateState struct {
 	ptr      uintptr
 	retained *retained
+	mirror   *stateMirror
 }
 
 func NewDateState(initial time.Time) *DateState {
 	ensureExtraLibFuncs()
 	ptr := _CHStateCreateDate(float64(initial.UnixMilli()) / 1000.0)
-	return &DateState{ptr: ptr, retained: newRetained(ptr)}
+	seconds := float64(initial.UnixMilli()) / 1000.0
+	mirror := newStateMirror(stateKindDate, seconds, 0, true)
+	registerStateMirror(ptr, mirror)
+	return &DateState{ptr: ptr, retained: newRetained(ptr), mirror: mirror}
 }
 
 func (s *DateState) Get() time.Time {
 	if s == nil {
 		return time.Unix(0, 0)
 	}
-	seconds := _CHStateGetDate(s.ptr)
+	seconds := s.mirror.load().value0
 	return time.UnixMilli(int64(seconds * 1000))
 }
 
@@ -97,7 +107,9 @@ func (s *DateState) Set(v time.Time) {
 	if s == nil {
 		return
 	}
-	_CHStateSetDate(s.ptr, float64(v.UnixMilli())/1000.0)
+	seconds := float64(v.UnixMilli()) / 1000.0
+	_CHStateSetDate(s.ptr, seconds)
+	s.mirror.store(stateSnapshot{kind: stateKindDate, value0: seconds, hasValue: true})
 }
 
 // OnChange registers a callback for changes to the state value.
@@ -116,8 +128,10 @@ func (s *DateState) Release() {
 		return
 	}
 	clearStateObservers(s.ptr)
+	clearStateMirror(s.ptr)
 	s.retained.release()
 	s.retained = nil
+	s.mirror = nil
 	s.ptr = 0
 }
 
@@ -133,6 +147,7 @@ func (s *DateState) stateKind() int32 { return stateKindDate }
 type OptionalNumberState struct {
 	ptr      uintptr
 	retained *retained
+	mirror   *stateMirror
 }
 
 func NewOptionalNumberState(initial float64, ok bool) *OptionalNumberState {
@@ -142,17 +157,20 @@ func NewOptionalNumberState(initial float64, ok bool) *OptionalNumberState {
 		has = 1
 	}
 	ptr := _CHStateCreateOptionalNumber(initial, has)
-	return &OptionalNumberState{ptr: ptr, retained: newRetained(ptr)}
+	mirror := newStateMirror(stateKindOptionalNumber, initial, 0, ok)
+	registerStateMirror(ptr, mirror)
+	return &OptionalNumberState{ptr: ptr, retained: newRetained(ptr), mirror: mirror}
 }
 
 func (s *OptionalNumberState) Get() (float64, bool) {
 	if s == nil {
 		return 0, false
 	}
-	if _CHStateHasOptionalNumber(s.ptr) == 0 {
+	snapshot := s.mirror.load()
+	if !snapshot.hasValue {
 		return 0, false
 	}
-	return _CHStateGetOptionalNumber(s.ptr), true
+	return snapshot.value0, true
 }
 
 func (s *OptionalNumberState) Set(v float64) {
@@ -160,6 +178,7 @@ func (s *OptionalNumberState) Set(v float64) {
 		return
 	}
 	_CHStateSetOptionalNumber(s.ptr, v)
+	s.mirror.store(stateSnapshot{kind: stateKindOptionalNumber, value0: v, hasValue: true})
 }
 
 func (s *OptionalNumberState) Clear() {
@@ -167,6 +186,7 @@ func (s *OptionalNumberState) Clear() {
 		return
 	}
 	_CHStateClearOptionalNumber(s.ptr)
+	s.mirror.store(stateSnapshot{kind: stateKindOptionalNumber})
 }
 
 // OnChange registers a callback for changes to the selection state.
@@ -185,8 +205,10 @@ func (s *OptionalNumberState) Release() {
 		return
 	}
 	clearStateObservers(s.ptr)
+	clearStateMirror(s.ptr)
 	s.retained.release()
 	s.retained = nil
+	s.mirror = nil
 	s.ptr = 0
 }
 
@@ -202,6 +224,7 @@ func (s *OptionalNumberState) stateKind() int32 { return stateKindOptionalNumber
 type OptionalDateState struct {
 	ptr      uintptr
 	retained *retained
+	mirror   *stateMirror
 }
 
 func NewOptionalDateState(initial time.Time, ok bool) *OptionalDateState {
@@ -210,18 +233,22 @@ func NewOptionalDateState(initial time.Time, ok bool) *OptionalDateState {
 	if ok {
 		has = 1
 	}
-	ptr := _CHStateCreateOptionalDate(float64(initial.UnixMilli())/1000.0, has)
-	return &OptionalDateState{ptr: ptr, retained: newRetained(ptr)}
+	seconds := float64(initial.UnixMilli()) / 1000.0
+	ptr := _CHStateCreateOptionalDate(seconds, has)
+	mirror := newStateMirror(stateKindOptionalDate, seconds, 0, ok)
+	registerStateMirror(ptr, mirror)
+	return &OptionalDateState{ptr: ptr, retained: newRetained(ptr), mirror: mirror}
 }
 
 func (s *OptionalDateState) Get() (time.Time, bool) {
 	if s == nil {
 		return time.Unix(0, 0), false
 	}
-	if _CHStateHasOptionalDate(s.ptr) == 0 {
+	snapshot := s.mirror.load()
+	if !snapshot.hasValue {
 		return time.Unix(0, 0), false
 	}
-	seconds := _CHStateGetOptionalDate(s.ptr)
+	seconds := snapshot.value0
 	return time.UnixMilli(int64(seconds * 1000)), true
 }
 
@@ -229,7 +256,9 @@ func (s *OptionalDateState) Set(v time.Time) {
 	if s == nil {
 		return
 	}
-	_CHStateSetOptionalDate(s.ptr, float64(v.UnixMilli())/1000.0)
+	seconds := float64(v.UnixMilli()) / 1000.0
+	_CHStateSetOptionalDate(s.ptr, seconds)
+	s.mirror.store(stateSnapshot{kind: stateKindOptionalDate, value0: seconds, hasValue: true})
 }
 
 func (s *OptionalDateState) Clear() {
@@ -237,6 +266,7 @@ func (s *OptionalDateState) Clear() {
 		return
 	}
 	_CHStateClearOptionalDate(s.ptr)
+	s.mirror.store(stateSnapshot{kind: stateKindOptionalDate})
 }
 
 // OnChange registers a callback for changes to the selection state.
@@ -255,8 +285,10 @@ func (s *OptionalDateState) Release() {
 		return
 	}
 	clearStateObservers(s.ptr)
+	clearStateMirror(s.ptr)
 	s.retained.release()
 	s.retained = nil
+	s.mirror = nil
 	s.ptr = 0
 }
 
@@ -272,6 +304,7 @@ func (s *OptionalDateState) stateKind() int32 { return stateKindOptionalDate }
 type NumberRangeState struct {
 	ptr      uintptr
 	retained *retained
+	mirror   *stateMirror
 }
 
 func NewNumberRangeState(start, end float64, ok bool) *NumberRangeState {
@@ -281,17 +314,20 @@ func NewNumberRangeState(start, end float64, ok bool) *NumberRangeState {
 		has = 1
 	}
 	ptr := _CHStateCreateNumberRange(start, end, has)
-	return &NumberRangeState{ptr: ptr, retained: newRetained(ptr)}
+	mirror := newStateMirror(stateKindNumberRange, start, end, ok)
+	registerStateMirror(ptr, mirror)
+	return &NumberRangeState{ptr: ptr, retained: newRetained(ptr), mirror: mirror}
 }
 
 func (s *NumberRangeState) Get() (float64, float64, bool) {
 	if s == nil {
 		return 0, 0, false
 	}
-	if _CHStateHasNumberRange(s.ptr) == 0 {
+	snapshot := s.mirror.load()
+	if !snapshot.hasValue {
 		return 0, 0, false
 	}
-	return _CHStateGetNumberRangeStart(s.ptr), _CHStateGetNumberRangeEnd(s.ptr), true
+	return snapshot.value0, snapshot.value1, true
 }
 
 func (s *NumberRangeState) Set(start, end float64) {
@@ -299,6 +335,7 @@ func (s *NumberRangeState) Set(start, end float64) {
 		return
 	}
 	_CHStateSetNumberRange(s.ptr, start, end)
+	s.mirror.store(stateSnapshot{kind: stateKindNumberRange, value0: start, value1: end, hasValue: true})
 }
 
 func (s *NumberRangeState) Clear() {
@@ -306,6 +343,7 @@ func (s *NumberRangeState) Clear() {
 		return
 	}
 	_CHStateClearNumberRange(s.ptr)
+	s.mirror.store(stateSnapshot{kind: stateKindNumberRange})
 }
 
 // OnChange registers a callback for changes to the range state.
@@ -324,8 +362,10 @@ func (s *NumberRangeState) Release() {
 		return
 	}
 	clearStateObservers(s.ptr)
+	clearStateMirror(s.ptr)
 	s.retained.release()
 	s.retained = nil
+	s.mirror = nil
 	s.ptr = 0
 }
 
@@ -341,6 +381,7 @@ func (s *NumberRangeState) stateKind() int32 { return stateKindNumberRange }
 type DateRangeState struct {
 	ptr      uintptr
 	retained *retained
+	mirror   *stateMirror
 }
 
 func NewDateRangeState(start, end time.Time, ok bool) *DateRangeState {
@@ -349,23 +390,24 @@ func NewDateRangeState(start, end time.Time, ok bool) *DateRangeState {
 	if ok {
 		has = 1
 	}
-	ptr := _CHStateCreateDateRange(
-		float64(start.UnixMilli())/1000.0,
-		float64(end.UnixMilli())/1000.0,
-		has,
-	)
-	return &DateRangeState{ptr: ptr, retained: newRetained(ptr)}
+	startSeconds := float64(start.UnixMilli()) / 1000.0
+	endSeconds := float64(end.UnixMilli()) / 1000.0
+	ptr := _CHStateCreateDateRange(startSeconds, endSeconds, has)
+	mirror := newStateMirror(stateKindDateRange, startSeconds, endSeconds, ok)
+	registerStateMirror(ptr, mirror)
+	return &DateRangeState{ptr: ptr, retained: newRetained(ptr), mirror: mirror}
 }
 
 func (s *DateRangeState) Get() (time.Time, time.Time, bool) {
 	if s == nil {
 		return time.Unix(0, 0), time.Unix(0, 0), false
 	}
-	if _CHStateHasDateRange(s.ptr) == 0 {
+	snapshot := s.mirror.load()
+	if !snapshot.hasValue {
 		return time.Unix(0, 0), time.Unix(0, 0), false
 	}
-	start := time.UnixMilli(int64(_CHStateGetDateRangeStart(s.ptr) * 1000))
-	end := time.UnixMilli(int64(_CHStateGetDateRangeEnd(s.ptr) * 1000))
+	start := time.UnixMilli(int64(snapshot.value0 * 1000))
+	end := time.UnixMilli(int64(snapshot.value1 * 1000))
 	return start, end, true
 }
 
@@ -373,11 +415,10 @@ func (s *DateRangeState) Set(start, end time.Time) {
 	if s == nil {
 		return
 	}
-	_CHStateSetDateRange(
-		s.ptr,
-		float64(start.UnixMilli())/1000.0,
-		float64(end.UnixMilli())/1000.0,
-	)
+	startSeconds := float64(start.UnixMilli()) / 1000.0
+	endSeconds := float64(end.UnixMilli()) / 1000.0
+	_CHStateSetDateRange(s.ptr, startSeconds, endSeconds)
+	s.mirror.store(stateSnapshot{kind: stateKindDateRange, value0: startSeconds, value1: endSeconds, hasValue: true})
 }
 
 func (s *DateRangeState) Clear() {
@@ -385,6 +426,7 @@ func (s *DateRangeState) Clear() {
 		return
 	}
 	_CHStateClearDateRange(s.ptr)
+	s.mirror.store(stateSnapshot{kind: stateKindDateRange})
 }
 
 // OnChange registers a callback for changes to the range state.
@@ -407,8 +449,10 @@ func (s *DateRangeState) Release() {
 		return
 	}
 	clearStateObservers(s.ptr)
+	clearStateMirror(s.ptr)
 	s.retained.release()
 	s.retained = nil
+	s.mirror = nil
 	s.ptr = 0
 }
 

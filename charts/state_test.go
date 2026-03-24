@@ -78,3 +78,25 @@ func TestZZZOptionalNumberStateOnChange(t *testing.T) {
 	case <-time.After(200 * time.Millisecond):
 	}
 }
+
+func TestOptionalNumberStateGetUsesMirroredSnapshotOffThread(t *testing.T) {
+	state := NewOptionalNumberState(0, false)
+	defer state.Release()
+
+	stateChangeCallbackTrampoline(state.ptr, stateKindOptionalNumber, 9.25, 0, 1)
+
+	gotCh := make(chan optionalNumberChange, 1)
+	go func() {
+		value, ok := state.Get()
+		gotCh <- optionalNumberChange{value: value, ok: ok}
+	}()
+
+	select {
+	case got := <-gotCh:
+		if got != (optionalNumberChange{value: 9.25, ok: true}) {
+			t.Fatalf("background Get = %#v, want mirrored bridge snapshot", got)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for background Get")
+	}
+}

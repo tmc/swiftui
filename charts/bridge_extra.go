@@ -15,6 +15,8 @@ var (
 	stateObserverMu   sync.Mutex
 	stateObserverMap  = map[uintptr]map[uintptr]func(stateSnapshot){}
 	stateObserverNext uintptr
+	stateMirrorMu     sync.Mutex
+	stateMirrorMap    = map[uintptr]*stateMirror{}
 )
 
 type stateSnapshot struct {
@@ -22,6 +24,69 @@ type stateSnapshot struct {
 	value0   float64
 	value1   float64
 	hasValue bool
+}
+
+type stateMirror struct {
+	mu       sync.RWMutex
+	snapshot stateSnapshot
+}
+
+func newStateMirror(kind int32, value0, value1 float64, hasValue bool) *stateMirror {
+	return &stateMirror{
+		snapshot: stateSnapshot{
+			kind:     kind,
+			value0:   value0,
+			value1:   value1,
+			hasValue: hasValue,
+		},
+	}
+}
+
+func (m *stateMirror) load() stateSnapshot {
+	if m == nil {
+		return stateSnapshot{}
+	}
+	m.mu.RLock()
+	snapshot := m.snapshot
+	m.mu.RUnlock()
+	return snapshot
+}
+
+func (m *stateMirror) store(snapshot stateSnapshot) {
+	if m == nil {
+		return
+	}
+	m.mu.Lock()
+	m.snapshot = snapshot
+	m.mu.Unlock()
+}
+
+func registerStateMirror(ptr uintptr, mirror *stateMirror) {
+	if ptr == 0 || mirror == nil {
+		return
+	}
+	stateMirrorMu.Lock()
+	stateMirrorMap[ptr] = mirror
+	stateMirrorMu.Unlock()
+}
+
+func clearStateMirror(ptr uintptr) {
+	if ptr == 0 {
+		return
+	}
+	stateMirrorMu.Lock()
+	delete(stateMirrorMap, ptr)
+	stateMirrorMu.Unlock()
+}
+
+func updateStateMirror(ptr uintptr, snapshot stateSnapshot) {
+	if ptr == 0 {
+		return
+	}
+	stateMirrorMu.Lock()
+	mirror := stateMirrorMap[ptr]
+	stateMirrorMu.Unlock()
+	mirror.store(snapshot)
 }
 
 func registerStateObserver(ptr uintptr, fn func(stateSnapshot)) func() {
@@ -62,6 +127,14 @@ func clearStateObservers(ptr uintptr) {
 }
 
 func stateChangeCallbackTrampoline(ptr uintptr, kind int32, value0, value1 float64, hasValue int32) {
+	snapshot := stateSnapshot{
+		kind:     kind,
+		value0:   value0,
+		value1:   value1,
+		hasValue: hasValue != 0,
+	}
+	updateStateMirror(ptr, snapshot)
+
 	stateObserverMu.Lock()
 	observers := stateObserverMap[ptr]
 	callbacks := make([]func(stateSnapshot), 0, len(observers))
@@ -69,12 +142,6 @@ func stateChangeCallbackTrampoline(ptr uintptr, kind int32, value0, value1 float
 		callbacks = append(callbacks, fn)
 	}
 	stateObserverMu.Unlock()
-	snapshot := stateSnapshot{
-		kind:     kind,
-		value0:   value0,
-		value1:   value1,
-		hasValue: hasValue != 0,
-	}
 	for _, fn := range callbacks {
 		fn(snapshot)
 	}
