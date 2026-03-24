@@ -315,6 +315,7 @@ struct RulePlotDatumSpec: Decodable {
 struct ProxyLayerSpec: Decodable {
     let kind: Int32
     let alignment: Int32
+    let callbackID: UInt64
     let xState: StateRefSpec?
     let yState: StateRefSpec?
     let range: StateRefSpec?

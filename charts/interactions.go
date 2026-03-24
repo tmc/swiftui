@@ -279,11 +279,13 @@ const (
 	proxyLayerReadout
 	proxyLayerSelectionBandX
 	proxyLayerSelectionBandY
+	proxyLayerHoverEvent
 )
 
 type proxyLayer struct {
 	kind       proxyLayerKind
 	alignment  LabelAlignment
+	callbackID uint64
 	xState     stateBinding
 	yState     stateBinding
 	rangeState stateBinding
@@ -294,35 +296,37 @@ type proxyLayer struct {
 }
 
 type proxyLayerSpec struct {
-	Kind      int32           `json:"kind"`
-	Alignment int32           `json:"alignment"`
-	XState    *stateRefSpec   `json:"xState,omitempty"`
-	YState    *stateRefSpec   `json:"yState,omitempty"`
-	Range     *stateRefSpec   `json:"range,omitempty"`
-	ColorR    float64         `json:"colorR"`
-	ColorG    float64         `json:"colorG"`
-	ColorB    float64         `json:"colorB"`
-	ColorA    float64         `json:"colorA"`
-	Width     float64         `json:"width"`
-	XFormat   valueFormatSpec `json:"xFormat"`
-	YFormat   valueFormatSpec `json:"yFormat"`
+	Kind       int32           `json:"kind"`
+	Alignment  int32           `json:"alignment"`
+	CallbackID uint64          `json:"callbackID"`
+	XState     *stateRefSpec   `json:"xState,omitempty"`
+	YState     *stateRefSpec   `json:"yState,omitempty"`
+	Range      *stateRefSpec   `json:"range,omitempty"`
+	ColorR     float64         `json:"colorR"`
+	ColorG     float64         `json:"colorG"`
+	ColorB     float64         `json:"colorB"`
+	ColorA     float64         `json:"colorA"`
+	Width      float64         `json:"width"`
+	XFormat    valueFormatSpec `json:"xFormat"`
+	YFormat    valueFormatSpec `json:"yFormat"`
 }
 
 func (l proxyLayer) toSpec() proxyLayerSpec {
 	r, g, b, a := colorParts(l.color)
 	return proxyLayerSpec{
-		Kind:      int32(l.kind),
-		Alignment: int32(l.alignment),
-		XState:    stateSpec(l.xState),
-		YState:    stateSpec(l.yState),
-		Range:     stateSpec(l.rangeState),
-		ColorR:    r,
-		ColorG:    g,
-		ColorB:    b,
-		ColorA:    a,
-		Width:     l.width,
-		XFormat:   l.xFormat.toSpec(),
-		YFormat:   l.yFormat.toSpec(),
+		Kind:       int32(l.kind),
+		Alignment:  int32(l.alignment),
+		CallbackID: l.callbackID,
+		XState:     stateSpec(l.xState),
+		YState:     stateSpec(l.yState),
+		Range:      stateSpec(l.rangeState),
+		ColorR:     r,
+		ColorG:     g,
+		ColorB:     b,
+		ColorA:     a,
+		Width:      l.width,
+		XFormat:    l.xFormat.toSpec(),
+		YFormat:    l.yFormat.toSpec(),
 	}
 }
 
@@ -331,6 +335,22 @@ type ProxyOverlay struct{ layer proxyLayer }
 
 // ProxyBackground is a practical chart background driven by ChartProxy data.
 type ProxyBackground struct{ layer proxyLayer }
+
+// ChartHoverOverlay captures plot-local hover events from ChartProxy and reports them through state.
+func ChartHoverOverlay(state *ChartHoverState) ProxyOverlay {
+	return ProxyOverlay{layer: proxyLayer{
+		kind:       proxyLayerHoverEvent,
+		callbackID: state.callbackID(),
+	}}
+}
+
+// ChartHoverBackground captures plot-local hover events from a chart background.
+func ChartHoverBackground(state *ChartHoverState) ProxyBackground {
+	return ProxyBackground{layer: proxyLayer{
+		kind:       proxyLayerHoverEvent,
+		callbackID: state.callbackID(),
+	}}
+}
 
 // CrosshairOverlay draws x/y crosshair guides from selection state.
 func CrosshairOverlay(x SelectionValueBinding, y SelectionValueBinding, color swiftui.Color, width float64) ProxyOverlay {

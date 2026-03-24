@@ -374,6 +374,89 @@ private func overlayAlignment(_ raw: Int32) -> Alignment {
 }
 
 @MainActor
+private func hoverXValue(_ proxy: ChartProxy, x: CGFloat) -> (Int32, Double, Double) {
+    if let value: Double = proxy.value(atX: x) {
+        return (1, value, 0)
+    }
+    if let value: Int = proxy.value(atX: x) {
+        return (1, Double(value), 0)
+    }
+    if let value: Date = proxy.value(atX: x) {
+        return (2, 0, value.timeIntervalSince1970)
+    }
+    return (0, 0, 0)
+}
+
+@MainActor
+private func hoverYValue(_ proxy: ChartProxy, y: CGFloat) -> (Int32, Double, Double) {
+    if let value: Double = proxy.value(atY: y) {
+        return (1, value, 0)
+    }
+    if let value: Int = proxy.value(atY: y) {
+        return (1, Double(value), 0)
+    }
+    if let value: Date = proxy.value(atY: y) {
+        return (2, 0, value.timeIntervalSince1970)
+    }
+    return (0, 0, 0)
+}
+
+@MainActor
+@ViewBuilder
+private func hoverCaptureView(_ proxy: ChartProxy, frame: CGRect, callbackID: UInt64) -> some View {
+    if callbackID == 0 {
+        EmptyView()
+    } else {
+        Rectangle()
+            .fill(Color.clear)
+            .contentShape(Rectangle())
+            .frame(width: frame.width, height: frame.height)
+            .position(x: frame.midX, y: frame.midY)
+            .onContinuousHover(coordinateSpace: .local) { phase in
+                let id = UInt(callbackID)
+                switch phase {
+                case .active(let location):
+                    let xValue = hoverXValue(proxy, x: location.x)
+                    let yValue = hoverYValue(proxy, y: location.y)
+                    _CHHoverCallback?(
+                        id,
+                        1,
+                        location.x,
+                        location.y,
+                        Double(frame.minX),
+                        Double(frame.minY),
+                        Double(frame.width),
+                        Double(frame.height),
+                        xValue.0,
+                        xValue.1,
+                        xValue.2,
+                        yValue.0,
+                        yValue.1,
+                        yValue.2
+                    )
+                case .ended:
+                    _CHHoverCallback?(
+                        id,
+                        0,
+                        0,
+                        0,
+                        Double(frame.minX),
+                        Double(frame.minY),
+                        Double(frame.width),
+                        Double(frame.height),
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    )
+                }
+            }
+    }
+}
+
+@MainActor
 @ViewBuilder
 private func proxyLayerView(_ proxy: ChartProxy, _ spec: ProxyLayerSpec) -> some View {
     GeometryReader { geo in
@@ -421,6 +504,8 @@ private func proxyLayerView(_ proxy: ChartProxy, _ spec: ProxyLayerSpec) -> some
                     .frame(width: frame.width, height: span.upperBound - span.lowerBound)
                     .position(x: frame.midX, y: frame.minY + (span.lowerBound + span.upperBound) / 2)
             }
+        case 4:
+            hoverCaptureView(proxy, frame: frame, callbackID: spec.callbackID)
         default:
             EmptyView()
         }
