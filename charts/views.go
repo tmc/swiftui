@@ -757,15 +757,31 @@ func (c ChartView) cloneBuilder() *chartBuilder {
 		marks:           append([]Mark(nil), c.builder.marks...),
 		xScaleType:      c.builder.xScaleType,
 		yScaleType:      c.builder.yScaleType,
-		plot:            append([]PlotStyleOption(nil), c.builder.plot...),
-		scrollAxes:      c.builder.scrollAxes,
+		xRange:          c.builder.xRange,
+		yRange:          c.builder.yRange,
+		xAxis:           c.builder.xAxis,
+		yAxis:           c.builder.yAxis,
+		xAxisLabel:      c.builder.xAxisLabel,
+		yAxisLabel:      c.builder.yAxisLabel,
 		xSelection:      c.builder.xSelection,
 		xSelectionRange: c.builder.xSelectionRange,
 		ySelection:      c.builder.ySelection,
 		ySelectionRange: c.builder.ySelectionRange,
 		angleSelection:  c.builder.angleSelection,
+		scrollAxes:      c.builder.scrollAxes,
+		scrollPosition:  c.builder.scrollPosition,
+		visibleLength:   c.builder.visibleLength,
+		scrollTarget:    c.builder.scrollTarget,
 		xScrollBinding:  c.builder.xScrollBinding,
 		yScrollBinding:  c.builder.yScrollBinding,
+		xVisibleLength:  c.builder.xVisibleLength,
+		yVisibleLength:  c.builder.yVisibleLength,
+		gesture:         c.builder.gesture,
+		legend:          c.builder.legend,
+		plot:            append([]PlotStyleOption(nil), c.builder.plot...),
+		styleScale: foregroundStyleScaleConfig{
+			scaleType: c.builder.styleScale.scaleType,
+		},
 	}
 	if c.builder.xDomain != nil {
 		d := *c.builder.xDomain
@@ -845,6 +861,7 @@ func (c ChartView) cloneBuilder() *chartBuilder {
 		gesture := *c.builder.gesture
 		out.gesture = &gesture
 	}
+	out.view = swiftui.View{}
 	return out
 }
 
