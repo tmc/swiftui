@@ -138,7 +138,7 @@ func todoRow(index int, item string) swiftui.View {
 			Font(swiftui.FontBody),
 		swiftui.Spacer(),
 	).Padding(10).
-		Background(0.18, 0.19, 0.22, 0.55).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(10)
 }
 
@@ -157,7 +157,7 @@ func listStatCard(label, value string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.18, 0.19, 0.22, 0.55).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(10)
 }
 

@@ -173,7 +173,7 @@ func main() {
 func transitionDemo(label string, transition swiftui.Transition, state *swiftui.IntState) swiftui.View {
 	preview := swiftui.ZStack(
 		swiftui.RoundedRectangle(8).
-			Fill(1.0, 1.0, 1.0, 0.08).
+			Fill(0.5, 0.5, 0.5, 0.1).
 			Frame(180, 36).
 			AsView(),
 		swiftui.AnimatedDynamicView(state, transition, func(v int) swiftui.View {
@@ -251,7 +251,8 @@ func curveView(v int) swiftui.View {
 		swiftui.Spacer(),
 	).
 		Padding(16).
-		BackgroundRoundedRect(0.12, 0.15, 0.20, 0.96, 18).
+		BackgroundStyle("regularMaterial").
+		CornerRadius(18).
 		Overlay(
 			swiftui.RoundedRectangle(18).
 				Stroke(p.r, p.g, p.b, 0.30, 1.2).
@@ -282,7 +283,7 @@ func transformView(v int) swiftui.View {
 
 	return swiftui.ZStack(
 		swiftui.RoundedRectangle(24).
-			Fill(0.12, 0.15, 0.20, 0.96).
+			Fill(0.5, 0.5, 0.5, 0.12).
 			Frame(360, 190).
 			AsView().
 			Overlay(
@@ -428,7 +429,8 @@ func bannerView(v int) swiftui.View {
 			BackgroundRoundedRect(b.r, b.g, b.b, b.tagAlpha, 10),
 	).
 		Padding(14).
-		BackgroundRoundedRect(0.12, 0.15, 0.20, 0.96, 18).
+		BackgroundStyle("regularMaterial").
+		CornerRadius(18).
 		Overlay(
 			swiftui.RoundedRectangle(18).
 				Stroke(b.r, b.g, b.b, 0.30, 1.2).

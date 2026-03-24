@@ -341,7 +341,7 @@ func main() {
 				return swiftui.HStackSpaced(16,
 					swiftui.ZStack(
 						swiftui.RoundedRectangle(18).
-							Fill(0.15, 0.18, 0.28, 1.0).
+							Fill(0.35, 0.65, 1.0, 0.12).
 							Frame(150, 150).
 							AsView(),
 						swiftui.Image("music.note.list").
@@ -382,7 +382,7 @@ func main() {
 						),
 					).MaxFrame(-1, 0),
 				).Padding(14).
-					Background(0.18, 0.19, 0.23, 0.7).
+					BackgroundStyle("regularMaterial").
 					CornerRadius(16)
 			}),
 			swiftui.HStackSpaced(12,
@@ -468,7 +468,7 @@ func main() {
 			// Album art placeholder.
 			swiftui.ZStack(
 				swiftui.RoundedRectangle(20).
-					Fill(0.15, 0.15, 0.3, 1.0).
+					Fill(0.35, 0.65, 1.0, 0.12).
 					Frame(200, 200).
 					AsView().
 					Shadow(0, 0, 0, 0.3, 10, 0, 5),
@@ -642,7 +642,7 @@ func musicBadge(label, value string) swiftui.View {
 			Font(swiftui.FontCaption).
 			FontWeight(swiftui.WeightSemibold),
 	).Padding(8).
-		Background(1, 1, 1, 0.05).
+		BackgroundStyle("thinMaterial").
 		CornerRadius(8)
 }
 
@@ -667,7 +667,7 @@ func musicStatCard(label, value, note string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.18, 0.19, 0.23, 0.62).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(10)
 }
 

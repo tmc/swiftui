@@ -190,7 +190,7 @@ func main() {
 					MonospacedDigit(),
 			),
 		).Padding(16).
-			Background(0.18, 0.19, 0.22, 0.55).
+			BackgroundStyle("regularMaterial").
 			CornerRadius(18),
 
 		swiftui.VStackSpaced(8,

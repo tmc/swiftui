@@ -51,7 +51,6 @@ func main() {
 
 func background() swiftui.View {
 	return swiftui.ZStack(
-		swiftui.ColorView(0.07, 0.08, 0.10, 1.0),
 		swiftui.Circle().
 			Fill(0.20, 0.34, 0.52, 0.08).
 			Frame(260, 260).
@@ -96,8 +95,7 @@ func statCard(title, value, note, icon string, r, g, b float64) swiftui.View {
 			swiftui.Text(value).
 				Font(swiftui.FontSystem(26)).
 				FontWeight(swiftui.WeightBold).
-				MonospacedDigit().
-				ForegroundStyle(1, 1, 1, 0.96),
+				MonospacedDigit(),
 			swiftui.Spacer(),
 		),
 		swiftui.HStack(
@@ -108,7 +106,7 @@ func statCard(title, value, note, icon string, r, g, b float64) swiftui.View {
 		),
 	).Padding(12).
 		MaxFrame(-1, 0).
-		Background(0.11, 0.13, 0.16, 0.92).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(16).
 		Shadow(0, 0, 0, 0.10, 10, 0, 4)
 }
@@ -143,7 +141,7 @@ func panelMetric(label, value string) swiftui.View {
 		),
 	).Padding(8).
 		MaxFrame(-1, 0).
-		Background(1, 1, 1, 0.04).
+		BackgroundStyle("thinMaterial").
 		CornerRadius(12)
 }
 
@@ -228,14 +226,13 @@ func panel(title string, content swiftui.View) swiftui.View {
 	return swiftui.VStackSpaced(12,
 		swiftui.HStack(
 			swiftui.Text(title).
-				Font(swiftui.FontHeadline).
-				ForegroundStyle(1, 1, 1, 0.94),
+				Font(swiftui.FontHeadline),
 			swiftui.Spacer(),
 		),
 		content,
 	).Padding(12).
 		MaxFrame(-1, 0).
-		Background(0.10, 0.12, 0.15, 0.92).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(18).
 		Shadow(0, 0, 0, 0.08, 10, 0, 4)
 }

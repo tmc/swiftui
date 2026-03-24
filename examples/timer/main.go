@@ -128,7 +128,7 @@ func main() {
 					AsView()
 			}),
 		).Padding(16).
-			Background(0.18, 0.19, 0.22, 0.45).
+			BackgroundStyle("regularMaterial").
 			CornerRadius(18),
 
 		swiftui.HStackSpaced(12,
@@ -182,7 +182,7 @@ func timerStatCard(label, value string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.18, 0.19, 0.22, 0.45).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(14)
 }
 

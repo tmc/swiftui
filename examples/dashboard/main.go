@@ -189,7 +189,7 @@ func metricCard(icon string, label string, state *swiftui.IntState, r, g, b floa
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.5).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(10)
 }
 

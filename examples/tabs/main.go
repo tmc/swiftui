@@ -203,7 +203,7 @@ func summaryCard(icon, label, value, note string, r, g, b float64) swiftui.View 
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.45).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(10)
 }
 
@@ -257,7 +257,7 @@ func aboutPillar(title, body string) swiftui.View {
 			Font(swiftui.FontCaption).
 			ForegroundStyleNamed("secondary"),
 	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.32).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(10)
 }
 

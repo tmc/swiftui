@@ -110,6 +110,6 @@ func videoInfoCard(label, value string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.18, 0.19, 0.22, 0.6).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(10)
 }

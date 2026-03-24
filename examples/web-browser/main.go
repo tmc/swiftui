@@ -112,7 +112,7 @@ func main() {
 				}).ButtonStyle(swiftui.ButtonStyleBordered),
 			),
 		).Padding(16).
-			Background(0.16, 0.17, 0.19, 0.95),
+			BackgroundStyle("regularMaterial"),
 		swiftui.Divider(),
 		swiftui.HStackSpaced(0,
 			swiftui.VStackSpaced(14,
@@ -134,7 +134,7 @@ func main() {
 				swiftui.Spacer(),
 			).Padding(16).
 				Frame(260, 0).
-				Background(0.13, 0.14, 0.16, 1.0),
+				BackgroundStyle("windowBackground"),
 			swiftui.Divider(),
 			webView.
 				WebViewBackForwardNavigationGestures(swiftui.WebViewBehaviorEnabled).
@@ -153,7 +153,7 @@ func main() {
 				MonospacedDigit().
 				ForegroundStyleNamed("secondary"),
 		).Padding(10).
-			Background(0.14, 0.15, 0.17, 0.95),
+			BackgroundStyle("regularMaterial"),
 	))
 }
 

@@ -68,14 +68,10 @@ func lightPalette() swiftui.View {
 		).BackgroundStyle("regularMaterial"),
 
 		// Material backgrounds
-		materialCard("Material Backgrounds",
-			0.95, 0.95, 0.97,
-		),
+		materialCard("Material Backgrounds"),
 
 		// Semantic colors
-		colorCard("Semantic Colors — Light",
-			0.96, 0.96, 0.98,
-		),
+		colorCard("Semantic Colors — Light"),
 	)
 }
 
@@ -97,14 +93,10 @@ func darkPalette() swiftui.View {
 		).BackgroundStyle("thinMaterial"),
 
 		// Material backgrounds
-		materialCard("Material Backgrounds",
-			0.15, 0.15, 0.18,
-		),
+		materialCard("Material Backgrounds"),
 
 		// Semantic colors
-		colorCard("Semantic Colors — Dark",
-			0.12, 0.12, 0.14,
-		),
+		colorCard("Semantic Colors — Dark"),
 	)
 }
 
@@ -128,7 +120,7 @@ func styleCard(title string, content swiftui.View) swiftui.View {
 }
 
 // materialCard demonstrates material background styles.
-func materialCard(title string, bgR, bgG, bgB float64) swiftui.View {
+func materialCard(title string) swiftui.View {
 	materials := []struct {
 		name  string
 		label string
@@ -156,13 +148,11 @@ func materialCard(title string, bgR, bgG, bgB float64) swiftui.View {
 	return swiftui.GroupBox(title,
 		swiftui.VStackSpaced(6, rows...).
 			Padding(4),
-	).MaxFrame(-1, 0).
-		Background(bgR, bgG, bgB, 1.0).
-		CornerRadius(12)
+	).MaxFrame(-1, 0)
 }
 
 // colorCard demonstrates named foreground style colors in labeled swatches.
-func colorCard(title string, bgR, bgG, bgB float64) swiftui.View {
+func colorCard(title string) swiftui.View {
 	styles := []struct {
 		name  string
 		label string
@@ -193,7 +183,5 @@ func colorCard(title string, bgR, bgG, bgB float64) swiftui.View {
 	return swiftui.GroupBox(title,
 		swiftui.VStackSpaced(6, rows...).
 			Padding(4),
-	).MaxFrame(-1, 0).
-		Background(bgR, bgG, bgB, 1.0).
-		CornerRadius(12)
+	).MaxFrame(-1, 0)
 }

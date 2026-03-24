@@ -309,7 +309,8 @@ func buildCard(card Card, col, idx int, versions [3]*swiftui.IntState) swiftui.V
 				ForegroundStyleNamed("tertiary"),
 		),
 	).Padding(10).
-		BackgroundRoundedRect(0.2, 0.2, 0.22, 0.6, 8).
+		BackgroundStyle("regularMaterial").
+		CornerRadius(8).
 		Shadow(0, 0, 0, 0.15, 3, 0, 1)
 
 	// Build context menu actions.
