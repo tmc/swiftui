@@ -216,6 +216,7 @@ var (
 	_SUISection                  func(*byte, uintptr) uintptr
 	_SUITabView                  func(*uintptr, int32) uintptr
 	_SUIButton                   func(*byte, uintptr) uintptr
+	_SUIButtonView               func(uintptr, uintptr) uintptr
 	_SUIButtonWithImage          func(*byte, uintptr) uintptr
 	_SUIButtonWithLabel          func(*byte, *byte, uintptr) uintptr
 	_SUITextFromState            func(uintptr) uintptr
@@ -492,6 +493,7 @@ func init() {
 	tryRegisterLibFunc(&_SUISection, libHandle, "SUISection")
 	tryRegisterLibFunc(&_SUITabView, libHandle, "SUITabView")
 	tryRegisterLibFunc(&_SUIButton, libHandle, "SUIButton")
+	tryRegisterLibFunc(&_SUIButtonView, libHandle, "SUIButtonView")
 	tryRegisterLibFunc(&_SUIButtonWithImage, libHandle, "SUIButtonWithImage")
 	tryRegisterLibFunc(&_SUIButtonWithLabel, libHandle, "SUIButtonWithLabel")
 	tryRegisterLibFunc(&_SUITextFromState, libHandle, "SUITextFromState")
@@ -776,6 +778,9 @@ func setUnavailableStubs() {
 	}
 	if _SUIButton == nil {
 		_SUIButton = func(*byte, uintptr) uintptr { stub("SUIButton"); return 0 }
+	}
+	if _SUIButtonView == nil {
+		_SUIButtonView = func(uintptr, uintptr) uintptr { stub("SUIButtonView"); return 0 }
 	}
 	if _SUIButtonWithImage == nil {
 		_SUIButtonWithImage = func(*byte, uintptr) uintptr { stub("SUIButtonWithImage"); return 0 }

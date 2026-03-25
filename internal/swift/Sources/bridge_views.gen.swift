@@ -152,6 +152,18 @@ public func SUIButton(_ label: UnsafePointer<CChar>, _ callbackID: UInt) -> Unsa
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIButtonView")
+public func SUIButtonView(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = callbackID
+    let view = AnyView(Button(action: {
+        _SUIButtonCallback?(id)
+    }) {
+        base
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIButtonWithImage")
 public func SUIButtonWithImage(_ systemName: UnsafePointer<CChar>, _ callbackID: UInt) -> UnsafeMutableRawPointer {
     let name = String(cString: systemName)

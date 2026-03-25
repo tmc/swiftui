@@ -304,6 +304,16 @@ func Button(label string, action func()) View {
 	return ret
 }
 
+// ButtonView creates a clickable button using a custom label view.
+func ButtonView(label View, action func()) View {
+	actionID := registerCallback(action)
+	ptr := _SUIButtonView(label.ptr, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(label.retained)
+	return ret
+}
+
 // ButtonWithImage creates a clickable button with an SF Symbol icon.
 func ButtonWithImage(systemName string, action func()) View {
 	actionID := registerCallback(action)
