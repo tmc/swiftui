@@ -386,6 +386,7 @@ type ScrollBounce int32
 const (
 	ScrollBounceBasedOnSize ScrollBounce = 0
 	ScrollBounceAlways      ScrollBounce = 1
+	ScrollBounceAutomatic   ScrollBounce = 2
 )
 
 // PresentationDragIndicatorKind identifies drag indicator visibility.
@@ -849,6 +850,34 @@ func (v View) Tag(tag int32) View {
 // ID assigns a stable integer identity for ScrollViewReader scroll targets.
 func (v View) ID(id int) View {
 	ptr := _SUIViewID(v.ptr, int32(id))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// DefaultScrollAnchor sets the default anchor used when a scroll view chooses an initial target.
+func (v View) DefaultScrollAnchor(anchor ScrollAnchor) View {
+	ptr := _SUIViewDefaultScrollAnchor(v.ptr, int32(anchor))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScrollTargetBehavior sets how a scroll view snaps to its scroll targets.
+func (v View) ScrollTargetBehavior(behavior ScrollTargetBehaviorKind) View {
+	ptr := _SUIViewScrollTargetBehavior(v.ptr, int32(behavior))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScrollTargetLayout marks a layout container as providing scroll targets.
+func (v View) ScrollTargetLayout() View {
+	ptr := _SUIViewScrollTargetLayout(v.ptr)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScrollBounceBehavior sets the bounce policy for a scroll view along one axis.
+func (v View) ScrollBounceBehavior(behavior ScrollBounce, axis Axis) View {
+	ptr := _SUIViewScrollBounceBehavior(v.ptr, int32(behavior), int32(axis))
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }

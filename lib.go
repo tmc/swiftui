@@ -312,6 +312,10 @@ var (
 	_SUIViewPointerStyle                         func(uintptr, int32) uintptr
 	_SUIViewTag                                  func(uintptr, int32) uintptr
 	_SUIViewID                                   func(uintptr, int32) uintptr
+	_SUIViewDefaultScrollAnchor                  func(uintptr, int32) uintptr
+	_SUIViewScrollTargetBehavior                 func(uintptr, int32) uintptr
+	_SUIViewScrollTargetLayout                   func(uintptr) uintptr
+	_SUIViewScrollBounceBehavior                 func(uintptr, int32, int32) uintptr
 	_SUIViewFill                                 func(uintptr, float64, float64, float64, float64) uintptr
 	_SUIViewStroke                               func(uintptr, float64, float64, float64, float64, float64) uintptr
 	_SUIViewOnAppear                             func(uintptr, uintptr) uintptr
@@ -628,6 +632,10 @@ func init() {
 	tryRegisterLibFunc(&_SUIViewPointerStyle, libHandle, "SUIViewPointerStyle")
 	tryRegisterLibFunc(&_SUIViewTag, libHandle, "SUIViewTag")
 	tryRegisterLibFunc(&_SUIViewID, libHandle, "SUIViewID")
+	tryRegisterLibFunc(&_SUIViewDefaultScrollAnchor, libHandle, "SUIViewDefaultScrollAnchor")
+	tryRegisterLibFunc(&_SUIViewScrollTargetBehavior, libHandle, "SUIViewScrollTargetBehavior")
+	tryRegisterLibFunc(&_SUIViewScrollTargetLayout, libHandle, "SUIViewScrollTargetLayout")
+	tryRegisterLibFunc(&_SUIViewScrollBounceBehavior, libHandle, "SUIViewScrollBounceBehavior")
 	tryRegisterLibFunc(&_SUIViewFill, libHandle, "SUIViewFill")
 	tryRegisterLibFunc(&_SUIViewStroke, libHandle, "SUIViewStroke")
 	tryRegisterLibFunc(&_SUIViewOnAppear, libHandle, "SUIViewOnAppear")
@@ -1093,6 +1101,18 @@ func setUnavailableStubs() {
 	}
 	if _SUIViewID == nil {
 		_SUIViewID = func(uintptr, int32) uintptr { stub("SUIViewID"); return 0 }
+	}
+	if _SUIViewDefaultScrollAnchor == nil {
+		_SUIViewDefaultScrollAnchor = func(uintptr, int32) uintptr { stub("SUIViewDefaultScrollAnchor"); return 0 }
+	}
+	if _SUIViewScrollTargetBehavior == nil {
+		_SUIViewScrollTargetBehavior = func(uintptr, int32) uintptr { stub("SUIViewScrollTargetBehavior"); return 0 }
+	}
+	if _SUIViewScrollTargetLayout == nil {
+		_SUIViewScrollTargetLayout = func(uintptr) uintptr { stub("SUIViewScrollTargetLayout"); return 0 }
+	}
+	if _SUIViewScrollBounceBehavior == nil {
+		_SUIViewScrollBounceBehavior = func(uintptr, int32, int32) uintptr { stub("SUIViewScrollBounceBehavior"); return 0 }
 	}
 	if _SUIViewFill == nil {
 		_SUIViewFill = func(uintptr, float64, float64, float64, float64) uintptr { stub("SUIViewFill"); return 0 }

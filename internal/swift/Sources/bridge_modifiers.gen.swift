@@ -524,6 +524,40 @@ public func SUIViewID(_ viewRef: UnsafeMutableRawPointer, _ id: Int32) -> Unsafe
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIViewDefaultScrollAnchor")
+public func SUIViewDefaultScrollAnchor(_ viewRef: UnsafeMutableRawPointer, _ anchor: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.defaultScrollAnchor(suiScrollAnchorUnitPoint(anchor)))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewScrollTargetBehavior")
+public func SUIViewScrollTargetBehavior(_ viewRef: UnsafeMutableRawPointer, _ behavior: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view: AnyView
+    switch behavior {
+    case 1:
+        view = AnyView(base.scrollTargetBehavior(.viewAligned))
+    default:
+        view = AnyView(base.scrollTargetBehavior(.paging))
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewScrollTargetLayout")
+public func SUIViewScrollTargetLayout(_ viewRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.scrollTargetLayout())
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewScrollBounceBehavior")
+public func SUIViewScrollBounceBehavior(_ viewRef: UnsafeMutableRawPointer, _ behavior: Int32, _ axis: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.scrollBounceBehavior(suiScrollBounceBehavior(behavior), axes: suiAxisSet(axis)))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIViewToolbarRole")
 public func SUIViewToolbarRole(_ viewRef: UnsafeMutableRawPointer, _ role: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value

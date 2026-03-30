@@ -303,7 +303,7 @@ func (w *workbench) shellPanel() swiftui.View {
 		moduleRows = append(moduleRows, workspaceModuleRow(m).Tag(int32(m.ID)))
 	}
 
-	return swiftui.ScrollView(
+	return scrollPanel(
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"Workbench Shell",
@@ -372,7 +372,7 @@ func (w *workbench) shellPanel() swiftui.View {
 }
 
 func (w *workbench) treePanel() swiftui.View {
-	return swiftui.ScrollView(
+	return scrollPanel(
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"File Browser",
@@ -432,7 +432,7 @@ func (w *workbench) treePanel() swiftui.View {
 }
 
 func (w *workbench) motionPanel() swiftui.View {
-	return swiftui.ScrollView(
+	return scrollPanel(
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"Motion States",
@@ -474,7 +474,7 @@ func (w *workbench) motionPanel() swiftui.View {
 }
 
 func (w *workbench) timerPanel() swiftui.View {
-	return swiftui.ScrollView(
+	return scrollPanel(
 		swiftui.DynamicView(w.timer.RevisionState(), func(_ int) swiftui.View {
 			secs := int(w.timer.Remaining() / time.Second)
 			return swiftui.VStackSpaced(18,
@@ -546,7 +546,7 @@ func (w *workbench) timerPanel() swiftui.View {
 }
 
 func (w *workbench) routerPanel() swiftui.View {
-	return swiftui.ScrollView(
+	return scrollPanel(
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"Navigation And Disclosure",
@@ -594,7 +594,7 @@ func (w *workbench) routerPanel() swiftui.View {
 }
 
 func (w *workbench) plannerPanel() swiftui.View {
-	return swiftui.ScrollView(
+	return scrollPanel(
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"Planner",
@@ -655,7 +655,7 @@ func (w *workbench) gridPanel() swiftui.View {
 		gridRows = append(gridRows, gridDataRow(row).Tag(int32(row.ID)))
 	}
 
-	return swiftui.ScrollView(
+	return scrollPanel(
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"Data Grid",
@@ -751,7 +751,7 @@ func (w *workbench) gapsPanel() swiftui.View {
 			swiftui.Button("Stay here", func() {}),
 		))
 
-	return swiftui.ScrollView(
+	return scrollPanel(
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"Runtime Gaps",
@@ -1254,6 +1254,15 @@ func sidebarWidthShim() swiftui.View {
 		AsView().
 		AllowsHitTesting(false).
 		AccessibilityHidden(true)
+}
+
+func scrollPanel(content swiftui.View) swiftui.View {
+	return swiftui.ScrollView(
+		content.ScrollTargetLayout(),
+	).
+		DefaultScrollAnchor(swiftui.ScrollAnchorTop).
+		ScrollTargetBehavior(swiftui.ScrollTargetBehaviorViewAligned).
+		ScrollBounceBehavior(swiftui.ScrollBounceBasedOnSize, swiftui.AxisVertical)
 }
 
 func statusStrip(title, body string, rgb [3]float64) swiftui.TextView {

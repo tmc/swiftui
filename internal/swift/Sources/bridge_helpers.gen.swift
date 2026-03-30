@@ -189,6 +189,26 @@ func suiScrollAnchorUnitPoint(_ raw: Int32) -> UnitPoint {
     }
 }
 
+func suiAxisSet(_ raw: Int32) -> Axis.Set {
+    switch raw {
+    case 0:
+        return [.horizontal]
+    default:
+        return [.vertical]
+    }
+}
+
+func suiScrollBounceBehavior(_ raw: Int32) -> ScrollBounceBehavior {
+    switch raw {
+    case 1:
+        return .always
+    case 2:
+        return .automatic
+    default:
+        return .basedOnSize
+    }
+}
+
 func suiBoolBinding(_ state: BridgedBoolState) -> Binding<Bool> {
     Binding(
         get: { state.value },
