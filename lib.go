@@ -184,6 +184,7 @@ func tryRegisterLibFunc(fptr any, handle uintptr, name string) bool {
 var (
 	// Views.
 	_SUIText                                func(*byte) uintptr
+	_SUITextTimerInterval                   func(float64, float64, float64, int32, int32) uintptr
 	_SUIImage                               func(*byte) uintptr
 	_SUISpacer                              func() uintptr
 	_SUIDivider                             func() uintptr
@@ -231,6 +232,9 @@ var (
 	_SUISecureField                         func(*byte, uintptr, uintptr) uintptr
 	_SUITextEditor                          func(uintptr) uintptr
 	_SUISlider                              func(*byte, uintptr, float64, float64, uintptr) uintptr
+	_SUIPhaseAnimator                       func(*int32, int32, uintptr, int32) uintptr
+	_SUIPhaseAnimatorTriggered              func(*int32, int32, int32, uintptr, int32) uintptr
+	_SUISliderTickContentForEach            func(*int32, int32, int32, uintptr) uintptr
 	_SUIPickerSegmented                     func(*byte, uintptr, uintptr, uintptr) uintptr
 	_SUIStepperInt                          func(*byte, uintptr, int32, int32, uintptr) uintptr
 	_SUIDynamicView                         func(uintptr, uintptr) uintptr
@@ -296,6 +300,10 @@ var (
 	_SUIViewFocusable                            func(uintptr, int32) uintptr
 	_SUIViewNavigationTitle                      func(uintptr, *byte) uintptr
 	_SUIViewNavigationSplitViewStyle             func(uintptr, int32) uintptr
+	_SUIViewMenuButtonStyle                      func(uintptr, int32) uintptr
+	_SUIViewNavigationViewStyle                  func(uintptr, int32) uintptr
+	_SUISectionCollapsible                       func(uintptr, int32) uintptr
+	_SUINavigationLinkIsDetailLink               func(uintptr, int32) uintptr
 	_SUIViewTabItem                              func(uintptr, *byte, *byte) uintptr
 	_SUIViewToolbarRole                          func(uintptr, int32) uintptr
 	_SUIViewToolbarItem                          func(uintptr, int32, uintptr) uintptr
@@ -492,6 +500,7 @@ func init() {
 
 	// Views.
 	tryRegisterLibFunc(&_SUIText, libHandle, "SUIText")
+	tryRegisterLibFunc(&_SUITextTimerInterval, libHandle, "SUITextTimerInterval")
 	tryRegisterLibFunc(&_SUIImage, libHandle, "SUIImage")
 	tryRegisterLibFunc(&_SUISpacer, libHandle, "SUISpacer")
 	tryRegisterLibFunc(&_SUIDivider, libHandle, "SUIDivider")
@@ -539,6 +548,9 @@ func init() {
 	tryRegisterLibFunc(&_SUISecureField, libHandle, "SUISecureField")
 	tryRegisterLibFunc(&_SUITextEditor, libHandle, "SUITextEditor")
 	tryRegisterLibFunc(&_SUISlider, libHandle, "SUISlider")
+	tryRegisterLibFunc(&_SUIPhaseAnimator, libHandle, "SUIPhaseAnimator")
+	tryRegisterLibFunc(&_SUIPhaseAnimatorTriggered, libHandle, "SUIPhaseAnimatorTriggered")
+	tryRegisterLibFunc(&_SUISliderTickContentForEach, libHandle, "SUISliderTickContentForEach")
 	tryRegisterLibFunc(&_SUIPickerSegmented, libHandle, "SUIPickerSegmented")
 	tryRegisterLibFunc(&_SUIStepperInt, libHandle, "SUIStepperInt")
 	tryRegisterLibFunc(&_SUIDynamicView, libHandle, "SUIDynamicView")
@@ -604,6 +616,10 @@ func init() {
 	tryRegisterLibFunc(&_SUIViewFocusable, libHandle, "SUIViewFocusable")
 	tryRegisterLibFunc(&_SUIViewNavigationTitle, libHandle, "SUIViewNavigationTitle")
 	tryRegisterLibFunc(&_SUIViewNavigationSplitViewStyle, libHandle, "SUIViewNavigationSplitViewStyle")
+	tryRegisterLibFunc(&_SUIViewMenuButtonStyle, libHandle, "SUIViewMenuButtonStyle")
+	tryRegisterLibFunc(&_SUIViewNavigationViewStyle, libHandle, "SUIViewNavigationViewStyle")
+	tryRegisterLibFunc(&_SUISectionCollapsible, libHandle, "SUISectionCollapsible")
+	tryRegisterLibFunc(&_SUINavigationLinkIsDetailLink, libHandle, "SUINavigationLinkIsDetailLink")
 	tryRegisterLibFunc(&_SUIViewTabItem, libHandle, "SUIViewTabItem")
 	tryRegisterLibFunc(&_SUIViewToolbarRole, libHandle, "SUIViewToolbarRole")
 	tryRegisterLibFunc(&_SUIViewToolbarItem, libHandle, "SUIViewToolbarItem")
@@ -745,6 +761,9 @@ func setUnavailableStubs() {
 	if _SUIText == nil {
 		_SUIText = func(*byte) uintptr { stub("SUIText"); return 0 }
 	}
+	if _SUITextTimerInterval == nil {
+		_SUITextTimerInterval = func(float64, float64, float64, int32, int32) uintptr { stub("SUITextTimerInterval"); return 0 }
+	}
 	if _SUIImage == nil {
 		_SUIImage = func(*byte) uintptr { stub("SUIImage"); return 0 }
 	}
@@ -885,6 +904,15 @@ func setUnavailableStubs() {
 	}
 	if _SUISlider == nil {
 		_SUISlider = func(*byte, uintptr, float64, float64, uintptr) uintptr { stub("SUISlider"); return 0 }
+	}
+	if _SUIPhaseAnimator == nil {
+		_SUIPhaseAnimator = func(*int32, int32, uintptr, int32) uintptr { stub("SUIPhaseAnimator"); return 0 }
+	}
+	if _SUIPhaseAnimatorTriggered == nil {
+		_SUIPhaseAnimatorTriggered = func(*int32, int32, int32, uintptr, int32) uintptr { stub("SUIPhaseAnimatorTriggered"); return 0 }
+	}
+	if _SUISliderTickContentForEach == nil {
+		_SUISliderTickContentForEach = func(*int32, int32, int32, uintptr) uintptr { stub("SUISliderTickContentForEach"); return 0 }
 	}
 	if _SUIPickerSegmented == nil {
 		_SUIPickerSegmented = func(*byte, uintptr, uintptr, uintptr) uintptr { stub("SUIPickerSegmented"); return 0 }
@@ -1029,6 +1057,18 @@ func setUnavailableStubs() {
 	}
 	if _SUIViewNavigationSplitViewStyle == nil {
 		_SUIViewNavigationSplitViewStyle = func(uintptr, int32) uintptr { stub("SUIViewNavigationSplitViewStyle"); return 0 }
+	}
+	if _SUIViewMenuButtonStyle == nil {
+		_SUIViewMenuButtonStyle = func(uintptr, int32) uintptr { stub("SUIViewMenuButtonStyle"); return 0 }
+	}
+	if _SUIViewNavigationViewStyle == nil {
+		_SUIViewNavigationViewStyle = func(uintptr, int32) uintptr { stub("SUIViewNavigationViewStyle"); return 0 }
+	}
+	if _SUISectionCollapsible == nil {
+		_SUISectionCollapsible = func(uintptr, int32) uintptr { stub("SUISectionCollapsible"); return 0 }
+	}
+	if _SUINavigationLinkIsDetailLink == nil {
+		_SUINavigationLinkIsDetailLink = func(uintptr, int32) uintptr { stub("SUINavigationLinkIsDetailLink"); return 0 }
 	}
 	if _SUIViewTabItem == nil {
 		_SUIViewTabItem = func(uintptr, *byte, *byte) uintptr { stub("SUIViewTabItem"); return 0 }

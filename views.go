@@ -445,6 +445,48 @@ func Slider(label string, state *IntState, min float64, max float64, onChange fu
 	return ret
 }
 
+// PhaseAnimator creates a phase-driven view sequence.
+func PhaseAnimator(phases []int32, content func(value int) View, animation AnimationKind) View {
+	contentID := registerViewBuilder(content)
+	vals := phases
+	var head *int32
+	if len(vals) > 0 {
+		head = &vals[0]
+	}
+	ptr := _SUIPhaseAnimator(head, int32(len(vals)), contentID, int32(animation))
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(contentID)
+	return ret
+}
+
+// PhaseAnimatorTrigger creates a phase-driven view sequence that restarts when trigger changes.
+func PhaseAnimatorTrigger(phases []int32, trigger int32, content func(value int) View, animation AnimationKind) View {
+	contentID := registerViewBuilder(content)
+	vals := phases
+	var head *int32
+	if len(vals) > 0 {
+		head = &vals[0]
+	}
+	ptr := _SUIPhaseAnimatorTriggered(head, int32(len(vals)), trigger, contentID, int32(animation))
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(contentID)
+	return ret
+}
+
+// SliderTickContentForEach creates slider tick content from integer values.
+func SliderTickContentForEach(values []int32, id int32, content func(value int) View) View {
+	contentID := registerViewBuilder(content)
+	vals := values
+	var head *int32
+	if len(vals) > 0 {
+		head = &vals[0]
+	}
+	ptr := _SUISliderTickContentForEach(head, int32(len(vals)), id, contentID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(contentID)
+	return ret
+}
+
 // PickerSegmented creates a segmented picker bound to an IntState.
 func PickerSegmented(label string, state *IntState, options View, onChange func()) View {
 	onChangeID := registerCallback(onChange)
@@ -703,6 +745,20 @@ func Text(s string) TextView {
 	withCString(s, func(sC *byte) {
 		ptr = _SUIText(sC)
 	})
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// TextTimerInterval creates a timer text view from Unix epoch seconds; pass 0 for pauseTime to omit it.
+func TextTimerInterval(start float64, end float64, pauseTime float64, countsDown bool, showsHours bool) TextView {
+	var countsDownV int32
+	if countsDown {
+		countsDownV = 1
+	}
+	var showsHoursV int32
+	if showsHours {
+		showsHoursV = 1
+	}
+	ptr := _SUITextTimerInterval(start, end, pauseTime, countsDownV, showsHoursV)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
 

@@ -230,6 +230,27 @@ const (
 	NavigationSplitViewStyleProminentDetail NavigationSplitViewStyleKind = 2
 )
 
+// MenuButtonStyleKind identifies menu button styles.
+type MenuButtonStyleKind int32
+
+const (
+	MenuButtonStyleDefault            MenuButtonStyleKind = 0
+	MenuButtonStylePullDown           MenuButtonStyleKind = 1
+	MenuButtonStyleBorderlessPullDown MenuButtonStyleKind = 2
+	MenuButtonStyleBorderlessButton   MenuButtonStyleKind = 3
+	MenuButtonStyleTexturedPullDown   MenuButtonStyleKind = 4
+)
+
+// NavigationViewStyleKind identifies legacy navigation view styles.
+type NavigationViewStyleKind int32
+
+const (
+	NavigationViewStyleAutomatic    NavigationViewStyleKind = 0
+	NavigationViewStyleColumn       NavigationViewStyleKind = 1
+	NavigationViewStyleDoubleColumn NavigationViewStyleKind = 2
+	NavigationViewStyleStack        NavigationViewStyleKind = 3
+)
+
 // NavigationSplitViewVisibilityKind identifies column visibility.
 type NavigationSplitViewVisibilityKind int32
 
@@ -724,6 +745,42 @@ func (v View) NavigationTitle(title string) View {
 // NavigationSplitViewStyle sets the split view column presentation style.
 func (v View) NavigationSplitViewStyle(style NavigationSplitViewStyleKind) View {
 	ptr := _SUIViewNavigationSplitViewStyle(v.ptr, int32(style))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// MenuButtonStyle sets the menu button style for the view hierarchy.
+func (v View) MenuButtonStyle(style MenuButtonStyleKind) View {
+	ptr := _SUIViewMenuButtonStyle(v.ptr, int32(style))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// NavigationViewStyle sets the legacy navigation view style.
+func (v View) NavigationViewStyle(style NavigationViewStyleKind) View {
+	ptr := _SUIViewNavigationViewStyle(v.ptr, int32(style))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Collapsible controls whether a section is collapsible.
+func (v View) Collapsible(collapsible bool) View {
+	var collapsibleV int32
+	if collapsible {
+		collapsibleV = 1
+	}
+	ptr := _SUISectionCollapsible(v.ptr, collapsibleV)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// IsDetailLink marks a navigation link as a detail link.
+func (v View) IsDetailLink(isDetailLink bool) View {
+	var isDetailLinkV int32
+	if isDetailLink {
+		isDetailLinkV = 1
+	}
+	ptr := _SUINavigationLinkIsDetailLink(v.ptr, isDetailLinkV)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }

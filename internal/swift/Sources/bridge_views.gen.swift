@@ -13,6 +13,15 @@ public func SUIText(_ s: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUITextTimerInterval")
+public func SUITextTimerInterval(_ start: Double, _ end: Double, _ pauseTime: Double, _ countsDown: Bool, _ showsHours: Bool) -> UnsafeMutableRawPointer {
+    let startDate = Date(timeIntervalSince1970: start)
+    let endDate = Date(timeIntervalSince1970: end)
+    let pauseDate: Date? = pauseTime == 0 ? nil : Date(timeIntervalSince1970: pauseTime)
+    let view = AnyView(Text(timerInterval: startDate...endDate, pauseTime: pauseDate, countsDown: countsDown, showsHours: showsHours))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIImage")
 public func SUIImage(_ systemName: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
     let name = String(cString: systemName)
@@ -549,6 +558,76 @@ public func SUISectionExpandedView(_ headerRef: UnsafeMutableRawPointer, _ expan
     } header: {
         header
     })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedPhaseAnimatorView: View {
+    let phases: [Int32]
+    let trigger: Int32?
+    let callbackID: UInt
+    let animationKind: Int32
+
+    var body: some View {
+        let content: (Int32) -> AnyView = { phase in
+            if let ptr = _SUIViewBuilderCallback?(callbackID, Int(phase)) {
+                return Unmanaged<Box<AnyView>>.fromOpaque(ptr).takeRetainedValue().value
+            }
+            return AnyView(EmptyView())
+        }
+        if let trigger {
+            PhaseAnimator(phases, trigger: trigger) { phase in
+                content(phase)
+            } animation: { _ in
+                Optional(animationForKind(animationKind))
+            }
+        } else {
+            PhaseAnimator(phases) { phase in
+                content(phase)
+            } animation: { _ in
+                Optional(animationForKind(animationKind))
+            }
+        }
+    }
+}
+
+@_cdecl("SUIPhaseAnimator")
+@MainActor
+public func SUIPhaseAnimator(_ phasesRef: UnsafePointer<Int32>, _ count: Int32, _ callbackID: UInt, _ animationKind: Int32) -> UnsafeMutableRawPointer {
+    let phases = Array(UnsafeBufferPointer(start: phasesRef, count: Int(count)))
+    let view = AnyView(BridgedPhaseAnimatorView(phases: phases, trigger: nil, callbackID: callbackID, animationKind: animationKind))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIPhaseAnimatorTriggered")
+@MainActor
+public func SUIPhaseAnimatorTriggered(_ phasesRef: UnsafePointer<Int32>, _ count: Int32, _ trigger: Int32, _ callbackID: UInt, _ animationKind: Int32) -> UnsafeMutableRawPointer {
+    let phases = Array(UnsafeBufferPointer(start: phasesRef, count: Int(count)))
+    let view = AnyView(BridgedPhaseAnimatorView(phases: phases, trigger: trigger, callbackID: callbackID, animationKind: animationKind))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedSliderTickContentForEachView: View {
+    let values: [Int32]
+    let callbackID: UInt
+
+    var body: some View {
+        ForEach(values, id: \.self) { value in
+            if let ptr = _SUIViewBuilderCallback?(callbackID, Int(value)) {
+                Unmanaged<Box<AnyView>>.fromOpaque(ptr).takeRetainedValue().value
+            } else {
+                AnyView(EmptyView())
+            }
+        }
+    }
+}
+
+@_cdecl("SUISliderTickContentForEach")
+@MainActor
+public func SUISliderTickContentForEach(_ valuesRef: UnsafePointer<Int32>, _ count: Int32, _ id: Int32, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let values = Array(UnsafeBufferPointer(start: valuesRef, count: Int(count)))
+    let view = AnyView(BridgedSliderTickContentForEachView(values: values, callbackID: callbackID))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 

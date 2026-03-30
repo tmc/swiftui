@@ -449,6 +449,58 @@ public func SUIViewNavigationSplitViewStyle(_ viewRef: UnsafeMutableRawPointer, 
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIViewMenuButtonStyle")
+@MainActor
+public func SUIViewMenuButtonStyle(_ viewRef: UnsafeMutableRawPointer, _ style: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view: AnyView
+    switch style {
+    case 1:
+        view = AnyView(base.menuButtonStyle(PullDownMenuButtonStyle()))
+    case 2:
+        view = AnyView(base.menuButtonStyle(BorderlessPullDownMenuButtonStyle()))
+    case 3:
+        view = AnyView(base.menuButtonStyle(BorderlessButtonMenuButtonStyle()))
+    case 4:
+        view = AnyView(base.menuButtonStyle(_TexturedPullDownMenuButtonStyle()))
+    default:
+        view = AnyView(base.menuButtonStyle(DefaultMenuButtonStyle()))
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewNavigationViewStyle")
+@MainActor
+public func SUIViewNavigationViewStyle(_ viewRef: UnsafeMutableRawPointer, _ style: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view: AnyView
+    switch style {
+    case 1:
+        view = AnyView(base.navigationViewStyle(ColumnNavigationViewStyle()))
+    case 2:
+        view = AnyView(base.navigationViewStyle(DoubleColumnNavigationViewStyle()))
+    case 3:
+        view = AnyView(base.navigationViewStyle(StackNavigationViewStyle()))
+    default:
+        view = AnyView(base.navigationViewStyle(DefaultNavigationViewStyle()))
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUISectionCollapsible")
+public func SUISectionCollapsible(_ viewRef: UnsafeMutableRawPointer, _ collapsible: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.collapsible(collapsible != 0))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUINavigationLinkIsDetailLink")
+public func SUINavigationLinkIsDetailLink(_ viewRef: UnsafeMutableRawPointer, _ isDetailLink: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.isDetailLink(isDetailLink != 0))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIViewTabItem")
 public func SUIViewTabItem(_ viewRef: UnsafeMutableRawPointer, _ labelPtr: UnsafePointer<CChar>, _ systemImagePtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
