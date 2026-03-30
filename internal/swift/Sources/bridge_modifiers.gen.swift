@@ -217,6 +217,13 @@ public func SUIViewClipRoundedRect(_ viewRef: UnsafeMutableRawPointer, _ cornerR
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIViewContentShapeRectangle")
+public func SUIViewContentShapeRectangle(_ viewRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.contentShape(Rectangle()))
+    return retainDerivedView(from: viewRef, view)
+}
+
 @_cdecl("SUIViewOverlay")
 public func SUIViewOverlay(_ viewRef: UnsafeMutableRawPointer, _ overlayRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
@@ -426,6 +433,22 @@ public func SUIViewNavigationTitle(_ viewRef: UnsafeMutableRawPointer, _ titlePt
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIViewNavigationSplitViewStyle")
+@MainActor
+public func SUIViewNavigationSplitViewStyle(_ viewRef: UnsafeMutableRawPointer, _ style: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view: AnyView
+    switch style {
+    case 1:
+        view = AnyView(base.navigationSplitViewStyle(.balanced))
+    case 2:
+        view = AnyView(base.navigationSplitViewStyle(.prominentDetail))
+    default:
+        view = AnyView(base.navigationSplitViewStyle(.automatic))
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIViewTabItem")
 public func SUIViewTabItem(_ viewRef: UnsafeMutableRawPointer, _ labelPtr: UnsafePointer<CChar>, _ systemImagePtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
@@ -439,6 +462,56 @@ public func SUIViewTabItem(_ viewRef: UnsafeMutableRawPointer, _ labelPtr: Unsaf
 public func SUIViewTag(_ viewRef: UnsafeMutableRawPointer, _ tag: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
     let view = AnyView(base.tag(Int(tag)))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewID")
+public func SUIViewID(_ viewRef: UnsafeMutableRawPointer, _ id: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.id(Int(id)))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewToolbarRole")
+public func SUIViewToolbarRole(_ viewRef: UnsafeMutableRawPointer, _ role: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.toolbarRole(suiToolbarRole(role)))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewToolbarItem")
+public func SUIViewToolbarItem(_ viewRef: UnsafeMutableRawPointer, _ placement: Int32, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let view = AnyView(base.toolbar {
+        ToolbarItem(placement: suiToolbarItemPlacement(placement)) {
+            content
+        }
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewKeyboardShortcut")
+public func SUIViewKeyboardShortcut(_ viewRef: UnsafeMutableRawPointer, _ keyPtr: UnsafePointer<CChar>, _ modifiers: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.keyboardShortcut(suiKeyEquivalent(keyPtr), modifiers: suiEventModifiers(modifiers)))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewSearchable")
+@MainActor
+public func SUIViewSearchable(_ viewRef: UnsafeMutableRawPointer, _ stateRef: UnsafeMutableRawPointer, _ promptPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let state = Unmanaged<BridgedStringState>.fromOpaque(stateRef).takeUnretainedValue()
+    let prompt = String(cString: promptPtr)
+    let view = AnyView(base.searchable(text: suiStringBinding(state), prompt: Text(prompt)))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewPointerStyle")
+public func SUIViewPointerStyle(_ viewRef: UnsafeMutableRawPointer, _ style: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.pointerStyle(suiPointerStyle(style)))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -922,6 +995,133 @@ struct BridgedFullScreenCoverView: View {
             get: { state.value != 0 },
             set: { if !$0 { state.value = 0 } }
         )) {
+            coverContent
+        }
+        #endif
+    }
+}
+
+@_cdecl("SUIViewSheetBool")
+@MainActor
+public func SUIViewSheetBool(_ viewRef: UnsafeMutableRawPointer, _ stateRef: UnsafeMutableRawPointer, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let state = Unmanaged<BridgedBoolState>.fromOpaque(stateRef).takeUnretainedValue()
+    let sheetContent = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let view = AnyView(BridgedSheetBoolView(base: base, state: state, sheetContent: sheetContent))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedSheetBoolView: View {
+    let base: AnyView
+    var state: BridgedBoolState
+    let sheetContent: AnyView
+
+    var body: some View {
+        base.sheet(isPresented: suiBoolBinding(state)) {
+            sheetContent
+        }
+    }
+}
+
+@_cdecl("SUIViewAlertBool")
+@MainActor
+public func SUIViewAlertBool(_ viewRef: UnsafeMutableRawPointer, _ titlePtr: UnsafePointer<CChar>, _ messagePtr: UnsafePointer<CChar>, _ stateRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let title = String(cString: titlePtr)
+    let message = String(cString: messagePtr)
+    let state = Unmanaged<BridgedBoolState>.fromOpaque(stateRef).takeUnretainedValue()
+    let view = AnyView(BridgedAlertBoolView(base: base, title: title, message: message, state: state))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedAlertBoolView: View {
+    let base: AnyView
+    let title: String
+    let message: String
+    var state: BridgedBoolState
+
+    var body: some View {
+        base.alert(title, isPresented: suiBoolBinding(state)) {
+            Button("OK") {}
+        } message: {
+            Text(message)
+        }
+    }
+}
+
+@_cdecl("SUIViewConfirmationDialogBool")
+@MainActor
+public func SUIViewConfirmationDialogBool(_ viewRef: UnsafeMutableRawPointer, _ titlePtr: UnsafePointer<CChar>, _ stateRef: UnsafeMutableRawPointer, _ actionsRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let title = String(cString: titlePtr)
+    let state = Unmanaged<BridgedBoolState>.fromOpaque(stateRef).takeUnretainedValue()
+    let actions = Unmanaged<Box<AnyView>>.fromOpaque(actionsRef).takeUnretainedValue().value
+    let view = AnyView(BridgedConfirmationDialogBoolView(base: base, title: title, state: state, actions: actions))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedConfirmationDialogBoolView: View {
+    let base: AnyView
+    let title: String
+    var state: BridgedBoolState
+    let actions: AnyView
+
+    var body: some View {
+        base.confirmationDialog(title, isPresented: suiBoolBinding(state)) {
+            actions
+        }
+    }
+}
+
+@_cdecl("SUIViewPopoverBool")
+@MainActor
+public func SUIViewPopoverBool(_ viewRef: UnsafeMutableRawPointer, _ stateRef: UnsafeMutableRawPointer, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let state = Unmanaged<BridgedBoolState>.fromOpaque(stateRef).takeUnretainedValue()
+    let popoverContent = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let view = AnyView(BridgedPopoverBoolView(base: base, state: state, popoverContent: popoverContent))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedPopoverBoolView: View {
+    let base: AnyView
+    var state: BridgedBoolState
+    let popoverContent: AnyView
+
+    var body: some View {
+        base.popover(isPresented: suiBoolBinding(state)) {
+            popoverContent
+        }
+    }
+}
+
+@_cdecl("SUIViewFullScreenCoverBool")
+@MainActor
+public func SUIViewFullScreenCoverBool(_ viewRef: UnsafeMutableRawPointer, _ stateRef: UnsafeMutableRawPointer, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let state = Unmanaged<BridgedBoolState>.fromOpaque(stateRef).takeUnretainedValue()
+    let coverContent = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let view = AnyView(BridgedFullScreenCoverBoolView(base: base, state: state, coverContent: coverContent))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedFullScreenCoverBoolView: View {
+    let base: AnyView
+    var state: BridgedBoolState
+    let coverContent: AnyView
+
+    var body: some View {
+        #if os(iOS)
+        base.fullScreenCover(isPresented: suiBoolBinding(state)) {
+            coverContent
+        }
+        #else
+        base.sheet(isPresented: suiBoolBinding(state)) {
             coverContent
         }
         #endif

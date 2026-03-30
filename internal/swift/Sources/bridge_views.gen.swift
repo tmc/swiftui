@@ -38,6 +38,32 @@ private func suiVerticalAlignment(_ raw: Int32) -> VerticalAlignment {
     }
 }
 
+private func suiNavigationSplitViewVisibility(_ raw: Int) -> NavigationSplitViewVisibility {
+    switch raw {
+    case 1:
+        return .all
+    case 2:
+        return .doubleColumn
+    case 3:
+        return .detailOnly
+    default:
+        return .automatic
+    }
+}
+
+private func suiNavigationSplitViewVisibilityRaw(_ visibility: NavigationSplitViewVisibility) -> Int {
+    switch visibility {
+    case .all:
+        return 1
+    case .doubleColumn:
+        return 2
+    case .detailOnly:
+        return 3
+    default:
+        return 0
+    }
+}
+
 @_cdecl("SUIVStack")
 public func SUIVStack(_ children: UnsafePointer<UnsafeMutableRawPointer>, _ count: Int32) -> UnsafeMutableRawPointer {
     let views = (0..<Int(count)).map { i in
@@ -242,6 +268,38 @@ public func SUIScrollView(_ contentRef: UnsafeMutableRawPointer) -> UnsafeMutabl
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIScrollViewReader")
+@MainActor
+public func SUIScrollViewReader(_ positionRef: UnsafeMutableRawPointer, _ anchor: Int32, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let position = Unmanaged<BridgedIntState>.fromOpaque(positionRef).takeUnretainedValue()
+    let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let view = AnyView(BridgedScrollViewReaderView(position: position, anchor: suiScrollAnchorUnitPoint(anchor), content: content))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedScrollViewReaderView: View {
+    var position: BridgedIntState
+    let anchor: UnitPoint
+    let content: AnyView
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            content
+                .onAppear {
+                    if position.value != 0 {
+                        proxy.scrollTo(position.value, anchor: anchor)
+                    }
+                }
+                .onChange(of: position.value) { _, newValue in
+                    if newValue != 0 {
+                        proxy.scrollTo(newValue, anchor: anchor)
+                    }
+                }
+        }
+    }
+}
+
 // MARK: - Additional containers
 
 @_cdecl("SUIZStack")
@@ -297,6 +355,24 @@ public func SUIList(_ children: UnsafePointer<UnsafeMutableRawPointer>, _ count:
     return Unmanaged.passRetained(Box(list)).toOpaque()
 }
 
+@_cdecl("SUISelectableList")
+@MainActor
+public func SUISelectableList(_ selectionRef: UnsafeMutableRawPointer, _ children: UnsafePointer<UnsafeMutableRawPointer>, _ count: Int32) -> UnsafeMutableRawPointer {
+    let state = Unmanaged<BridgedIntState>.fromOpaque(selectionRef).takeUnretainedValue()
+    let views = (0..<Int(count)).map { i in
+        Unmanaged<Box<AnyView>>.fromOpaque(children[i]).takeUnretainedValue().value
+    }
+    let list = AnyView(List(selection: Binding<Int?>(
+        get: { state.value == 0 ? nil : state.value },
+        set: { state.value = $0 ?? 0 }
+    )) {
+        ForEach(views.indices, id: \.self) { i in
+            views[i]
+        }
+    })
+    return Unmanaged.passRetained(Box(list)).toOpaque()
+}
+
 @_cdecl("SUIForm")
 public func SUIForm(_ children: UnsafePointer<UnsafeMutableRawPointer>, _ count: Int32) -> UnsafeMutableRawPointer {
     let views = (0..<Int(count)).map { i in
@@ -315,6 +391,21 @@ public func SUISection(_ headerPtr: UnsafePointer<CChar>, _ contentRef: UnsafeMu
     let header = String(cString: headerPtr)
     let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
     let view = AnyView(Section(header) { content })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUISectionExpanded")
+@MainActor
+public func SUISectionExpanded(_ headerPtr: UnsafePointer<CChar>, _ expandedRef: UnsafeMutableRawPointer, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let header = String(cString: headerPtr)
+    let expanded = Unmanaged<BridgedBoolState>.fromOpaque(expandedRef).takeUnretainedValue()
+    let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let view = AnyView(Section(header, isExpanded: Binding(
+        get: { expanded.value },
+        set: { expanded.value = $0 }
+    )) {
+        content
+    })
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -347,11 +438,117 @@ public func SUINavigationStack(_ contentRef: UnsafeMutableRawPointer) -> UnsafeM
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUINavigationSplitView")
+@MainActor
+public func SUINavigationSplitView(_ sidebarRef: UnsafeMutableRawPointer, _ detailRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let sidebar = Unmanaged<Box<AnyView>>.fromOpaque(sidebarRef).takeUnretainedValue().value
+    let detail = Unmanaged<Box<AnyView>>.fromOpaque(detailRef).takeUnretainedValue().value
+    let view = AnyView(NavigationSplitView {
+        sidebar
+    } detail: {
+        detail
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUINavigationSplitViewTriple")
+@MainActor
+public func SUINavigationSplitViewTriple(_ sidebarRef: UnsafeMutableRawPointer, _ contentRef: UnsafeMutableRawPointer, _ detailRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let sidebar = Unmanaged<Box<AnyView>>.fromOpaque(sidebarRef).takeUnretainedValue().value
+    let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let detail = Unmanaged<Box<AnyView>>.fromOpaque(detailRef).takeUnretainedValue().value
+    let view = AnyView(NavigationSplitView {
+        sidebar
+    } content: {
+        content
+    } detail: {
+        detail
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUINavigationSplitViewVisibility")
+@MainActor
+public func SUINavigationSplitViewVisibility(_ visibilityRef: UnsafeMutableRawPointer, _ sidebarRef: UnsafeMutableRawPointer, _ detailRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let visibility = Unmanaged<BridgedIntState>.fromOpaque(visibilityRef).takeUnretainedValue()
+    let sidebar = Unmanaged<Box<AnyView>>.fromOpaque(sidebarRef).takeUnretainedValue().value
+    let detail = Unmanaged<Box<AnyView>>.fromOpaque(detailRef).takeUnretainedValue().value
+    let view = AnyView(NavigationSplitView(columnVisibility: Binding(
+        get: { suiNavigationSplitViewVisibility(visibility.value) },
+        set: { visibility.value = suiNavigationSplitViewVisibilityRaw($0) }
+    )) {
+        sidebar
+    } detail: {
+        detail
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUINavigationSplitViewTripleVisibility")
+@MainActor
+public func SUINavigationSplitViewTripleVisibility(_ visibilityRef: UnsafeMutableRawPointer, _ sidebarRef: UnsafeMutableRawPointer, _ contentRef: UnsafeMutableRawPointer, _ detailRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let visibility = Unmanaged<BridgedIntState>.fromOpaque(visibilityRef).takeUnretainedValue()
+    let sidebar = Unmanaged<Box<AnyView>>.fromOpaque(sidebarRef).takeUnretainedValue().value
+    let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let detail = Unmanaged<Box<AnyView>>.fromOpaque(detailRef).takeUnretainedValue().value
+    let view = AnyView(NavigationSplitView(columnVisibility: Binding(
+        get: { suiNavigationSplitViewVisibility(visibility.value) },
+        set: { visibility.value = suiNavigationSplitViewVisibilityRaw($0) }
+    )) {
+        sidebar
+    } content: {
+        content
+    } detail: {
+        detail
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIMenu")
 public func SUIMenu(_ labelPtr: UnsafePointer<CChar>, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
     let label = String(cString: labelPtr)
     let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
     let view = AnyView(Menu(label) { content })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIMenuView")
+public func SUIMenuView(_ labelRef: UnsafeMutableRawPointer, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let label = Unmanaged<Box<AnyView>>.fromOpaque(labelRef).takeUnretainedValue().value
+    let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let view = AnyView(Menu {
+        content
+    } label: {
+        label
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIDisclosureGroupView")
+@MainActor
+public func SUIDisclosureGroupView(_ labelRef: UnsafeMutableRawPointer, _ expandedRef: UnsafeMutableRawPointer, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let label = Unmanaged<Box<AnyView>>.fromOpaque(labelRef).takeUnretainedValue().value
+    let expanded = Unmanaged<BridgedBoolState>.fromOpaque(expandedRef).takeUnretainedValue()
+    let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let view = AnyView(DisclosureGroup(isExpanded: suiBoolBinding(expanded)) {
+        content
+    } label: {
+        label
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUISectionExpandedView")
+@MainActor
+public func SUISectionExpandedView(_ headerRef: UnsafeMutableRawPointer, _ expandedRef: UnsafeMutableRawPointer, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let header = Unmanaged<Box<AnyView>>.fromOpaque(headerRef).takeUnretainedValue().value
+    let expanded = Unmanaged<BridgedBoolState>.fromOpaque(expandedRef).takeUnretainedValue()
+    let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let view = AnyView(Section(isExpanded: suiBoolBinding(expanded)) {
+        content
+    } header: {
+        header
+    })
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 

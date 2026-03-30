@@ -255,7 +255,9 @@ const (
 	ToolbarItemPlacementStatus             ToolbarItemPlacement = 8
 )
 
-// GlassStyle identifies glass effect styles.
+// GlassStyle identifies legacy glass-style presets.
+//
+// Deprecated: use Glass and GlassVariant for Liquid Glass effects.
 type GlassStyle int32
 
 const (
@@ -270,12 +272,15 @@ const (
 type GlassShape int32
 
 const (
+	GlassShapeDefault          GlassShape = -1
 	GlassShapeRoundedRectangle GlassShape = 0
 	GlassShapeCapsule          GlassShape = 1
 	GlassShapeCircle           GlassShape = 2
 )
 
-// GlassButtonStyleKind identifies glass button styles.
+// GlassButtonStyleKind identifies legacy glass button styles.
+//
+// Deprecated: use View.GlassButtonStyle or View.GlassProminentButtonStyle.
 type GlassButtonStyleKind int32
 
 const (
@@ -588,6 +593,7 @@ func (v View) ClipRoundedRect(cornerRadius float64) View {
 // Overlay places another view on top of this view.
 func (v View) Overlay(overlay View) View {
 	ptr := _SUIViewOverlay(v.ptr, overlay.ptr)
+	runtime.KeepAlive(overlay.retained)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -612,6 +618,13 @@ func (v View) BackgroundStyle(name string) View {
 // LabelsHidden hides labels for controls that support label presentation.
 func (v View) LabelsHidden() View {
 	ptr := _SUIViewLabelsHidden(v.ptr)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ContentShapeRectangle makes the view hit-test as a rectangle.
+func (v View) ContentShapeRectangle() View {
+	ptr := _SUIViewContentShapeRectangle(v.ptr)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -708,6 +721,13 @@ func (v View) NavigationTitle(title string) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// NavigationSplitViewStyle sets the split view column presentation style.
+func (v View) NavigationSplitViewStyle(style NavigationSplitViewStyleKind) View {
+	ptr := _SUIViewNavigationSplitViewStyle(v.ptr, int32(style))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // TabItem sets the tab label and icon for use inside a TabView.
 func (v View) TabItem(label string, systemImage string) View {
 	var ptr uintptr
@@ -720,9 +740,58 @@ func (v View) TabItem(label string, systemImage string) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// ToolbarRole sets the semantic toolbar role for the view hierarchy.
+func (v View) ToolbarRole(role ToolbarRole) View {
+	ptr := _SUIViewToolbarRole(v.ptr, int32(role))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ToolbarItem adds a single toolbar item with the given placement.
+func (v View) ToolbarItem(placement ToolbarItemPlacement, content View) View {
+	ptr := _SUIViewToolbarItem(v.ptr, int32(placement), content.ptr)
+	runtime.KeepAlive(content.retained)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// KeyboardShortcut binds a keyboard shortcut to a control.
+func (v View) KeyboardShortcut(key string, modifiers ShortcutModifier) View {
+	var ptr uintptr
+	withCString(key, func(keyC *byte) {
+		ptr = _SUIViewKeyboardShortcut(v.ptr, keyC, int32(modifiers))
+	})
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Searchable adds a search field bound to a StringState.
+func (v View) Searchable(query *StringState, prompt string) View {
+	var ptr uintptr
+	withCString(prompt, func(promptC *byte) {
+		ptr = _SUIViewSearchable(v.ptr, query.ptr, promptC)
+	})
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// PointerStyle sets the pointer cursor style for the view.
+func (v View) PointerStyle(style PointerStyleKind) View {
+	ptr := _SUIViewPointerStyle(v.ptr, int32(style))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // Tag assigns an integer tag for selection tracking.
 func (v View) Tag(tag int32) View {
 	ptr := _SUIViewTag(v.ptr, tag)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ID assigns a stable integer identity for ScrollViewReader scroll targets.
+func (v View) ID(id int) View {
+	ptr := _SUIViewID(v.ptr, int32(id))
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -821,6 +890,7 @@ func (v View) AspectRatio(ratio float64, contentMode ContentMode) View {
 // Sheet presents a modal sheet when the IntState is nonzero.
 func (v View) Sheet(state *IntState, content View) View {
 	ptr := _SUIViewSheet(v.ptr, state.ptr, content.ptr)
+	runtime.KeepAlive(content.retained)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -843,6 +913,38 @@ func (v View) ConfirmationDialog(title string, state *IntState, actions View) Vi
 	withCString(title, func(titleC *byte) {
 		ptr = _SUIViewConfirmationDialog(v.ptr, titleC, state.ptr, actions.ptr)
 	})
+	runtime.KeepAlive(actions.retained)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// SheetPresented presents a modal sheet while the BoolState is true.
+func (v View) SheetPresented(state *BoolState, content View) View {
+	ptr := _SUIViewSheetBool(v.ptr, state.ptr, content.ptr)
+	runtime.KeepAlive(content.retained)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// AlertPresented presents an alert dialog while the BoolState is true.
+func (v View) AlertPresented(title string, message string, state *BoolState) View {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		withCString(message, func(messageC *byte) {
+			ptr = _SUIViewAlertBool(v.ptr, titleC, messageC, state.ptr)
+		})
+	})
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ConfirmationDialogPresented presents a confirmation dialog while the BoolState is true.
+func (v View) ConfirmationDialogPresented(title string, state *BoolState, actions View) View {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		ptr = _SUIViewConfirmationDialogBool(v.ptr, titleC, state.ptr, actions.ptr)
+	})
+	runtime.KeepAlive(actions.retained)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -850,6 +952,7 @@ func (v View) ConfirmationDialog(title string, state *IntState, actions View) Vi
 // ContextMenu adds a right-click context menu to the view.
 func (v View) ContextMenu(content View) View {
 	ptr := _SUIViewContextMenu(v.ptr, content.ptr)
+	runtime.KeepAlive(content.retained)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -885,6 +988,7 @@ func (v View) Clipped() View {
 // Mask clips the view using the given view as a mask.
 func (v View) Mask(mask View) View {
 	ptr := _SUIViewMask(v.ptr, mask.ptr)
+	runtime.KeepAlive(mask.retained)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -930,6 +1034,7 @@ func (v View) ListStyle(style ListStyleKind) View {
 // ListRowBackground sets a custom background for a list row.
 func (v View) ListRowBackground(background View) View {
 	ptr := _SUIViewListRowBackground(v.ptr, background.ptr)
+	runtime.KeepAlive(background.retained)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -983,6 +1088,15 @@ func (v View) WebViewTextSelection(enabled bool) View {
 // Popover presents a popover when the IntState is nonzero.
 func (v View) Popover(state *IntState, content View) View {
 	ptr := _SUIViewPopover(v.ptr, state.ptr, content.ptr)
+	runtime.KeepAlive(content.retained)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// PopoverPresented presents a popover while the BoolState is true.
+func (v View) PopoverPresented(state *BoolState, content View) View {
+	ptr := _SUIViewPopoverBool(v.ptr, state.ptr, content.ptr)
+	runtime.KeepAlive(content.retained)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -990,6 +1104,15 @@ func (v View) Popover(state *IntState, content View) View {
 // FullScreenCover presents a full-screen modal when the IntState is nonzero.
 func (v View) FullScreenCover(state *IntState, content View) View {
 	ptr := _SUIViewFullScreenCover(v.ptr, state.ptr, content.ptr)
+	runtime.KeepAlive(content.retained)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// FullScreenCoverPresented presents a full-screen modal while the BoolState is true.
+func (v View) FullScreenCoverPresented(state *BoolState, content View) View {
+	ptr := _SUIViewFullScreenCoverBool(v.ptr, state.ptr, content.ptr)
+	runtime.KeepAlive(content.retained)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -1082,6 +1205,13 @@ func (v ShapeView) Opacity(opacity float64) ShapeView {
 // Background sets a background color using RGBA values.
 func (v ShapeView) Background(r float64, g float64, b float64, a float64) ShapeView {
 	ptr := _SUIViewBackground(v.View.ptr, r, g, b, a)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ContentShapeRectangle makes the view hit-test as a rectangle.
+func (v ShapeView) ContentShapeRectangle() ShapeView {
+	ptr := _SUIViewContentShapeRectangle(v.View.ptr)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -1230,6 +1360,13 @@ func (v TextView) Opacity(opacity float64) TextView {
 // Background sets a background color using RGBA values.
 func (v TextView) Background(r float64, g float64, b float64, a float64) TextView {
 	ptr := _SUIViewBackground(v.View.ptr, r, g, b, a)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ContentShapeRectangle makes the view hit-test as a rectangle.
+func (v TextView) ContentShapeRectangle() TextView {
+	ptr := _SUIViewContentShapeRectangle(v.View.ptr)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }

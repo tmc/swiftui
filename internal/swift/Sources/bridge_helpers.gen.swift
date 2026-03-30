@@ -73,3 +73,132 @@ public func SUISetBoolCallback(_ fn: @convention(c) (UInt, Int32) -> Void) {
 public func SUISetHoverCallback(_ fn: @convention(c) (UInt, Int32, Double, Double) -> Void) {
     _SUIHoverCallback = fn
 }
+
+func suiEventModifiers(_ raw: Int32) -> EventModifiers {
+    var modifiers: EventModifiers = []
+    if raw & 1 != 0 {
+        modifiers.insert(.command)
+    }
+    if raw & 2 != 0 {
+        modifiers.insert(.shift)
+    }
+    if raw & 4 != 0 {
+        modifiers.insert(.option)
+    }
+    if raw & 8 != 0 {
+        modifiers.insert(.control)
+    }
+    return modifiers
+}
+
+func suiKeyEquivalent(_ keyPtr: UnsafePointer<CChar>) -> KeyEquivalent {
+    let key = String(cString: keyPtr).trimmingCharacters(in: .whitespacesAndNewlines)
+    switch key.lowercased() {
+    case "return", "enter":
+        return .return
+    case "escape", "esc":
+        return .escape
+    case "delete", "backspace":
+        return .delete
+    case "deleteforward", "delete-forward", "forwarddelete", "forward-delete":
+        return .deleteForward
+    case "tab":
+        return .tab
+    case "space", "spacebar":
+        return .space
+    case "up", "uparrow", "up-arrow":
+        return .upArrow
+    case "down", "downarrow":
+        return .downArrow
+    case "left", "leftarrow":
+        return .leftArrow
+    case "right", "rightarrow":
+        return .rightArrow
+    case "home":
+        return .home
+    case "end":
+        return .end
+    case "pageup", "page-up":
+        return .pageUp
+    case "pagedown", "page-down":
+        return .pageDown
+    case "clear":
+        return .clear
+    default:
+        return KeyEquivalent(key.first ?? " ")
+    }
+}
+
+func suiToolbarRole(_ raw: Int32) -> ToolbarRole {
+    switch raw {
+    case 1:
+        return .editor
+    case 2:
+        return .automatic
+    default:
+        return .automatic
+    }
+}
+
+func suiToolbarItemPlacement(_ raw: Int32) -> ToolbarItemPlacement {
+    switch raw {
+    case 1:
+        return .principal
+    case 2:
+        return .navigation
+    case 3:
+        return .primaryAction
+    case 4:
+        return .secondaryAction
+    case 5:
+        return .cancellationAction
+    case 6:
+        return .confirmationAction
+    case 7:
+        return .destructiveAction
+    case 8:
+        return .status
+    default:
+        return .automatic
+    }
+}
+
+func suiPointerStyle(_ raw: Int32) -> PointerStyle? {
+    switch raw {
+    case 1:
+        return .link
+    case 2:
+        return .rectSelection
+    default:
+        return nil
+    }
+}
+
+func suiScrollAnchorUnitPoint(_ raw: Int32) -> UnitPoint {
+    switch raw {
+    case 1:
+        return .center
+    case 2:
+        return .bottom
+    case 3:
+        return .leading
+    case 4:
+        return .trailing
+    default:
+        return .top
+    }
+}
+
+func suiBoolBinding(_ state: BridgedBoolState) -> Binding<Bool> {
+    Binding(
+        get: { state.value },
+        set: { state.value = $0 }
+    )
+}
+
+func suiStringBinding(_ state: BridgedStringState) -> Binding<String> {
+    Binding(
+        get: { state.value },
+        set: { state.value = $0 }
+    )
+}

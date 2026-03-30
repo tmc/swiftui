@@ -190,12 +190,21 @@ func GroupBox(label string, content View) View {
 	withCString(label, func(labelC *byte) {
 		ptr = _SUIGroupBox(labelC, content.ptr)
 	})
+	runtime.KeepAlive(content.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
 // ScrollView wraps content in a vertically scrollable container.
 func ScrollView(content View) View {
 	ptr := _SUIScrollView(content.ptr)
+	runtime.KeepAlive(content.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScrollViewReader wraps content with IntState-backed programmatic scrolling. Tag descendants with ID; position 0 means no scroll target.
+func ScrollViewReader(position *IntState, anchor ScrollAnchor, content View) View {
+	ptr := _SUIScrollViewReader(position.ptr, int32(anchor), content.ptr)
+	runtime.KeepAlive(content.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -255,6 +264,20 @@ func List(children ...Viewable) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// SelectableList displays tagged rows and binds the selected tag to an IntState. Use Tag on rows; 0 means no selection.
+func SelectableList(selection *IntState, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUISelectableList(selection.ptr, head, int32(len(ptrs)))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // Form groups controls for data entry.
 func Form(children ...Viewable) View {
 	ptrs := make([]uintptr, len(children))
@@ -275,6 +298,33 @@ func Section(header string, content View) View {
 	withCString(header, func(headerC *byte) {
 		ptr = _SUISection(headerC, content.ptr)
 	})
+	runtime.KeepAlive(content.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// SectionExpanded groups content with a header label and a BoolState-backed disclosure state.
+func SectionExpanded(header string, expanded *BoolState, content View) View {
+	var ptr uintptr
+	withCString(header, func(headerC *byte) {
+		ptr = _SUISectionExpanded(headerC, expanded.ptr, content.ptr)
+	})
+	runtime.KeepAlive(content.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// DisclosureGroupView creates a disclosure group with a custom label view and BoolState-backed expansion state.
+func DisclosureGroupView(label View, expanded *BoolState, content View) View {
+	ptr := _SUIDisclosureGroupView(label.ptr, expanded.ptr, content.ptr)
+	runtime.KeepAlive(label.retained)
+	runtime.KeepAlive(content.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// SectionExpandedView groups content with a custom header view and a BoolState-backed disclosure state.
+func SectionExpandedView(header View, expanded *BoolState, content View) View {
+	ptr := _SUISectionExpandedView(header.ptr, expanded.ptr, content.ptr)
+	runtime.KeepAlive(header.retained)
+	runtime.KeepAlive(content.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -307,7 +357,8 @@ func Button(label string, action func()) View {
 // ButtonView creates a clickable button using a custom label view.
 func ButtonView(label View, action func()) View {
 	actionID := registerCallback(action)
-	ptr := _SUIButtonView(label.ptr, actionID)
+	var ptr uintptr
+	ptr = _SUIButtonView(label.ptr, actionID)
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(actionID)
 	runtime.KeepAlive(label.retained)
@@ -403,6 +454,7 @@ func PickerSegmented(label string, state *IntState, options View, onChange func(
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(options.retained)
 	return ret
 }
 
@@ -481,6 +533,41 @@ func AnimatedDynamicFloatView(state *FloatState, transition Transition, builder 
 // NavigationStack wraps content in a navigation container.
 func NavigationStack(content View) View {
 	ptr := _SUINavigationStack(content.ptr)
+	runtime.KeepAlive(content.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// NavigationSplitView presents sidebar and detail content in a split navigation interface.
+func NavigationSplitView(sidebar View, detail View) View {
+	ptr := _SUINavigationSplitView(sidebar.ptr, detail.ptr)
+	runtime.KeepAlive(sidebar.retained)
+	runtime.KeepAlive(detail.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// NavigationSplitViewTriple presents sidebar, content, and detail columns in a split navigation interface.
+func NavigationSplitViewTriple(sidebar View, content View, detail View) View {
+	ptr := _SUINavigationSplitViewTriple(sidebar.ptr, content.ptr, detail.ptr)
+	runtime.KeepAlive(sidebar.retained)
+	runtime.KeepAlive(content.retained)
+	runtime.KeepAlive(detail.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// NavigationSplitViewVisibility presents sidebar and detail content with IntState-backed column visibility.
+func NavigationSplitViewVisibility(visibility *IntState, sidebar View, detail View) View {
+	ptr := _SUINavigationSplitViewVisibility(visibility.ptr, sidebar.ptr, detail.ptr)
+	runtime.KeepAlive(sidebar.retained)
+	runtime.KeepAlive(detail.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// NavigationSplitViewTripleVisibility presents three columns with IntState-backed column visibility.
+func NavigationSplitViewTripleVisibility(visibility *IntState, sidebar View, content View, detail View) View {
+	ptr := _SUINavigationSplitViewTripleVisibility(visibility.ptr, sidebar.ptr, content.ptr, detail.ptr)
+	runtime.KeepAlive(sidebar.retained)
+	runtime.KeepAlive(content.retained)
+	runtime.KeepAlive(detail.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -490,6 +577,15 @@ func Menu(label string, content View) View {
 	withCString(label, func(labelC *byte) {
 		ptr = _SUIMenu(labelC, content.ptr)
 	})
+	runtime.KeepAlive(content.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// MenuView creates a dropdown menu with a custom label view and content.
+func MenuView(label View, content View) View {
+	ptr := _SUIMenuView(label.ptr, content.ptr)
+	runtime.KeepAlive(label.retained)
+	runtime.KeepAlive(content.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -512,6 +608,7 @@ func PickerMenu(label string, state *IntState, options View, onChange func()) Vi
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(options.retained)
 	return ret
 }
 
@@ -521,6 +618,7 @@ func NavigationLink(label string, destination View) View {
 	withCString(label, func(labelC *byte) {
 		ptr = _SUINavigationLink(labelC, destination.ptr)
 	})
+	runtime.KeepAlive(destination.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -629,6 +727,92 @@ func TextFrom(state *IntState) TextView {
 func TextFromString(state *StringState) TextView {
 	ptr := _SUITextFromStringState(state.ptr)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// OutlineNode describes one node in a hierarchical outline.
+// If Expanded is nil, child nodes are always shown.
+type OutlineNode struct {
+	Label    View
+	Children []OutlineNode
+	Expanded *BoolState
+}
+
+// OutlineGroup builds a hierarchical outline from custom label views.
+func OutlineGroup(nodes ...OutlineNode) View {
+	return outlineGroupNodes(nodes)
+}
+
+func outlineGroupNodes(nodes []OutlineNode) View {
+	children := make([]Viewable, 0, len(nodes))
+	for i := range nodes {
+		children = append(children, outlineGroupNode(nodes[i]))
+	}
+	return VStackAligned(HorizontalAlignmentLeading, children...)
+}
+
+func outlineGroupNode(node OutlineNode) View {
+	if len(node.Children) == 0 {
+		return node.Label
+	}
+	content := outlineGroupNodes(node.Children)
+	if node.Expanded == nil {
+		return VStackAligned(HorizontalAlignmentLeading,
+			node.Label,
+			content.PaddingEdge(EdgeLeading, 14),
+		)
+	}
+	return DisclosureGroupView(node.Label, node.Expanded, content)
+}
+
+// TableColumnSpec describes one column in a table-style layout.
+type TableColumnSpec struct {
+	Header View
+	Cell   func(row int) View
+}
+
+// TableColumn constructs a table column specification.
+func TableColumn(header View, cell func(row int) View) TableColumnSpec {
+	return TableColumnSpec{Header: header, Cell: cell}
+}
+
+// Table arranges rows and columns using equal-width cells.
+// This is a curated bridge helper, not SwiftUI's native Table container.
+func Table(rows int, columns ...TableColumnSpec) View {
+	if rows < 0 {
+		rows = 0
+	}
+	children := make([]Viewable, 0, rows+2)
+	if len(columns) > 0 {
+		children = append(children, tableHeaderRow(columns), Divider())
+	}
+	for row := 0; row < rows; row++ {
+		children = append(children, tableBodyRow(row, columns))
+	}
+	return VStackSpaced(0, children...)
+}
+
+func tableHeaderRow(columns []TableColumnSpec) View {
+	cells := make([]Viewable, 0, len(columns))
+	for _, column := range columns {
+		cells = append(cells, tableStretchCell(column.Header))
+	}
+	return HStackSpaced(12, cells...)
+}
+
+func tableBodyRow(row int, columns []TableColumnSpec) View {
+	cells := make([]Viewable, 0, len(columns))
+	for _, column := range columns {
+		cell := EmptyView()
+		if column.Cell != nil {
+			cell = column.Cell(row)
+		}
+		cells = append(cells, tableStretchCell(cell))
+	}
+	return HStackSpaced(12, cells...)
+}
+
+func tableStretchCell(cell View) View {
+	return cell.MaxFrame(-1, 0)
 }
 
 // withCString converts a Go string to a pinned null-terminated C string pointer,
