@@ -1,0 +1,59 @@
+[
+  {
+    "id": "root",
+    "type": "Column",
+    "children": ["title", "greeting", "divider", "button-row"],
+    "properties": {"spacing": 16}
+  },
+  {
+    "id": "title",
+    "type": "Text",
+    "properties": {"text": "Hello A2UI", "variant": "h1"}
+  },
+  {
+    "id": "greeting",
+    "type": "Text",
+    "properties": {"text": "This surface was loaded from a file.", "variant": "body"}
+  },
+  {
+    "id": "divider",
+    "type": "Divider"
+  },
+  {
+    "id": "button-row",
+    "type": "Row",
+    "children": ["like-btn", "info-btn"]
+  },
+  {
+    "id": "like-btn",
+    "type": "Button",
+    "children": ["like-label"],
+    "properties": {"child": "like-label", "action": "like", "variant": "primary"}
+  },
+  {
+    "id": "like-label",
+    "type": "Text",
+    "properties": {"text": "Like"}
+  },
+  {
+    "id": "info-btn",
+    "type": "Button",
+    "children": ["info-label"],
+    "properties": {"child": "info-label", "action": "info", "variant": "borderless"}
+  },
+  {
+    "id": "info-label",
+    "type": "Row",
+    "children": ["info-icon", "info-text"]
+  },
+  {
+    "id": "info-icon",
+    "type": "Icon",
+    "properties": {"name": "info.circle"}
+  },
+  {
+    "id": "info-text",
+    "type": "Text",
+    "properties": {"text": "Details"}
+  }
+]
