@@ -37,7 +37,7 @@ func newRetained(ptr uintptr) *retained {
 
 // addCallbackID records a callback map entry so it is cleaned up on release.
 func (r *retained) addCallbackID(id uintptr) {
-	if r == nil {
+	if r == nil || id == 0 {
 		return
 	}
 	r.callbackIDs = append(r.callbackIDs, id)
@@ -229,8 +229,11 @@ var (
 	_SUITextFromStringState                 func(uintptr) uintptr
 	_SUIToggle                              func(*byte, uintptr, uintptr) uintptr
 	_SUITextField                           func(*byte, uintptr, uintptr) uintptr
+	_SUITextFieldCallbacks                  func(*byte, uintptr, uintptr, uintptr) uintptr
 	_SUISecureField                         func(*byte, uintptr, uintptr) uintptr
+	_SUISecureFieldCallbacks                func(*byte, uintptr, uintptr, uintptr) uintptr
 	_SUITextEditor                          func(uintptr) uintptr
+	_SUITextEditorOnChange                  func(uintptr, uintptr) uintptr
 	_SUISlider                              func(*byte, uintptr, float64, float64, uintptr) uintptr
 	_SUIPhaseAnimator                       func(*int32, int32, uintptr, int32) uintptr
 	_SUIPhaseAnimatorTriggered              func(*int32, int32, int32, uintptr, int32) uintptr
@@ -549,8 +552,11 @@ func init() {
 	tryRegisterLibFunc(&_SUITextFromStringState, libHandle, "SUITextFromStringState")
 	tryRegisterLibFunc(&_SUIToggle, libHandle, "SUIToggle")
 	tryRegisterLibFunc(&_SUITextField, libHandle, "SUITextField")
+	tryRegisterLibFunc(&_SUITextFieldCallbacks, libHandle, "SUITextFieldCallbacks")
 	tryRegisterLibFunc(&_SUISecureField, libHandle, "SUISecureField")
+	tryRegisterLibFunc(&_SUISecureFieldCallbacks, libHandle, "SUISecureFieldCallbacks")
 	tryRegisterLibFunc(&_SUITextEditor, libHandle, "SUITextEditor")
+	tryRegisterLibFunc(&_SUITextEditorOnChange, libHandle, "SUITextEditorOnChange")
 	tryRegisterLibFunc(&_SUISlider, libHandle, "SUISlider")
 	tryRegisterLibFunc(&_SUIPhaseAnimator, libHandle, "SUIPhaseAnimator")
 	tryRegisterLibFunc(&_SUIPhaseAnimatorTriggered, libHandle, "SUIPhaseAnimatorTriggered")
@@ -904,11 +910,20 @@ func setUnavailableStubs() {
 	if _SUITextField == nil {
 		_SUITextField = func(*byte, uintptr, uintptr) uintptr { stub("SUITextField"); return 0 }
 	}
+	if _SUITextFieldCallbacks == nil {
+		_SUITextFieldCallbacks = func(*byte, uintptr, uintptr, uintptr) uintptr { stub("SUITextFieldCallbacks"); return 0 }
+	}
 	if _SUISecureField == nil {
 		_SUISecureField = func(*byte, uintptr, uintptr) uintptr { stub("SUISecureField"); return 0 }
 	}
+	if _SUISecureFieldCallbacks == nil {
+		_SUISecureFieldCallbacks = func(*byte, uintptr, uintptr, uintptr) uintptr { stub("SUISecureFieldCallbacks"); return 0 }
+	}
 	if _SUITextEditor == nil {
 		_SUITextEditor = func(uintptr) uintptr { stub("SUITextEditor"); return 0 }
+	}
+	if _SUITextEditorOnChange == nil {
+		_SUITextEditorOnChange = func(uintptr, uintptr) uintptr { stub("SUITextEditorOnChange"); return 0 }
 	}
 	if _SUISlider == nil {
 		_SUISlider = func(*byte, uintptr, float64, float64, uintptr) uintptr { stub("SUISlider"); return 0 }

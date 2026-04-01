@@ -17,6 +17,9 @@ var (
 )
 
 func registerCallback(fn func()) uintptr {
+	if fn == nil {
+		return 0
+	}
 	callbackMu.Lock()
 	defer callbackMu.Unlock()
 	callbackNext++
@@ -25,6 +28,9 @@ func registerCallback(fn func()) uintptr {
 }
 
 func registerBoolCallback(fn func(bool)) uintptr {
+	if fn == nil {
+		return 0
+	}
 	callbackMu.Lock()
 	defer callbackMu.Unlock()
 	callbackNext++
@@ -33,6 +39,9 @@ func registerBoolCallback(fn func(bool)) uintptr {
 }
 
 func registerHoverCallback(fn func(bool, float64, float64)) uintptr {
+	if fn == nil {
+		return 0
+	}
 	callbackMu.Lock()
 	defer callbackMu.Unlock()
 	callbackNext++

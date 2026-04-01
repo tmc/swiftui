@@ -47,23 +47,25 @@ type surfaceState struct {
 
 // stateCache holds SwiftUI states keyed by JSON Pointer path.
 type stateCache struct {
-	mu          sync.Mutex
-	strings     map[string]*swiftui.StringState
-	ints        map[string]*swiftui.IntState
-	floats      map[string]*swiftui.FloatState
-	bools       map[string]*swiftui.BoolState
-	dates       map[string]*swiftui.DateState
-	modalStates map[string]*swiftui.BoolState
+	mu           sync.Mutex
+	strings      map[string]*swiftui.StringState
+	stringValues map[string]string
+	ints         map[string]*swiftui.IntState
+	floats       map[string]*swiftui.FloatState
+	bools        map[string]*swiftui.BoolState
+	dates        map[string]*swiftui.DateState
+	modalStates  map[string]*swiftui.BoolState
 }
 
 func newStateCache() *stateCache {
 	return &stateCache{
-		strings:     make(map[string]*swiftui.StringState),
-		ints:        make(map[string]*swiftui.IntState),
-		floats:      make(map[string]*swiftui.FloatState),
-		bools:       make(map[string]*swiftui.BoolState),
-		dates:       make(map[string]*swiftui.DateState),
-		modalStates: make(map[string]*swiftui.BoolState),
+		strings:      make(map[string]*swiftui.StringState),
+		stringValues: make(map[string]string),
+		ints:         make(map[string]*swiftui.IntState),
+		floats:       make(map[string]*swiftui.FloatState),
+		bools:        make(map[string]*swiftui.BoolState),
+		dates:        make(map[string]*swiftui.DateState),
+		modalStates:  make(map[string]*swiftui.BoolState),
 	}
 }
 
@@ -75,7 +77,14 @@ func (sc *stateCache) getString(path, initial string) *swiftui.StringState {
 	}
 	s := swiftui.NewStringState(initial)
 	sc.strings[path] = s
+	sc.stringValues[path] = initial
 	return s
+}
+
+func (sc *stateCache) setStringValue(path, value string) {
+	sc.mu.Lock()
+	defer sc.mu.Unlock()
+	sc.stringValues[path] = value
 }
 
 func (sc *stateCache) getInt(path string, initial int) *swiftui.IntState {
@@ -121,6 +130,7 @@ func (sc *stateCache) syncFromDataModel(dm *a2ui.DataModel) {
 		}
 		if str, ok := v.(string); ok {
 			s.Set(str)
+			sc.stringValues[path] = str
 		}
 	}
 	for path, s := range sc.ints {
@@ -531,6 +541,9 @@ func renderComponent(comps map[string]a2ui.Component, dm *a2ui.DataModel, cache 
 		variant := propString(props, "variant")
 		compID := comp.ID
 		s := cache.getString(binding, "")
+		onChange := func() {
+			cache.setStringValue(binding, s.Get())
+		}
 
 		onSubmit := func() {
 			ctx := actionCtx
@@ -541,13 +554,13 @@ func renderComponent(comps map[string]a2ui.Component, dm *a2ui.DataModel, cache 
 			go postAction(surfaceID, compID, actionName, ctx)
 		}
 
-		switch variant {
-		case "longText":
-			view = swiftui.TextEditor(s)
-		case "obscured":
-			view = swiftui.SecureField(label, s, onSubmit)
+		switch comp.TextField.Variant {
+		case a2ui.TextFieldVariantLongText:
+			view = swiftui.TextEditorOnChange(s, onChange)
+		case a2ui.TextFieldVariantObscured:
+			view = swiftui.SecureFieldCallbacks(label, s, onChange, onSubmit)
 		default:
-			view = swiftui.TextField(label, s, onSubmit).
+			view = swiftui.TextFieldCallbacks(label, s, onChange, onSubmit).
 				TextFieldStyle(swiftui.TextFieldStyleRoundedBorder)
 		}
 

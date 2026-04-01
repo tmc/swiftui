@@ -415,6 +415,20 @@ func TextField(placeholder string, state *StringState, onSubmit func()) View {
 	return ret
 }
 
+// TextFieldCallbacks creates a text input field bound to a StringState with change and submit callbacks.
+func TextFieldCallbacks(placeholder string, state *StringState, onChange func(), onSubmit func()) View {
+	onChangeID := registerCallback(onChange)
+	onSubmitID := registerCallback(onSubmit)
+	var ptr uintptr
+	withCString(placeholder, func(placeholderC *byte) {
+		ptr = _SUITextFieldCallbacks(placeholderC, state.ptr, onChangeID, onSubmitID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	ret.retained.addCallbackID(onSubmitID)
+	return ret
+}
+
 // SecureField creates a password input field bound to a StringState.
 func SecureField(placeholder string, state *StringState, onSubmit func()) View {
 	onSubmitID := registerCallback(onSubmit)
@@ -427,10 +441,34 @@ func SecureField(placeholder string, state *StringState, onSubmit func()) View {
 	return ret
 }
 
+// SecureFieldCallbacks creates a password input field bound to a StringState with change and submit callbacks.
+func SecureFieldCallbacks(placeholder string, state *StringState, onChange func(), onSubmit func()) View {
+	onChangeID := registerCallback(onChange)
+	onSubmitID := registerCallback(onSubmit)
+	var ptr uintptr
+	withCString(placeholder, func(placeholderC *byte) {
+		ptr = _SUISecureFieldCallbacks(placeholderC, state.ptr, onChangeID, onSubmitID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	ret.retained.addCallbackID(onSubmitID)
+	return ret
+}
+
 // TextEditor creates a multiline text editor bound to a StringState.
 func TextEditor(state *StringState) View {
 	ptr := _SUITextEditor(state.ptr)
 	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// TextEditorOnChange creates a multiline text editor bound to a StringState with a change callback.
+func TextEditorOnChange(state *StringState, onChange func()) View {
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	ptr = _SUITextEditorOnChange(state.ptr, onChangeID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
 }
 
 // Slider creates a slider bound to an IntState within a range.

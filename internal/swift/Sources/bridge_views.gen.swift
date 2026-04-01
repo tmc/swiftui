@@ -756,17 +756,108 @@ public func SUITextField(_ placeholderPtr: UnsafePointer<CChar>, _ stateRef: Uns
 @MainActor
 struct BridgedTextField: View {
     let placeholder: String
-    var state: BridgedStringState
+    let state: BridgedStringState
     let onSubmitID: UInt
+    @State private var draft: String
+    @State private var suppressDraftSync = false
+
+    init(placeholder: String, state: BridgedStringState, onSubmitID: UInt) {
+        self.placeholder = placeholder
+        self.state = state
+        self.onSubmitID = onSubmitID
+        _draft = State(initialValue: state.value)
+    }
 
     var body: some View {
-        TextField(placeholder, text: Binding(
-            get: { state.value },
-            set: { state.value = $0 }
-        ))
-        .onSubmit {
-            _SUIButtonCallback?(onSubmitID)
-        }
+        TextField(placeholder, text: $draft)
+        
+            .onChange(of: draft) { _, newValue in
+                if suppressDraftSync {
+                    suppressDraftSync = false
+                    return
+                }
+                if state.value != newValue {
+                    state.value = newValue
+                }
+                
+            }
+            .onChange(of: state.value) { _, newValue in
+                if draft == newValue {
+                    return
+                }
+                suppressDraftSync = true
+                draft = newValue
+            }
+            .onSubmit {
+                if state.value != draft {
+                    state.value = draft
+                }
+                if onSubmitID != 0 {
+                    _SUIButtonCallback?(onSubmitID)
+                }
+            }
+            
+    }
+}
+
+@_cdecl("SUITextFieldCallbacks")
+@MainActor
+public func SUITextFieldCallbacks(_ placeholderPtr: UnsafePointer<CChar>, _ stateRef: UnsafeMutableRawPointer, _ onChangeID: UInt, _ onSubmitID: UInt) -> UnsafeMutableRawPointer {
+    let placeholder = String(cString: placeholderPtr)
+    let state = Unmanaged<BridgedStringState>.fromOpaque(stateRef).takeUnretainedValue()
+    let view = AnyView(BridgedTextFieldCallbacks(placeholder: placeholder, state: state, onChangeID: onChangeID, onSubmitID: onSubmitID))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedTextFieldCallbacks: View {
+    let placeholder: String
+    let state: BridgedStringState
+    let onChangeID: UInt
+    let onSubmitID: UInt
+    @State private var draft: String
+    @State private var suppressDraftSync = false
+
+    init(placeholder: String, state: BridgedStringState, onChangeID: UInt, onSubmitID: UInt) {
+        self.placeholder = placeholder
+        self.state = state
+        self.onChangeID = onChangeID
+        self.onSubmitID = onSubmitID
+        _draft = State(initialValue: state.value)
+    }
+
+    var body: some View {
+        TextField(placeholder, text: $draft)
+        
+            .onChange(of: draft) { _, newValue in
+                if suppressDraftSync {
+                    suppressDraftSync = false
+                    return
+                }
+                if state.value != newValue {
+                    state.value = newValue
+                }
+                if onChangeID != 0 {
+                    _SUIButtonCallback?(onChangeID)
+                }
+                
+            }
+            .onChange(of: state.value) { _, newValue in
+                if draft == newValue {
+                    return
+                }
+                suppressDraftSync = true
+                draft = newValue
+            }
+            .onSubmit {
+                if state.value != draft {
+                    state.value = draft
+                }
+                if onSubmitID != 0 {
+                    _SUIButtonCallback?(onSubmitID)
+                }
+            }
+            
     }
 }
 
@@ -782,17 +873,108 @@ public func SUISecureField(_ placeholderPtr: UnsafePointer<CChar>, _ stateRef: U
 @MainActor
 struct BridgedSecureField: View {
     let placeholder: String
-    var state: BridgedStringState
+    let state: BridgedStringState
     let onSubmitID: UInt
+    @State private var draft: String
+    @State private var suppressDraftSync = false
+
+    init(placeholder: String, state: BridgedStringState, onSubmitID: UInt) {
+        self.placeholder = placeholder
+        self.state = state
+        self.onSubmitID = onSubmitID
+        _draft = State(initialValue: state.value)
+    }
 
     var body: some View {
-        SecureField(placeholder, text: Binding(
-            get: { state.value },
-            set: { state.value = $0 }
-        ))
-        .onSubmit {
-            _SUIButtonCallback?(onSubmitID)
-        }
+        SecureField(placeholder, text: $draft)
+        
+            .onChange(of: draft) { _, newValue in
+                if suppressDraftSync {
+                    suppressDraftSync = false
+                    return
+                }
+                if state.value != newValue {
+                    state.value = newValue
+                }
+                
+            }
+            .onChange(of: state.value) { _, newValue in
+                if draft == newValue {
+                    return
+                }
+                suppressDraftSync = true
+                draft = newValue
+            }
+            .onSubmit {
+                if state.value != draft {
+                    state.value = draft
+                }
+                if onSubmitID != 0 {
+                    _SUIButtonCallback?(onSubmitID)
+                }
+            }
+            
+    }
+}
+
+@_cdecl("SUISecureFieldCallbacks")
+@MainActor
+public func SUISecureFieldCallbacks(_ placeholderPtr: UnsafePointer<CChar>, _ stateRef: UnsafeMutableRawPointer, _ onChangeID: UInt, _ onSubmitID: UInt) -> UnsafeMutableRawPointer {
+    let placeholder = String(cString: placeholderPtr)
+    let state = Unmanaged<BridgedStringState>.fromOpaque(stateRef).takeUnretainedValue()
+    let view = AnyView(BridgedSecureFieldCallbacks(placeholder: placeholder, state: state, onChangeID: onChangeID, onSubmitID: onSubmitID))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedSecureFieldCallbacks: View {
+    let placeholder: String
+    let state: BridgedStringState
+    let onChangeID: UInt
+    let onSubmitID: UInt
+    @State private var draft: String
+    @State private var suppressDraftSync = false
+
+    init(placeholder: String, state: BridgedStringState, onChangeID: UInt, onSubmitID: UInt) {
+        self.placeholder = placeholder
+        self.state = state
+        self.onChangeID = onChangeID
+        self.onSubmitID = onSubmitID
+        _draft = State(initialValue: state.value)
+    }
+
+    var body: some View {
+        SecureField(placeholder, text: $draft)
+        
+            .onChange(of: draft) { _, newValue in
+                if suppressDraftSync {
+                    suppressDraftSync = false
+                    return
+                }
+                if state.value != newValue {
+                    state.value = newValue
+                }
+                if onChangeID != 0 {
+                    _SUIButtonCallback?(onChangeID)
+                }
+                
+            }
+            .onChange(of: state.value) { _, newValue in
+                if draft == newValue {
+                    return
+                }
+                suppressDraftSync = true
+                draft = newValue
+            }
+            .onSubmit {
+                if state.value != draft {
+                    state.value = draft
+                }
+                if onSubmitID != 0 {
+                    _SUIButtonCallback?(onSubmitID)
+                }
+            }
+            
     }
 }
 
@@ -806,15 +988,88 @@ public func SUITextEditor(_ stateRef: UnsafeMutableRawPointer) -> UnsafeMutableR
 
 @MainActor
 struct BridgedTextEditor: View {
-    var state: BridgedStringState
+    let state: BridgedStringState
+    @State private var draft: String
+    @State private var suppressDraftSync = false
+
+    init(state: BridgedStringState) {
+        self.state = state
+        _draft = State(initialValue: state.value)
+    }
 
     var body: some View {
-        TextEditor(text: Binding(
-            get: { state.value },
-            set: { state.value = $0 }
-        ))
+        TextEditor(text: $draft)
+        
+            .onChange(of: draft) { _, newValue in
+                if suppressDraftSync {
+                    suppressDraftSync = false
+                    return
+                }
+                if state.value != newValue {
+                    state.value = newValue
+                }
+                
+            }
+            .onChange(of: state.value) { _, newValue in
+                if draft == newValue {
+                    return
+                }
+                suppressDraftSync = true
+                draft = newValue
+            }
+            
     }
 }
+
+@_cdecl("SUITextEditorOnChange")
+@MainActor
+public func SUITextEditorOnChange(_ stateRef: UnsafeMutableRawPointer, _ onChangeID: UInt) -> UnsafeMutableRawPointer {
+    let state = Unmanaged<BridgedStringState>.fromOpaque(stateRef).takeUnretainedValue()
+    let view = AnyView(BridgedTextEditorOnChange(state: state, onChangeID: onChangeID))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedTextEditorOnChange: View {
+    let state: BridgedStringState
+    let onChangeID: UInt
+    @State private var draft: String
+    @State private var suppressDraftSync = false
+
+    init(state: BridgedStringState, onChangeID: UInt) {
+        self.state = state
+        self.onChangeID = onChangeID
+        _draft = State(initialValue: state.value)
+    }
+
+    var body: some View {
+        TextEditor(text: $draft)
+        
+            .onChange(of: draft) { _, newValue in
+                if suppressDraftSync {
+                    suppressDraftSync = false
+                    return
+                }
+                if state.value != newValue {
+                    state.value = newValue
+                }
+                if onChangeID != 0 {
+                    _SUIButtonCallback?(onChangeID)
+                }
+                
+            }
+            .onChange(of: state.value) { _, newValue in
+                if draft == newValue {
+                    return
+                }
+                suppressDraftSync = true
+                draft = newValue
+            }
+            
+    }
+}
+
+
 
 @_cdecl("SUISlider")
 @MainActor
