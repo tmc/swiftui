@@ -71,16 +71,27 @@ func main() {
 
 	header := swiftui.AnimatedDynamicView(statusRevision, swiftui.TransitionOpacity, func(_ int) swiftui.View {
 		snap := rt.Snapshot()
+		presentation := snap.Presentation()
+		title := "A2UI Runtime"
+		if presentation.AgentName != "" {
+			title = presentation.AgentName
+		}
+		badge := swiftui.VStackAlignedSpaced(swiftui.HorizontalAlignmentLeading, 2,
+			swiftui.Text(title).Font(swiftui.FontCaption).ForegroundStyleNamed("secondary"),
+			swiftui.Text(urlState.Get()).Font(swiftui.FontCaption).ForegroundStyleNamed("primary"),
+		)
+		if presentation.IconURL != "" {
+			badge = swiftui.VStackAlignedSpaced(swiftui.HorizontalAlignmentLeading, 2,
+				swiftui.HStackSpaced(8,
+					swiftui.AsyncImageFit(presentation.IconURL, swiftui.ImageFitContain).Frame(18, 18),
+					swiftui.Text(title).Font(swiftui.FontCaption).ForegroundStyleNamed("secondary"),
+				),
+				swiftui.Text(urlState.Get()).Font(swiftui.FontCaption).ForegroundStyleNamed("primary"),
+			)
+		}
 		if snap.Status == a2uiruntime.StatusConnected || snap.Status == a2uiruntime.StatusConnecting || snap.Status == a2uiruntime.StatusFile {
-			label := "Server"
-			if snap.Status == a2uiruntime.StatusConnecting {
-				label = "Connecting"
-			}
 			return swiftui.HStackSpaced(8,
-				swiftui.VStackAlignedSpaced(swiftui.HorizontalAlignmentLeading, 2,
-					swiftui.Text(label).Font(swiftui.FontCaption).ForegroundStyleNamed("secondary"),
-					swiftui.Text(urlState.Get()).Font(swiftui.FontCaption).ForegroundStyleNamed("primary"),
-				).
+				badge.
 					Padding(10).
 					BackgroundStyle("thinMaterial").
 					CornerRadius(10).
@@ -100,6 +111,7 @@ func main() {
 
 	footer := swiftui.AnimatedDynamicView(statusRevision, swiftui.TransitionOpacity, func(_ int) swiftui.View {
 		snap := rt.Snapshot()
+		presentation := snap.Presentation()
 		iconName := "circle.fill"
 		var iconR, iconG, iconB float64
 		statusText := "Disconnected"
@@ -127,6 +139,7 @@ func main() {
 			swiftui.Image(iconName).ForegroundStyle(iconR, iconG, iconB, 1.0).ImageScale(swiftui.ImageScaleSmall),
 			swiftui.Text(statusText).Font(swiftui.FontCaption).ForegroundStyleNamed("secondary"),
 			swiftui.Spacer(),
+			swiftui.Text(presentation.AgentName).Font(swiftui.FontCaption).ForegroundStyleNamed("tertiary"),
 			swiftui.Text(right).Font(swiftui.FontCaption).ForegroundStyleNamed("tertiary").MonospacedDigit(),
 		)
 	})

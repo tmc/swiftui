@@ -1,9 +1,9 @@
 package a2uiruntime
 
 import (
-	"fmt"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -18,6 +18,16 @@ type recordTransport struct {
 func (r *recordTransport) Send(_ context.Context, msg a2ui.ClientMessage) error {
 	r.msgs = append(r.msgs, msg)
 	return nil
+}
+
+type recordExecutor struct {
+	calls []*a2ui.FunctionCall
+	err   error
+}
+
+func (r *recordExecutor) Execute(fn *a2ui.FunctionCall, _ *a2ui.DataModel) error {
+	r.calls = append(r.calls, fn)
+	return r.err
 }
 
 func TestApplyServerMessageLifecycle(t *testing.T) {
@@ -59,7 +69,7 @@ func TestApplyServerMessageLifecycle(t *testing.T) {
 	}
 
 	rt.ApplyServerMessage(a2ui.ServerMessage{
-		Version: a2ui.Version,
+		Version:       a2ui.Version,
 		DeleteSurface: &a2ui.DeleteSurface{SurfaceID: "demo"},
 	})
 	if snap := rt.Snapshot(); snap.SurfaceID != "" {
@@ -169,6 +179,76 @@ func TestClientCapabilities(t *testing.T) {
 	caps := rt.ClientCapabilities()
 	if caps.V09 == nil || len(caps.V09.SupportedCatalogIDs) == 0 {
 		t.Fatalf("ClientCapabilities = %+v, want supported catalogs", caps)
+	}
+}
+
+func TestSupportMatrix(t *testing.T) {
+	rt := New()
+	matrix := rt.SupportMatrix()
+	if len(matrix.Catalogs) == 0 {
+		t.Fatal("SupportMatrix.Catalogs is empty")
+	}
+	if len(matrix.Extensions) == 0 {
+		t.Fatal("SupportMatrix.Extensions is empty")
+	}
+}
+
+func TestHandleActionFunctionUsesExecutor(t *testing.T) {
+	transport := &recordTransport{}
+	exec := &recordExecutor{}
+	rt := New(WithTransport(transport), WithFunctionExecutor(exec))
+	rt.ApplyServerMessage(a2ui.ServerMessage{
+		Version: a2ui.Version,
+		CreateSurface: &a2ui.CreateSurface{
+			SurfaceID: "demo",
+			CatalogID: a2ui.BasicCatalogID,
+		},
+	})
+	rt.HandleAction("demo", "btn", &a2ui.Action{
+		FunctionCall: &a2ui.FunctionCall{Call: "openUrl", Args: map[string]any{"url": "https://a2ui.org"}},
+	})
+	if len(exec.calls) != 1 {
+		t.Fatalf("executor calls = %d, want 1", len(exec.calls))
+	}
+	if len(transport.msgs) != 0 {
+		t.Fatalf("transport messages = %d, want 0", len(transport.msgs))
+	}
+}
+
+func TestHandleActionFunctionErrorReportsClientError(t *testing.T) {
+	transport := &recordTransport{}
+	exec := &recordExecutor{err: fmt.Errorf("boom")}
+	rt := New(WithTransport(transport), WithFunctionExecutor(exec))
+	rt.ApplyServerMessage(a2ui.ServerMessage{
+		Version: a2ui.Version,
+		CreateSurface: &a2ui.CreateSurface{
+			SurfaceID: "demo",
+			CatalogID: a2ui.BasicCatalogID,
+		},
+	})
+	rt.HandleAction("demo", "btn", &a2ui.Action{
+		FunctionCall: &a2ui.FunctionCall{Call: "openUrl", Args: map[string]any{"url": "https://a2ui.org"}},
+	})
+	if len(transport.msgs) != 1 || transport.msgs[0].Error == nil {
+		t.Fatalf("transport messages = %+v, want one client error", transport.msgs)
+	}
+}
+
+func TestUnsupportedCatalogReportsClientError(t *testing.T) {
+	transport := &recordTransport{}
+	rt := New(WithTransport(transport), WithStrict(true))
+	rt.ApplyServerMessage(a2ui.ServerMessage{
+		Version: a2ui.Version,
+		CreateSurface: &a2ui.CreateSurface{
+			SurfaceID: "demo",
+			CatalogID: "custom",
+		},
+	})
+	if len(transport.msgs) != 1 || transport.msgs[0].Error == nil {
+		t.Fatalf("transport messages = %+v, want one client error", transport.msgs)
+	}
+	if snap := rt.Snapshot(); snap.SurfaceID != "" {
+		t.Fatalf("SurfaceID = %q, want empty for strict unsupported catalog", snap.SurfaceID)
 	}
 }
 

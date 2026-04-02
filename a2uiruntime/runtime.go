@@ -33,7 +33,7 @@ type Surface struct {
 	ID            string
 	CatalogID     string
 	Theme         *a2ui.Theme
-	Components     map[string]a2ui.Component
+	Components    map[string]a2ui.Component
 	RootID        string
 	DataModel     *a2ui.DataModel
 	SendDataModel bool
@@ -62,6 +62,8 @@ type Runtime struct {
 	lastError   string
 	cache       *stateCache
 	transport   Transport
+	functions   FunctionExecutor
+	mediaPolicy MediaPolicy
 	strict      bool
 	logger      *log.Logger
 	catalogs    map[string]struct{}
@@ -72,6 +74,18 @@ type Option func(*Runtime)
 
 func WithTransport(t Transport) Option {
 	return func(rt *Runtime) { rt.transport = t }
+}
+
+func WithFunctionExecutor(exec FunctionExecutor) Option {
+	return func(rt *Runtime) {
+		if exec != nil {
+			rt.functions = exec
+		}
+	}
+}
+
+func WithMediaPolicy(policy MediaPolicy) Option {
+	return func(rt *Runtime) { rt.mediaPolicy = policy }
 }
 
 func (rt *Runtime) SetTransport(t Transport) {
@@ -98,10 +112,15 @@ func WithLogger(logger *log.Logger) Option {
 
 func New(opts ...Option) *Runtime {
 	rt := &Runtime{
-		surfaces:   make(map[string]*Surface),
-		status:     StatusDisconnected,
-		cache:      newStateCache(),
-		transport:  NopTransport{},
+		surfaces:  make(map[string]*Surface),
+		status:    StatusDisconnected,
+		cache:     newStateCache(),
+		transport: NopTransport{},
+		functions: defaultFunctionExecutor{},
+		mediaPolicy: MediaPolicy{
+			AllowRemote: false,
+			Autoplay:    false,
+		},
 		logger:     log.Default(),
 		catalogs:   map[string]struct{}{BasicCatalogID: {}},
 		extensions: map[string]struct{}{a2ui.ComponentProgress: {}, "Padding": {}, "Spacing": {}, "Strikethrough": {}},
@@ -113,13 +132,10 @@ func New(opts ...Option) *Runtime {
 }
 
 func (rt *Runtime) ClientCapabilities() a2ui.ClientCapabilities {
-	ids := make([]string, 0, len(rt.catalogs))
-	for id := range rt.catalogs {
-		ids = append(ids, id)
-	}
+	matrix := rt.SupportMatrix()
 	return a2ui.ClientCapabilities{
 		V09: &a2ui.ClientCapabilitiesV09{
-			SupportedCatalogIDs: ids,
+			SupportedCatalogIDs: matrix.Catalogs,
 		},
 	}
 }
@@ -327,7 +343,7 @@ func (rt *Runtime) HandleAction(surfaceID, componentID string, action *a2ui.Acti
 	if action.FunctionCall == nil {
 		return
 	}
-	if err := executeClientFunction(action.FunctionCall, dm); err != nil {
+	if err := rt.functions.Execute(action.FunctionCall, dm); err != nil {
 		rt.report(RuntimeError{
 			Code:        "unsupported_function",
 			SurfaceID:   surfaceID,

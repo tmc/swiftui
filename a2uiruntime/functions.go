@@ -7,7 +7,9 @@ import (
 	"github.com/tmc/swiftui/a2ui"
 )
 
-func executeClientFunction(fn *a2ui.FunctionCall, dm *a2ui.DataModel) error {
+type defaultFunctionExecutor struct{}
+
+func (defaultFunctionExecutor) Execute(fn *a2ui.FunctionCall, dm *a2ui.DataModel) error {
 	if fn == nil {
 		return nil
 	}

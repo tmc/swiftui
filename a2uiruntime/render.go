@@ -196,14 +196,15 @@ func renderResolvedComponent(rt *Runtime, comps map[string]a2ui.Component, dm *a
 		}
 		s := rt.cache.getDate(binding, initial)
 		min, max := resolveDateBounds(comp.DateTimeInput, dm)
-		view = swiftui.DatePickerBounded(dateInputLabel(label, comp.DateTimeInput), s, swiftui.DateBounds{Min: min, Max: max}, func() {
+		mode := datePickerMode(comp.DateTimeInput)
+		view = swiftui.DatePickerBoundedMode(dateInputLabel(label, comp.DateTimeInput), s, swiftui.DateBounds{Min: min, Max: max}, mode, func() {
 			rt.HandleAction(surfaceID, comp.ID, componentAction(comp))
 		})
 
 	case a2ui.ComponentVideo:
 		url, _ := a2ui.ResolveDynamicString(comp.Video.URL, dm)
 		view = swiftui.VStackAlignedSpaced(swiftui.HorizontalAlignmentLeading, 8,
-			playerView(rt.cache, url, 320, 180),
+			playerView(rt.cache, rt.mediaPolicy, url, 320, 180),
 			swiftui.Text(url).Font(swiftui.FontCaption).ForegroundStyleNamed("secondary"),
 		)
 
@@ -218,7 +219,7 @@ func renderResolvedComponent(rt *Runtime, comps map[string]a2ui.Component, dm *a
 				swiftui.Image("waveform").ForegroundStyleNamed("secondary"),
 				swiftui.Text(description).Font(swiftui.FontCaption),
 			),
-			playerView(rt.cache, url, 320, 52),
+			playerView(rt.cache, rt.mediaPolicy, url, 320, 52),
 		)
 
 	case a2ui.ComponentProgress:
@@ -886,6 +887,22 @@ func dateInputLabel(label string, input *a2ui.DateTimeInputComponent) string {
 		return label + " (time)"
 	default:
 		return label
+	}
+}
+
+func datePickerMode(input *a2ui.DateTimeInputComponent) swiftui.DatePickerMode {
+	if input == nil {
+		return swiftui.DatePickerModeDateAndTime
+	}
+	enableDate := input.EnableDate == nil || *input.EnableDate
+	enableTime := input.EnableTime != nil && *input.EnableTime
+	switch {
+	case enableDate && enableTime:
+		return swiftui.DatePickerModeDateAndTime
+	case enableTime:
+		return swiftui.DatePickerModeTime
+	default:
+		return swiftui.DatePickerModeDate
 	}
 }
 
