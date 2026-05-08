@@ -2,8 +2,8 @@
 // +build darwin
 
 // Command settings demonstrates a comprehensive macOS settings panel built
-// with SwiftUI from Go. It uses TabView with three tabs (General, Appearance,
-// Advanced), each containing Form sections with various input controls.
+// with SwiftUI from Go. It now runs through the scene-plan runner as a real
+// Settings scene rather than a plain standalone window.
 //
 // Usage:
 //
@@ -239,9 +239,16 @@ func main() {
 	generalTab := swiftui.Form(
 		swiftui.Section("Profile",
 			swiftui.VStack(
-				swiftui.TextField("Username", username, func() { inc() }),
-				swiftui.SecureField("API Key", apiKey, func() { inc() }),
-				swiftui.TextEditor(bio).Frame(520, 80),
+				swiftui.TextField("Username", username, func() { inc() }).
+					TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
+				swiftui.SecureField("API Key", apiKey, func() { inc() }).
+					TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
+				swiftui.TextEditor(bio).
+					Padding(6).
+					Frame(520, 80).
+					ScrollContentBackgroundHidden().
+					BackgroundRoundedRect(0.14, 0.15, 0.18, 0.98, 12).
+					ClipRoundedRect(12),
 			),
 		),
 		swiftui.Section("Notifications",
@@ -318,7 +325,8 @@ func main() {
 		),
 		swiftui.Section("Network",
 			swiftui.VStack(
-				swiftui.TextField("Proxy URL", proxyURL, func() { inc() }),
+				swiftui.TextField("Proxy URL", proxyURL, func() { inc() }).
+					TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
 				swiftui.Stepper("Timeout (seconds)", timeout, 5, 120, inc),
 				swiftui.PickerSegmented("Protocol", protocol,
 					swiftui.VStack(
@@ -380,19 +388,23 @@ func main() {
 		}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
 	).Padding(12)
 
-	swiftui.Run(swiftui.AppConfig{
-		Title:  "Settings",
-		Width:  660,
-		Height: 620,
-	}, swiftui.VStack(
-		swiftui.TabView(
-			generalTab,
-			appearanceTab,
-			advancedTab,
-		).MaxFrame(-1, -1),
-		swiftui.Divider(),
-		statusBar,
-	))
+	if err := swiftui.RunScenes(
+		swiftui.Settings(swiftui.AppConfig{
+			Title:  "Settings",
+			Width:  660,
+			Height: 620,
+		}, swiftui.VStack(
+			swiftui.TabView(
+				generalTab,
+				appearanceTab,
+				advancedTab,
+			).MaxFrame(-1, -1),
+			swiftui.Divider(),
+			statusBar,
+		)),
+	); err != nil {
+		panic(err)
+	}
 }
 
 func boolToInt(v bool) int {

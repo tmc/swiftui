@@ -11,7 +11,7 @@ package swiftui
 // swiftui.ViewFromPointer(webkit.NewWebView(page)).
 type WebPage struct {
 	ptr      uintptr
-	retained *retained
+	retained *retainedOwned
 }
 
 // Pointer returns the underlying Swift WebPage object pointer.
@@ -27,7 +27,7 @@ func (p *WebPage) Pointer() uintptr {
 // Deprecated: Use webkit.NewWebPage from swift-bridge/webkit instead.
 func NewWebPage() *WebPage {
 	ptr := _SUIWebPageCreate()
-	return &WebPage{ptr: ptr, retained: newRetained(ptr)}
+	return &WebPage{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // NewWebPageURL creates a WebPage and starts loading the given URL.

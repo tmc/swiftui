@@ -4,7 +4,7 @@ package spritekit
 
 import "unsafe"
 
-// withCString calls fn with a null-terminated C string pointer.
+// TODO(perf P1 subpackage rollout): replace with sync.Pool-backed scratch like the root package's withCStringPooled.
 func withCString(s string, fn func(*byte)) {
 	b := append([]byte(s), 0)
 	fn(&b[0])

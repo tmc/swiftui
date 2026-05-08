@@ -1,0 +1,128 @@
+# Machine: Apple M4 Max (Mac16,6)
+# macOS: 26.4.1
+# Go: go1.26.2
+# Swift: release (SwiftUIBridge, embedded)
+# Bridge: internal/embeddedbridge/libSwiftUIBridge.dylib
+# go test -run='^$' -bench='^Benchmark(LeafText|LeafSpacer|LeafImage|ContainerBuild|ContainerBuildReuse|ContainerBuildNoReuse)$' -benchmem -count=10 -benchtime=2s .
+# Post-P6a: container constructors pull a scratch []uintptr from the
+# view_builder arena (view_builder.go). Inline capacity [16]uintptr
+# covers the common case; larger containers spill to a retained
+# overflow buffer (capped at 128 entries to avoid pinning outsize
+# allocations). Per-call allocation drops from 5 → 4 on every
+# container variant; byte-count drops are proportional (53-70% on
+# the Reuse and NoReuse paths). Leaf benchmarks (Text/Spacer/Image)
+# are unchanged because the *retained allocation and the purego
+# reflect.MakeFunc trampoline allocs are outside this slice's scope.
+#
+BenchmarkLeafText-16                 	 5846674	       436.9 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafText-16                 	 4156836	       485.6 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafText-16                 	 5874096	       510.6 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafText-16                 	 5861326	       416.8 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafText-16                 	 5912684	       406.3 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafText-16                 	 5712007	       405.4 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafText-16                 	 5937622	       414.2 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafText-16                 	 5000340	       406.9 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafText-16                 	 5914066	       403.2 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafText-16                 	 5951607	       410.8 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafSpacer-16               	 8187330	       298.1 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafSpacer-16               	 8300221	       290.2 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafSpacer-16               	 8124058	       289.1 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafSpacer-16               	 8388264	       287.9 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafSpacer-16               	 8326896	       288.7 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafSpacer-16               	 8408943	       287.6 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafSpacer-16               	 8475027	       286.3 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafSpacer-16               	 8372616	       293.6 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafSpacer-16               	 8348245	       287.5 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafSpacer-16               	 8303570	       287.4 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafImage-16                	 6235789	       385.8 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafImage-16                	 6168309	       390.7 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafImage-16                	 6279261	       385.3 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafImage-16                	 6138888	       384.6 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafImage-16                	 6241639	       382.5 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafImage-16                	 6298231	       371.5 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafImage-16                	 5589162	       449.0 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafImage-16                	 6513840	       368.4 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafImage-16                	 6514479	       385.9 ns/op	      80 B/op	       3 allocs/op
+BenchmarkLeafImage-16                	 6533988	       371.2 ns/op	      80 B/op	       3 allocs/op
+BenchmarkContainerBuild/shallow_2-16 	 1678880	      1839 ns/op	     304 B/op	      12 allocs/op
+BenchmarkContainerBuild/shallow_2-16 	 1680608	      1421 ns/op	     304 B/op	      12 allocs/op
+BenchmarkContainerBuild/shallow_2-16 	 1694326	      1423 ns/op	     304 B/op	      12 allocs/op
+BenchmarkContainerBuild/shallow_2-16 	 1678464	      1422 ns/op	     304 B/op	      12 allocs/op
+BenchmarkContainerBuild/shallow_2-16 	 1691949	      1416 ns/op	     304 B/op	      12 allocs/op
+BenchmarkContainerBuild/shallow_2-16 	 1699760	      1448 ns/op	     304 B/op	      12 allocs/op
+BenchmarkContainerBuild/shallow_2-16 	 1697004	      1419 ns/op	     304 B/op	      12 allocs/op
+BenchmarkContainerBuild/shallow_2-16 	 1698007	      1406 ns/op	     304 B/op	      12 allocs/op
+BenchmarkContainerBuild/shallow_2-16 	 1705536	      1409 ns/op	     304 B/op	      12 allocs/op
+BenchmarkContainerBuild/shallow_2-16 	 1701651	      1423 ns/op	     304 B/op	      12 allocs/op
+BenchmarkContainerBuild/medium_8-16  	  594892	      4014 ns/op	    1010 B/op	      37 allocs/op
+BenchmarkContainerBuild/medium_8-16  	  596072	      4047 ns/op	    1010 B/op	      37 allocs/op
+BenchmarkContainerBuild/medium_8-16  	  590460	      4005 ns/op	    1010 B/op	      37 allocs/op
+BenchmarkContainerBuild/medium_8-16  	  599396	      4012 ns/op	    1010 B/op	      37 allocs/op
+BenchmarkContainerBuild/medium_8-16  	  593158	      4039 ns/op	    1010 B/op	      37 allocs/op
+BenchmarkContainerBuild/medium_8-16  	  588355	      4020 ns/op	    1010 B/op	      37 allocs/op
+BenchmarkContainerBuild/medium_8-16  	  597153	      4149 ns/op	    1010 B/op	      37 allocs/op
+BenchmarkContainerBuild/medium_8-16  	  592808	      4082 ns/op	    1010 B/op	      37 allocs/op
+BenchmarkContainerBuild/medium_8-16  	  596809	      4051 ns/op	    1010 B/op	      37 allocs/op
+BenchmarkContainerBuild/medium_8-16  	  596180	      6225 ns/op	    1010 B/op	      37 allocs/op
+BenchmarkContainerBuild/inline_16-16 	  199299	     10902 ns/op	    1908 B/op	      69 allocs/op
+BenchmarkContainerBuild/inline_16-16 	  280831	      8023 ns/op	    1908 B/op	      69 allocs/op
+BenchmarkContainerBuild/inline_16-16 	  228103	      8778 ns/op	    1908 B/op	      69 allocs/op
+BenchmarkContainerBuild/inline_16-16 	  308149	      7430 ns/op	    1908 B/op	      69 allocs/op
+BenchmarkContainerBuild/inline_16-16 	  317918	      7481 ns/op	    1908 B/op	      69 allocs/op
+BenchmarkContainerBuild/inline_16-16 	  322117	      7439 ns/op	    1908 B/op	      69 allocs/op
+BenchmarkContainerBuild/inline_16-16 	  326978	      7694 ns/op	    1908 B/op	      69 allocs/op
+BenchmarkContainerBuild/inline_16-16 	  323652	      7469 ns/op	    1908 B/op	      69 allocs/op
+BenchmarkContainerBuild/inline_16-16 	  325911	      7468 ns/op	    1908 B/op	      69 allocs/op
+BenchmarkContainerBuild/inline_16-16 	  303979	      7470 ns/op	    1908 B/op	      69 allocs/op
+BenchmarkContainerBuild/deep_32-16   	  167900	     14128 ns/op	    3704 B/op	     133 allocs/op
+BenchmarkContainerBuild/deep_32-16   	  168249	     14176 ns/op	    3704 B/op	     133 allocs/op
+BenchmarkContainerBuild/deep_32-16   	  166358	     14751 ns/op	    3704 B/op	     133 allocs/op
+BenchmarkContainerBuild/deep_32-16   	  169348	     14190 ns/op	    3704 B/op	     133 allocs/op
+BenchmarkContainerBuild/deep_32-16   	  167851	     14215 ns/op	    3704 B/op	     133 allocs/op
+BenchmarkContainerBuild/deep_32-16   	  170274	     14229 ns/op	    3704 B/op	     133 allocs/op
+BenchmarkContainerBuild/deep_32-16   	  167278	     14211 ns/op	    3704 B/op	     133 allocs/op
+BenchmarkContainerBuild/deep_32-16   	  169503	     14201 ns/op	    3704 B/op	     133 allocs/op
+BenchmarkContainerBuild/deep_32-16   	  169147	     14444 ns/op	    3704 B/op	     133 allocs/op
+BenchmarkContainerBuild/deep_32-16   	  168109	     14254 ns/op	    3704 B/op	     133 allocs/op
+BenchmarkContainerBuildReuse/shallow_2-16         	 4187706	       570.8 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/shallow_2-16         	 4192111	       568.7 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/shallow_2-16         	 4210194	       569.1 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/shallow_2-16         	 4218298	       569.5 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/shallow_2-16         	 4225802	       567.6 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/shallow_2-16         	 4239039	       569.3 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/shallow_2-16         	 4206290	       568.3 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/shallow_2-16         	 4227591	       566.8 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/shallow_2-16         	 3190155	       999.2 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/shallow_2-16         	 3547682	      1161 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/medium_8-16          	 3087756	      1092 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/medium_8-16          	 2963138	       862.8 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/medium_8-16          	 2989222	       796.8 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/medium_8-16          	 1801556	      1308 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/medium_8-16          	 2122810	      1332 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/medium_8-16          	 3394374	       691.9 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/medium_8-16          	 3710732	       846.5 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/medium_8-16          	 3111853	       653.3 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/medium_8-16          	 3814545	      2457 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/medium_8-16          	 1000000	      2705 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/inline_16-16         	 1000000	      2233 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/inline_16-16         	 2928590	       778.7 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/inline_16-16         	 3347649	      2006 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/inline_16-16         	 1000000	      2220 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/inline_16-16         	 2538532	       802.2 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/inline_16-16         	 3382393	       715.9 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/inline_16-16         	 2801097	      2919 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/inline_16-16         	 3106822	       789.4 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/inline_16-16         	 3418112	      1349 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildReuse/inline_16-16         	 3321288	       715.6 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildNoReuse-16                 	 2753779	       871.5 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildNoReuse-16                 	 2743210	       870.2 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildNoReuse-16                 	 2756673	       965.9 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildNoReuse-16                 	 2700254	       895.0 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildNoReuse-16                 	 2683708	       894.0 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildNoReuse-16                 	 2677714	       891.7 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildNoReuse-16                 	 2540982	       893.9 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildNoReuse-16                 	 2684277	      1333 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildNoReuse-16                 	 2680368	       890.0 ns/op	     112 B/op	       4 allocs/op
+BenchmarkContainerBuildNoReuse-16                 	 2702204	       886.4 ns/op	     112 B/op	       4 allocs/op
+PASS
+ok  	github.com/tmc/swiftui	365.451s

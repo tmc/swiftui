@@ -5,20 +5,20 @@ package swiftui
 // Font is an opaque handle to a SwiftUI font in the Swift bridge.
 type Font struct {
 	ptr      uintptr
-	retained *retained
+	retained *retainedOwned
 }
 
 // FontSystem returns a system font at the given point size.
 func FontSystem(size float64) Font {
 	ptr := _SUIFontSystem(size)
-	return Font{ptr: ptr, retained: newRetained(ptr)}
+	return Font{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // FontSystemDesign returns a system font with explicit weight and design.
 // Use Weight* and Design* constants for the weight and design parameters.
 func FontSystemDesign(size float64, weight Weight, design Design) Font {
 	ptr := _SUIFontSystemDesign(size, int32(weight), int32(design))
-	return Font{ptr: ptr, retained: newRetained(ptr)}
+	return Font{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // FontNamed returns a named preset font (e.g. "largeTitle", "body").
@@ -27,7 +27,7 @@ func FontNamed(name string) Font {
 	withCString(name, func(nameC *byte) {
 		ptr = _SUIFontNamed(nameC)
 	})
-	return Font{ptr: ptr, retained: newRetained(ptr)}
+	return Font{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // Release decrements the underlying Swift retain count.

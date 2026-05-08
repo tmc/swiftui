@@ -57,6 +57,7 @@ public func SUIFreeString(_ s: UnsafeMutablePointer<CChar>) {
 // Button callback function pointer, set by Go at init time.
 nonisolated(unsafe) var _SUIButtonCallback: (@convention(c) (UInt) -> Void)?
 nonisolated(unsafe) var _SUIBoolCallback: (@convention(c) (UInt, Int32) -> Void)?
+nonisolated(unsafe) var _SUIPasteCallback: (@convention(c) (UInt, UnsafePointer<CChar>, UnsafePointer<CChar>) -> Int32)?
 nonisolated(unsafe) var _SUIHoverCallback: (@convention(c) (UInt, Int32, Double, Double) -> Void)?
 
 @_cdecl("SUISetButtonCallback")
@@ -67,6 +68,11 @@ public func SUISetButtonCallback(_ fn: @convention(c) (UInt) -> Void) {
 @_cdecl("SUISetBoolCallback")
 public func SUISetBoolCallback(_ fn: @convention(c) (UInt, Int32) -> Void) {
     _SUIBoolCallback = fn
+}
+
+@_cdecl("SUISetPasteCallback")
+public func SUISetPasteCallback(_ fn: @convention(c) (UInt, UnsafePointer<CChar>, UnsafePointer<CChar>) -> Int32) {
+    _SUIPasteCallback = fn
 }
 
 @_cdecl("SUISetHoverCallback")
@@ -212,13 +218,13 @@ func suiScrollBounceBehavior(_ raw: Int32) -> ScrollBounceBehavior {
 func suiBoolBinding(_ state: BridgedBoolState) -> Binding<Bool> {
     Binding(
         get: { state.value },
-        set: { state.value = $0 }
+        set: { state.setAndBump($0) }
     )
 }
 
 func suiStringBinding(_ state: BridgedStringState) -> Binding<String> {
     Binding(
         get: { state.value },
-        set: { state.value = $0 }
+        set: { state.setAndBump($0) }
     )
 }

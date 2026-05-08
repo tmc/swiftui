@@ -1,0 +1,52 @@
+# Machine: Apple M4 Max (Mac16,6)
+# macOS: 26.4
+# Go: go1.26.2
+# Swift: release (SwiftUIBridge)
+# go test -run=xxx -bench=Bench -benchmem -count=10 -benchtime=2s .
+#
+goos: darwin
+goarch: arm64
+pkg: github.com/tmc/swiftui
+cpu: Apple M4 Max
+BenchmarkTableModelSetRows-16             	    8440	    399421 ns/op	   68407 B/op	      12 allocs/op
+BenchmarkTableModelSetRows-16             	   10000	    441260 ns/op	   68406 B/op	      12 allocs/op
+BenchmarkTableModelSetRows-16             	    8359	    341433 ns/op	   68409 B/op	      12 allocs/op
+BenchmarkTableModelSetRows-16             	    9020	    306001 ns/op	   68407 B/op	      12 allocs/op
+BenchmarkTableModelSetRows-16             	   10000	    211856 ns/op	   68403 B/op	      12 allocs/op
+BenchmarkTableModelSetRows-16             	   10000	    230983 ns/op	   68402 B/op	      12 allocs/op
+BenchmarkTableModelSetRows-16             	   10000	    263717 ns/op	   68405 B/op	      12 allocs/op
+BenchmarkTableModelSetRows-16             	    7867	    293502 ns/op	   68407 B/op	      12 allocs/op
+BenchmarkTableModelSetRows-16             	    8894	    316042 ns/op	   68405 B/op	      12 allocs/op
+BenchmarkTableModelSetRows-16             	   10000	    214264 ns/op	   68404 B/op	      12 allocs/op
+BenchmarkOutlineModelSetRoots-16          	   14180	    187992 ns/op	  150169 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots-16          	   10000	    217885 ns/op	  150153 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots-16          	   10000	    208918 ns/op	  150155 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots-16          	   10000	    216472 ns/op	  150150 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots-16          	   12447	    220434 ns/op	  150156 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots-16          	    8241	    257399 ns/op	  150142 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots-16          	   12522	    222331 ns/op	  150148 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots-16          	   13732	    207801 ns/op	  150165 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots-16          	   10000	    201003 ns/op	  150163 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots-16          	   13621	    258160 ns/op	  150148 B/op	      31 allocs/op
+BenchmarkNativeTableModelSetRows-16       	   30147	     70324 ns/op	  147307 B/op	      20 allocs/op
+BenchmarkNativeTableModelSetRows-16       	   27946	     74774 ns/op	  147323 B/op	      20 allocs/op
+BenchmarkNativeTableModelSetRows-16       	   32832	     68735 ns/op	  147313 B/op	      20 allocs/op
+BenchmarkNativeTableModelSetRows-16       	   33668	     88213 ns/op	  147312 B/op	      20 allocs/op
+BenchmarkNativeTableModelSetRows-16       	   26868	     91360 ns/op	  147305 B/op	      20 allocs/op
+BenchmarkNativeTableModelSetRows-16       	   25544	    124797 ns/op	  147291 B/op	      20 allocs/op
+BenchmarkNativeTableModelSetRows-16       	   20040	    109735 ns/op	  147300 B/op	      20 allocs/op
+BenchmarkNativeTableModelSetRows-16       	   32077	     80099 ns/op	  147312 B/op	      20 allocs/op
+BenchmarkNativeTableModelSetRows-16       	   22412	    107506 ns/op	  147307 B/op	      20 allocs/op
+BenchmarkNativeTableModelSetRows-16       	   26516	     89774 ns/op	  147313 B/op	      20 allocs/op
+BenchmarkNativeOutlineModelSetRoots-16    	   19732	    147917 ns/op	  127995 B/op	      38 allocs/op
+BenchmarkNativeOutlineModelSetRoots-16    	   20512	    118030 ns/op	  127997 B/op	      38 allocs/op
+BenchmarkNativeOutlineModelSetRoots-16    	   19022	    129769 ns/op	  127993 B/op	      38 allocs/op
+BenchmarkNativeOutlineModelSetRoots-16    	   19711	    132175 ns/op	  127982 B/op	      38 allocs/op
+BenchmarkNativeOutlineModelSetRoots-16    	   18892	    119223 ns/op	  127998 B/op	      38 allocs/op
+BenchmarkNativeOutlineModelSetRoots-16    	   19990	    118652 ns/op	  127997 B/op	      38 allocs/op
+BenchmarkNativeOutlineModelSetRoots-16    	   20065	    132157 ns/op	  127999 B/op	      38 allocs/op
+BenchmarkNativeOutlineModelSetRoots-16    	   24063	    120178 ns/op	  127999 B/op	      38 allocs/op
+BenchmarkNativeOutlineModelSetRoots-16    	   17844	    136183 ns/op	  127988 B/op	      38 allocs/op
+BenchmarkNativeOutlineModelSetRoots-16    	   19174	    115797 ns/op	  127993 B/op	      38 allocs/op
+PASS
+ok  	github.com/tmc/swiftui	146.299s

@@ -65,6 +65,24 @@ func RunWithMenuBar(appConfig AppConfig, content View, menuConfig MenuBarConfig,
 	})
 }
 
+func runScenePlan(planJSON string, views []uintptr) {
+	var head *uintptr
+	if len(views) > 0 {
+		head = &views[0]
+	}
+	withCString(planJSON, func(plan *byte) {
+		_SUIRunScenePlan(plan, head, int32(len(views)))
+	})
+}
+
+func openSceneWindow(id string) bool {
+	var ok int32
+	withCString(id, func(sceneID *byte) {
+		ok = _SUIOpenSceneWindow(sceneID)
+	})
+	return ok != 0
+}
+
 // UpdateMenuBarLabel changes the status item text at runtime.
 func UpdateMenuBarLabel(label string) {
 	withCString(label, func(l *byte) {

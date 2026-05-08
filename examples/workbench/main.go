@@ -126,14 +126,14 @@ type workbench struct {
 
 var surfaces = []surface{
 	{routeShell, "Workbench Shell", "NavigationSplitView*, SelectableList, and SectionExpanded in one shell.", "sidebar.left"},
-	{routeTree, "File Browser", "Current OutlineGroup path: expandable sections plus explicit selection.", "folder.fill"},
+	{routeTree, "File Browser", "Curated OutlineModel path: expandable sections plus explicit selection and reveal.", "folder.fill"},
 	{routeMotion, "Motion States", "Current PhaseAnimator path: staged transitions with AnimatedDynamicView.", "sparkles"},
 	{routeTimer, "Timer Status", "Current timerInterval path: Go-driven countdown, status, and progress.", "timer"},
 	{routeRouter, "Navigation", "Legacy links, disclosure, and the current state-router pattern.", "point.topleft.down.curvedto.point.bottomright.up"},
 	{routePlanner, "Planner", "Calendar-like planning and multi-date selection with today’s state model.", "calendar"},
 	{routeGrid, "Data Grid", "Spreadsheet-style rows, selection, and operator detail.", "tablecells"},
-	{routeDocs, "Documents", "Document workspace with Quick Look preview and single-window notes.", "doc.richtext.fill"},
-	{routeGaps, "Runtime Gaps", "Share sheet, refreshable, immersive-space, and scene-model gaps.", "bolt.trianglebadge.exclamationmark"},
+	{routeDocs, "Documents", "DocumentGroupWithHandle with stable identity, Quick Look preview, and scene-plan-owned auxiliary windows.", "doc.richtext.fill"},
+	{routeGaps, "Runtime Gaps", "Immersive space, full share-sheet parity, keyframes, and true SwiftUI environment scenes still need deeper runtime work.", "bolt.trianglebadge.exclamationmark"},
 }
 
 var workspaceModules = []module{
@@ -147,11 +147,11 @@ var treeFiles = []treeFile{
 	{101, "App", "main.go", "Shell assembly for the split-view workbench.", "Build the shell with NavigationSplitViewTripleVisibility, route selection, and an inspector column."},
 	{102, "App", "router.go", "State-router helpers used before NavigationPath lands.", "Keep route IDs and detail builders explicit so the Go side stays simple and testable."},
 	{103, "App", "planner.go", "Planner-oriented state and summary formatting.", "DatePicker plus a bitmask-backed day selection model covers planner flows today."},
-	{201, "Bridge", "views.go", "Generated view constructors for curated SwiftUI surface area.", "The generated layer exposes SelectableList, SectionExpanded, NavigationSplitView*, and the rest of the current catalog."},
+	{201, "Bridge", "views.go", "Generated view constructors for curated SwiftUI surface area.", "The generated layer exposes SelectableList, SectionExpanded, NavigationSplitView*, DocumentGroupWithHandle, and the rest of the current catalog."},
 	{202, "Bridge", "callback.go", "Callback, builder, and gesture plumbing.", "Dynamic builders and callbacks are the critical runtime boundary for today’s bridge."},
 	{203, "Bridge", "state.go", "Reactive state handles shared between Go and SwiftUI.", "IntState, BoolState, FloatState, DateState, and StringState drive everything in this demo."},
 	{301, "Docs", "swiftui-report.json", "Analysis backlog for promotable and runtime-model features.", "Use the report to separate catalog coverage from runtime work instead of pretending every symbol is codegen-ready."},
-	{302, "Docs", "notes/runtime-gaps.md", "Share sheet, multi-window, refreshable, and immersive-space notes.", "These remain real runtime-model gaps, not missing demo polish."},
+	{302, "Docs", "notes/runtime-gaps.md", "Share sheet, scene-host parity, refreshable, and immersive-space notes.", "These remain real runtime-model gaps, not missing demo polish."},
 }
 
 var rows = []gridRow{
@@ -224,9 +224,9 @@ func (w *workbench) root() swiftui.View {
 	return swiftui.NavigationSplitViewTripleVisibility(
 		w.visibility,
 		w.sidebar(),
-		w.content(),
-		w.inspector(),
-	).NavigationSplitViewStyle(swiftui.NavigationSplitViewStyleBalanced)
+		w.content().MaxFrame(-1, -1).LayoutPriority(1),
+		w.inspector().FixedSizeAxis(true, false),
+	).NavigationSplitViewStyle(swiftui.NavigationSplitViewStyleAutomatic)
 }
 
 func (w *workbench) sidebar() swiftui.View {
@@ -286,14 +286,15 @@ func (w *workbench) content() swiftui.View {
 
 func (w *workbench) inspector() swiftui.View {
 	return swiftui.DynamicView(w.route, func(id int) swiftui.View {
-		return swiftui.HStack(
+		return swiftui.VStackSpaced(0,
+			inspectorWidthShim(),
 			swiftui.Form(
 				swiftui.SectionExpanded("Current Selection", w.inspectorSelection, w.selectionInspector(id)),
 				swiftui.SectionExpanded("Current Path", w.inspectorPath, w.pathInspector(id)),
 				swiftui.SectionExpanded("Next Runtime Step", w.inspectorBacklog, w.backlogInspector(id)),
-			).Frame(340, 0),
-			swiftui.Spacer(),
-		).Padding(18)
+			).Frame(200, 0),
+		).
+			Padding(14)
 	})
 }
 
@@ -376,7 +377,7 @@ func (w *workbench) treePanel() swiftui.View {
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"File Browser",
-				"OutlineGroup is not bridged yet, so the current path is explicit expandable sections plus a shared selection state.",
+				"OutlineModel now has curated typed helpers; this workbench route keeps expansion, reveal, and selection explicit and testable.",
 				"Current Best Path",
 				"folder.fill.badge.plus",
 			),
@@ -424,7 +425,7 @@ func (w *workbench) treePanel() swiftui.View {
 				swiftui.VStackSpaced(10,
 					featureRow("Tree shape", "Nested groups stay readable without inventing a generic tree ABI."),
 					featureRow("Selection model", "A single IntState keeps preview and sidebar in lockstep."),
-					featureRow("Upgrade path", "If OutlineGroup lands later, it can replace the section builder without changing the shell."),
+					featureRow("Reveal path", "RevealID expands ancestors and keeps deep nodes visible in the detail pane."),
 				).Padding(12),
 			).MaxFrame(-1, 0),
 		).Padding(24),
@@ -436,7 +437,7 @@ func (w *workbench) motionPanel() swiftui.View {
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"Motion States",
-				"PhaseAnimator is not in the public surface yet, so the current path is an explicit phase IntState plus AnimatedDynamicView.",
+				"PhaseAnimator is bridged; this route keeps the Go-side phase explicit so the current stage and transition policy stay inspectable.",
 				"Current Best Path",
 				"sparkles",
 			),
@@ -466,10 +467,10 @@ func (w *workbench) motionPanel() swiftui.View {
 				swiftui.VStackSpaced(10,
 					featureRow("State machine", "The phase is explicit and easy to inspect from Go."),
 					featureRow("Animation policy", "Each transition can pick its own animation curve."),
-					featureRow("Future swap", "A curated PhaseAnimator wrapper could sit on top of the same phase model later."),
+					featureRow("Bridge path", "PhaseAnimator is available; AnimatedDynamicView remains useful when the phase model needs Go-side control."),
 				).Padding(12),
 			).MaxFrame(-1, 0),
-		).Padding(24),
+		).Padding(24).Frame(620, 0),
 	)
 }
 
@@ -550,7 +551,7 @@ func (w *workbench) routerPanel() swiftui.View {
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"Navigation And Disclosure",
-				"NavigationPath-style routing is not public yet, so the current path is NavigationStack for simple links plus an explicit IntState router for app state.",
+				"NavigationPathState is available for string-token routing; this route pairs it with simple NavigationLink leaves and explicit app state.",
 				"Hybrid Path",
 				"map",
 			),
@@ -579,7 +580,7 @@ func (w *workbench) routerPanel() swiftui.View {
 						swiftui.Form(
 							swiftui.SectionExpanded("Overview", w.routerOverview, swiftui.VStackSpaced(8,
 								featureRow("Why this exists", "Keep a single route enum on the Go side and let the detail surface rebuild from that."),
-								featureRow("Where it fits", "Multi-step review and deploy flows before NavigationPath lands."),
+								featureRow("Where it fits", "Multi-step review and deploy flows that still benefit from explicit Go-side state."),
 							)),
 							swiftui.SectionExpanded("Checks", w.routerChecks, swiftui.VStackSpaced(8,
 								featureRow("Static links", "Still use NavigationLink for shallow leaf screens."),
@@ -650,30 +651,29 @@ func (w *workbench) plannerPanel() swiftui.View {
 }
 
 func (w *workbench) gridPanel() swiftui.View {
-	gridRows := make([]swiftui.Viewable, 0, len(rows))
-	for _, row := range rows {
-		gridRows = append(gridRows, gridDataRow(row).Tag(int32(row.ID)))
-	}
-
 	return scrollPanel(
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"Data Grid",
-				"Table is not bridged yet, so the current path is a spreadsheet-style row layout plus a selected detail pane.",
+				"TableModelView gives the bridge a typed table path today: stable row IDs, sortable headers, multi-selection state, optional columns, and a selected detail pane.",
 				"Current Best Path",
 				"tablecells.badge.ellipsis",
 			),
-			swiftui.HStackSpaced(18,
+			swiftui.VStackSpaced(18,
 				swiftui.GroupBox("Grid",
 					swiftui.VStackSpaced(10,
-						gridHeader(),
-						swiftui.SelectableList(w.gridSelection, gridRows...).
-							ListStyle(swiftui.ListStylePlain).
-							Frame(0, 320),
+						swiftui.TableModelView(w.grid, gridColumns()...).
+							Padding(8).
+							BackgroundStyle("thinMaterial").
+							CornerRadius(12),
+						swiftui.Text("Click a header to toggle sorting; click a row to update the primary selection. The curated model also supports multi-selection and hidden columns.").
+							Font(swiftui.FontCaption).
+							ForegroundStyleNamed("secondary").
+							LineLimit(2),
 					).Padding(12),
 				).MaxFrame(-1, 0),
-				swiftui.DynamicView(w.gridSelection, func(id int) swiftui.View {
-					row := w.selectGridRow(id)
+				swiftui.DynamicView(w.grid.RevisionState(), func(_ int) swiftui.View {
+					row := w.selectedGridRow()
 					return swiftui.GroupBox("Selected Service",
 						swiftui.VStackSpaced(12,
 							infoCard("Service", row.Service, "shippingbox.fill"),
@@ -685,11 +685,11 @@ func (w *workbench) gridPanel() swiftui.View {
 								infoCard("Owner", strings.Title(row.Owner), "person.crop.square"),
 								infoCard("Readiness", strings.Title(row.Readiness), "checkmark.seal"),
 							),
-							swiftui.Text("This gives operators the key table behavior now: row comparison, selection, and detail focus, without pretending we already have a real Table bridge.").
+							swiftui.Text("This gives operators the key table behavior now: row comparison, multi-selection state, optional column visibility, and detail focus, without pretending we already have a real Table bridge.").
 								Font(swiftui.FontCallout).
 								ForegroundStyleNamed("secondary"),
 						).Padding(14),
-					).Frame(360, 0)
+					).MaxFrame(-1, 0)
 				}),
 			),
 		).Padding(24),
@@ -706,7 +706,7 @@ func (w *workbench) documentsPanel() swiftui.View {
 		swiftui.VStackSpaced(18,
 			panelHeader(
 				"Documents",
-				"This is the document path that exists today: selection, metadata, and Quick Look preview in a single window. Multi-window scenes still need runtime work.",
+				"This route shows the document path that exists today: stable document identity, Quick Look preview, and scene-plan-owned auxiliary windows driven through RunScenes.",
 				"Current Best Path",
 				"doc.text.magnifyingglass",
 			),
@@ -715,10 +715,11 @@ func (w *workbench) documentsPanel() swiftui.View {
 					ListStyle(swiftui.ListStyleSidebar).
 					Frame(320, 0),
 			).MaxFrame(-1, 0),
-			swiftui.GroupBox("Window Scenes",
+			swiftui.GroupBox("Scene Status",
 				swiftui.VStackSpaced(8,
-					featureRow("What works now", "Single-window document browsing with native preview."),
-					featureRow("What still needs runtime", "WindowGroup-style multi-window orchestration and document scene ownership."),
+					featureRow("What works now", "DocumentGroupWithHandle gives the document scene a stable ID, runtime metadata, and runner-backed scene actions."),
+					featureRow("Multi-window", "RunScenes can now own more than one window scene and focus a sibling by scene ID."),
+					featureRow("What still needs runtime", "Native SwiftUI environment scene ownership and restoration beyond the explicit runner-owned model still need a deeper App host."),
 				).Padding(12),
 			).MaxFrame(-1, 0),
 		).Frame(380, 0),
@@ -743,7 +744,7 @@ func (w *workbench) gapsPanel() swiftui.View {
 	shareButton := swiftui.Button("Share Fallback", func() {
 		w.shareDialog.Set(1)
 	}).ButtonStyle(swiftui.ButtonStyleBordered).
-		ConfirmationDialog("Share sheet is not bridged yet", w.shareDialog, swiftui.VStack(
+		ConfirmationDialog("Full share-sheet parity is not bridged yet", w.shareDialog, swiftui.VStack(
 			swiftui.Button("Open document workspace", func() {
 				w.route.Set(routeDocs)
 				w.documentSelection.Set(1)
@@ -772,9 +773,9 @@ func (w *workbench) gapsPanel() swiftui.View {
 										AsView(),
 								)
 							case 2:
-								return statusStrip("Synced", "Manual refresh succeeded. Native refreshable is still pending.", [3]float64{0.31, 0.78, 0.42}).AsView()
+								return statusStrip("Synced", "Manual refresh succeeded. See examples/bridge-coverage for the shared refresh callback path.", [3]float64{0.31, 0.78, 0.42}).AsView()
 							default:
-								return statusStrip("Idle", "Use a button-triggered refresh until refreshable is bridged.", [3]float64{0.55, 0.58, 0.62}).AsView()
+								return statusStrip("Idle", "This screen uses a button-triggered refresh. On macOS, native Refreshable should be demonstrated with an explicit refresh trigger.", [3]float64{0.55, 0.58, 0.62}).AsView()
 							}
 						}),
 						swiftui.HStackSpaced(10,
@@ -796,17 +797,18 @@ func (w *workbench) gapsPanel() swiftui.View {
 				).MaxFrame(-1, 0),
 				swiftui.GroupBox("Scenes And Space",
 					swiftui.VStackSpaced(10,
-						featureRow("Multi-window", "Pending a document/window scene model on the Go side."),
-						featureRow("Share sheet", "Pending an exported action/environment bridge."),
-						featureRow("Refreshable", "Pending async action hooks that compose with SwiftUI refresh."),
-						featureRow("Immersive space", "Pending a separate scene/runtime model. This macOS shell does not fake it."),
+						featureRow("Multi-window", "RunScenes now lowers multiple window/document scenes through the generated scene-plan runner."),
+						featureRow("Document scenes", "DocumentGroup now carries typed config and document identity instead of acting like a plain window alias."),
+						featureRow("Share sheet", "ShareLink is bridged for concrete sharing flows, but this shell does not claim full platform share-sheet parity."),
+						featureRow("Refreshable", "Refreshable is bridged; the bridge-coverage example uses an explicit macOS refresh trigger for the same callback."),
+						featureRow("Immersive space", "Pending a separate scene/runtime model. This macOS shell uses an explicit preview path instead of faking native spatial presentation."),
 					).Padding(14),
 				).MaxFrame(-1, 0),
 			),
 			swiftui.GroupBox("What To Build Next",
 				swiftui.VStackSpaced(10,
-					featureRow("Action environments", "OpenWindowAction, RefreshAction, and share actions are the first runtime-model family to add."),
-					featureRow("Scene model", "Document and multi-window support need scene ownership, not more view sugar."),
+					featureRow("Action environments", "OpenWindowAction, OpenDocumentAction, and RefreshAction are runner-backed for the current scene model."),
+					featureRow("Scene model", "True SwiftUI environment scenes still need a deeper App/Scene runner than the current AppKit-owned plan."),
 					featureRow("Specialized surfaces", "After the runtime model exists, promote the curated APIs that sit on top of it."),
 				).Padding(14),
 			).MaxFrame(-1, 0),
@@ -868,8 +870,8 @@ func (w *workbench) selectionInspector(route int) swiftui.View {
 			)
 		})
 	case routeGrid:
-		return swiftui.DynamicView(w.gridSelection, func(id int) swiftui.View {
-			row := w.selectGridRow(id)
+		return swiftui.DynamicView(w.grid.RevisionState(), func(_ int) swiftui.View {
+			row := w.selectedGridRow()
 			return inspectorStack(
 				infoRow("Service", row.Service),
 				infoRow("Owner", row.Owner),
@@ -996,6 +998,14 @@ func (w *workbench) selectGridRow(id int) gridRow {
 	return gridRowByID(id)
 }
 
+func (w *workbench) selectedGridRow() gridRow {
+	row, ok := w.grid.SelectedRow()
+	if ok {
+		return row
+	}
+	return rows[0]
+}
+
 func (w *workbench) runRefresh() {
 	if w.refreshState.Get() == 1 {
 		return
@@ -1064,7 +1074,7 @@ func writeDemoDocuments() []demoDocument {
 			Name:    "runbook.log",
 			Kind:    "Log",
 			Summary: "A plain-text runbook surface suited to Quick Look preview.",
-			Body:    "09:15 route=deploy state=review\n09:16 refresh=manual path=current-best\n09:18 window-scenes=pending runtime model\n",
+			Body:    "09:15 route=deploy state=review\n09:16 refresh=manual path=current-best\n09:18 window-scenes=scene-plan runner active\n",
 		},
 	}
 
@@ -1251,6 +1261,15 @@ func sidebarWidthShim() swiftui.View {
 	return swiftui.Rectangle().
 		Fill(0.2, 0.2, 0.2, 0.001).
 		Frame(228, 1).
+		AsView().
+		AllowsHitTesting(false).
+		AccessibilityHidden(true)
+}
+
+func inspectorWidthShim() swiftui.View {
+	return swiftui.Rectangle().
+		Fill(0.2, 0.2, 0.2, 0.001).
+		Frame(200, 1).
 		AsView().
 		AllowsHitTesting(false).
 		AccessibilityHidden(true)
@@ -1443,6 +1462,29 @@ func gridHeader() swiftui.View {
 	).Padding(6)
 }
 
+func gridColumns() []swiftui.TableModelColumn[gridRow] {
+	return []swiftui.TableModelColumn[gridRow]{
+		swiftui.TextTableModelColumn("SERVICE", func(row gridRow) string { return row.Service }, func(a, b gridRow) bool { return a.Service < b.Service }).
+			WithID("service").
+			WithMaxWidth(120),
+		swiftui.TextTableModelColumn("SLO", func(row gridRow) string { return row.SLO }, func(a, b gridRow) bool { return a.SLO < b.SLO }).
+			WithID("slo").
+			WithMaxWidth(70),
+		swiftui.TextTableModelColumn("LATENCY", func(row gridRow) string { return row.Latency }, func(a, b gridRow) bool { return a.Latency < b.Latency }).
+			WithID("latency").
+			WithMaxWidth(80),
+		swiftui.TextTableModelColumn("CAPACITY", func(row gridRow) string { return row.Capacity }, func(a, b gridRow) bool { return a.Capacity < b.Capacity }).
+			WithID("capacity").
+			WithMaxWidth(80),
+		swiftui.TextTableModelColumn("OWNER", func(row gridRow) string { return strings.Title(row.Owner) }, func(a, b gridRow) bool { return a.Owner < b.Owner }).
+			WithID("owner").
+			WithMaxWidth(90),
+		swiftui.TextTableModelColumn("STATE", func(row gridRow) string { return strings.Title(row.Readiness) }, func(a, b gridRow) bool { return a.Readiness < b.Readiness }).
+			WithID("state").
+			WithMaxWidth(70),
+	}
+}
+
 func gridHeaderCell(label string, width float64) swiftui.View {
 	return swiftui.Text(label).
 		Font(swiftui.FontCaption2).
@@ -1506,19 +1548,19 @@ func routeStatusNote(id int) string {
 	case routeShell:
 		return "This surface already exists exactly as generated API."
 	case routeTree:
-		return "OutlineGroup is not public yet, but the product shape is still reachable."
+		return "Use OutlineModel with OutlineGroupModel for typed disclosure state."
 	case routeMotion:
-		return "PhaseAnimator is pending; staged animation still works with explicit phase state."
+		return "PhaseAnimator is bridged; staged animation still works with explicit phase state."
 	case routeTimer:
-		return "timerInterval is pending; formatted countdown state works today."
+		return "timerInterval text and TimerState are both available."
 	case routeRouter:
 		return "Use NavigationLink for leaves and an explicit state router for deeper flows."
 	case routePlanner:
 		return "MultiDatePicker is pending; DatePicker plus a selection mask is the clean fallback."
 	case routeGrid:
-		return "Table is pending; a row grid plus detail pane carries the same operator workflow."
+		return "Use TableModelView for curated table state, selection, and sorting."
 	case routeDocs:
-		return "Document scenes are pending; single-window preview is solid now."
+		return "DocumentGroupWithHandle now rides the scene-plan runner; sibling windows can be focused by scene ID while document identity stays explicit."
 	default:
 		return "These are runtime gaps, not demo polish gaps."
 	}
@@ -1539,9 +1581,9 @@ func routePath(id int) string {
 	case routePlanner:
 		return "DatePicker + mask"
 	case routeGrid:
-		return "SelectableList + HStack"
+		return "TableModelView"
 	case routeDocs:
-		return "QuickLookPreview"
+		return "DocumentGroupWithHandle"
 	default:
 		return "Await runtime model"
 	}
@@ -1564,9 +1606,9 @@ func routeNextStep(id int) string {
 	case routeGrid:
 		return "Decide whether a curated Table wrapper is worth the runtime cost."
 	case routeDocs:
-		return "Model scenes and window ownership."
+		return "Keep the scene-plan runner honest unless a concrete product need justifies a deeper App/Scene host."
 	default:
-		return "Add action environments and scene ownership."
+		return "Only pursue native App/Scene host work when the current runner blocks a real product shape."
 	}
 }
 

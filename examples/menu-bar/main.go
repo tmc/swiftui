@@ -1,11 +1,10 @@
 //go:build darwin
-// +build darwin
 
-// Command menu-bar demonstrates modal presentations in SwiftUI from Go.
+// Command menu-bar demonstrates a menu bar app with commands and lifecycle hooks.
 //
-// It shows buttons that trigger six different modal types: Sheet, Alert,
-// ConfirmationDialog, Popover, FullScreenCover, and ContextMenu.
-// Each presentation uses IntState for visibility binding (0=hidden, 1=shown).
+// It runs a status-item-only app (no dock icon) that shows a clipboard history
+// popover. The app menu bar includes custom commands with keyboard shortcuts,
+// dynamic enable/disable, and lifecycle logging.
 //
 // Usage:
 //
@@ -13,149 +12,182 @@
 package main
 
 import (
+	"fmt"
+	"log"
 	"runtime"
+	"sync"
+	"time"
 
 	"github.com/tmc/swiftui"
 )
 
 func init() { runtime.LockOSThread() }
 
+const maxHistory = 10
+
 func main() {
-	showSheet := swiftui.NewIntState(0)
-	showAlert := swiftui.NewIntState(0)
-	showConfirm := swiftui.NewIntState(0)
-	showPopover := swiftui.NewIntState(0)
-	showFullScreen := swiftui.NewIntState(0)
+	var mu sync.Mutex
+	historyCount := swiftui.NewIntState(0)
+	statusText := swiftui.NewStringState("Ready")
 
-	swiftui.Run(swiftui.AppConfig{
-		Title:  "Modal Presentations",
-		Width:  500,
-		Height: 520,
-	}, swiftui.VStackSpaced(16,
-		swiftui.Text("Modal Presentations").
-			Font(swiftui.FontTitle).
-			FontWeight(swiftui.WeightBold).
-			AsView(),
+	// Simulated clipboard history entries.
+	var history []string
+	addEntry := func(text string) {
+		mu.Lock()
+		history = append([]string{text}, history...)
+		if len(history) > maxHistory {
+			history = history[:maxHistory]
+		}
+		n := len(history)
+		mu.Unlock()
+		historyCount.Set(n)
+		statusText.Set(fmt.Sprintf("Copied: %s", text))
+	}
 
-		swiftui.Text("Tap each button to trigger a different modal type.").
-			Font(swiftui.FontCaption).
-			ForegroundStyleNamed("secondary").
-			AsView(),
+	// Seed with a few entries.
+	addEntry("https://github.com/tmc/swiftui")
+	addEntry("go build ./...")
+	addEntry("Hello, world!")
+
+	clearAll := func() {
+		mu.Lock()
+		history = history[:0]
+		mu.Unlock()
+		historyCount.Set(0)
+		statusText.Set("History cleared")
+	}
+
+	// Custom commands.
+	clipMenu := swiftui.CommandMenu{
+		Title: "Clipboard",
+		Items: []swiftui.CommandItem{
+			{
+				Title:    "Add Timestamp",
+				Shortcut: swiftui.KeyboardShortcut{Key: "t", Modifiers: swiftui.ModCommand | swiftui.ModShift},
+				Action: func(swiftui.CommandContext) {
+					addEntry(time.Now().Format("2006-01-02 15:04:05"))
+				},
+			},
+			{
+				Title:    "Add Note",
+				Shortcut: swiftui.KeyboardShortcut{Key: "n", Modifiers: swiftui.ModCommand | swiftui.ModShift},
+				Action: func(swiftui.CommandContext) {
+					mu.Lock()
+					n := len(history) + 1
+					mu.Unlock()
+					addEntry(fmt.Sprintf("Note #%d", n))
+				},
+			},
+			swiftui.Separator(),
+			{
+				Title:    "Clear History",
+				Shortcut: swiftui.KeyboardShortcut{Key: "k", Modifiers: swiftui.ModCommand | swiftui.ModShift},
+				Action: func(swiftui.CommandContext) {
+					clearAll()
+				},
+				Enabled: func() bool {
+					mu.Lock()
+					defer mu.Unlock()
+					return len(history) > 0
+				},
+			},
+		},
+	}
+
+	lifecycle := swiftui.AppLifecycle{
+		OnLaunched: func() {
+			log.Println("menu-bar: launched")
+		},
+		OnActivate: func() {
+			log.Println("menu-bar: activated")
+		},
+		OnResignActive: func() {
+			log.Println("menu-bar: resigned active")
+		},
+		OnTerminate: func() {
+			log.Println("menu-bar: terminating")
+		},
+	}
+
+	popover := swiftui.VStackSpaced(10,
+		swiftui.HStack(
+			swiftui.Label("Clipboard History", "doc.on.clipboard").
+				Font(swiftui.FontHeadline).
+				FontWeight(swiftui.WeightSemibold).
+				AsView(),
+			swiftui.Spacer(),
+			swiftui.DynamicView(historyCount, func(n int) swiftui.View {
+				return swiftui.Text(fmt.Sprintf("%d items", n)).
+					Font(swiftui.FontCaption).
+					ForegroundStyleNamed("secondary").
+					AsView()
+			}),
+		),
 
 		swiftui.Divider(),
 
-		// Sheet
-		swiftui.Button("Sheet", func() {
-			showSheet.Set(1)
-		}).ButtonStyle(swiftui.ButtonStyleBordered).
-			ControlSize(swiftui.ControlSizeLarge).
-			Help("Present a modal sheet").
-			Sheet(showSheet, sheetContent()),
+		swiftui.DynamicView(historyCount, func(_ int) swiftui.View {
+			mu.Lock()
+			snapshot := make([]string, len(history))
+			copy(snapshot, history)
+			mu.Unlock()
 
-		// Alert
-		swiftui.Button("Alert", func() {
-			showAlert.Set(1)
-		}).ButtonStyle(swiftui.ButtonStyleBordered).
-			ControlSize(swiftui.ControlSizeLarge).
-			Help("Show an alert dialog").
-			Alert("File Saved", "Your document has been saved successfully.", showAlert),
-
-		// Confirmation Dialog
-		swiftui.Button("Confirmation Dialog", func() {
-			showConfirm.Set(1)
-		}).ButtonStyle(swiftui.ButtonStyleBordered).
-			ControlSize(swiftui.ControlSizeLarge).
-			Help("Show a confirmation dialog with actions").
-			ConfirmationDialog("Delete Item?", showConfirm, swiftui.VStack(
-				swiftui.Button("Delete", func() {}),
-				swiftui.Button("Archive Instead", func() {}),
-			)),
-
-		// Popover
-		swiftui.Button("Popover", func() {
-			showPopover.Set(1)
-		}).ButtonStyle(swiftui.ButtonStyleBordered).
-			ControlSize(swiftui.ControlSizeLarge).
-			Help("Show a popover").
-			Popover(showPopover, popoverContent()),
-
-		// Full Screen Cover
-		swiftui.Button("Full Screen Cover", func() {
-			showFullScreen.Set(1)
-		}).ButtonStyle(swiftui.ButtonStyleBorderedProminent).
-			ControlSize(swiftui.ControlSizeLarge).
-			Help("Present a full-screen modal").
-			FullScreenCover(showFullScreen, fullScreenContent(showFullScreen)),
+			if len(snapshot) == 0 {
+				return swiftui.Text("No items").
+					Font(swiftui.FontBody).
+					ForegroundStyleNamed("secondary").
+					AsView().
+					Frame(0, 60)
+			}
+			items := make([]swiftui.Viewable, len(snapshot))
+			for i, entry := range snapshot {
+				idx := i
+				items[i] = swiftui.HStack(
+					swiftui.Text(entry).
+						Font(swiftui.FontBody).
+						LineLimit(1).
+						AsView(),
+					swiftui.Spacer(),
+					swiftui.Text(fmt.Sprintf("#%d", idx+1)).
+						Font(swiftui.FontCaption2).
+						ForegroundStyleNamed("tertiary").
+						AsView(),
+				).Padding(4)
+			}
+			return swiftui.VStackSpaced(2, items...)
+		}),
 
 		swiftui.Divider(),
 
-		// Context Menu (right-click)
-		swiftui.GroupBox("Context Menu", swiftui.VStack(
-			swiftui.Label("Right-click here", "cursorarrow.click.2").
-				Font(swiftui.FontBody).
-				AsView().
-				Padding(20).
-				ContextMenu(swiftui.VStack(
-					swiftui.Button("Cut", func() {}),
-					swiftui.Button("Copy", func() {}),
-					swiftui.Button("Paste", func() {}),
-					swiftui.Divider(),
-					swiftui.Button("Select All", func() {}),
-				)),
+		swiftui.HStack(
+			swiftui.TextFromString(statusText).
+				Font(swiftui.FontCaption).
+				ForegroundStyleNamed("secondary").
+				AsView(),
+			swiftui.Spacer(),
+			swiftui.Button("Clear", func() {
+				clearAll()
+			}).ButtonStyle(swiftui.ButtonStyleBordered).
+				ControlSize(swiftui.ControlSizeSmall),
+		),
+	).Padding(14)
+
+	err := swiftui.RunScenes(
+		swiftui.MenuBarExtra(swiftui.MenuBarConfig{
+			Label:        "Clips",
+			SystemImage:  "doc.on.clipboard",
+			Width:        320,
+			Height:       360,
+			OpenOnLaunch: true,
+		}, popover),
+		swiftui.WithCommands(swiftui.Commands(
+			clipMenu,
+			swiftui.StandardEditMenu(),
+			swiftui.StandardWindowMenu(),
 		)),
-	).Padding(30))
-}
-
-func sheetContent() swiftui.View {
-	return swiftui.VStackSpaced(16,
-		swiftui.Image("doc.text.fill").
-			ImageScale(swiftui.ImageScaleLarge).
-			ForegroundStyleNamed("blue"),
-		swiftui.Text("Sheet Content").
-			Font(swiftui.FontTitle2).
-			FontWeight(swiftui.WeightBold).
-			AsView(),
-		swiftui.Text("This is a modal sheet. Drag down or press Escape to dismiss.").
-			Font(swiftui.FontBody).
-			ForegroundStyleNamed("secondary").
-			AsView(),
-	).Padding(40).Frame(400, 250)
-}
-
-func popoverContent() swiftui.View {
-	return swiftui.VStackSpaced(8,
-		swiftui.Text("Quick Info").
-			Font(swiftui.FontHeadline).
-			AsView(),
-		swiftui.Divider(),
-		swiftui.Label("3 items selected", "checkmark.circle").
-			Font(swiftui.FontBody).
-			AsView(),
-		swiftui.Label("Last modified today", "clock").
-			Font(swiftui.FontCaption).
-			ForegroundStyleNamed("secondary").
-			AsView(),
-	).Padding(16)
-}
-
-func fullScreenContent(state *swiftui.IntState) swiftui.View {
-	return swiftui.VStackSpaced(20,
-		swiftui.Spacer(),
-		swiftui.Image("rectangle.expand.vertical").
-			ImageScale(swiftui.ImageScaleLarge).
-			ForegroundStyleNamed("blue"),
-		swiftui.Text("Full Screen Cover").
-			Font(swiftui.FontTitle).
-			FontWeight(swiftui.WeightBold).
-			AsView(),
-		swiftui.Text("This modal covers the entire screen.").
-			Font(swiftui.FontBody).
-			ForegroundStyleNamed("secondary").
-			AsView(),
-		swiftui.Button("Dismiss", func() {
-			state.Set(0)
-		}).ButtonStyle(swiftui.ButtonStyleBorderedProminent).
-			ControlSize(swiftui.ControlSizeLarge),
-		swiftui.Spacer(),
-	).Padding(40)
+		swiftui.WithLifecycle(lifecycle),
+	)
+	if err != nil {
+		log.Fatal(err)
+	}
 }

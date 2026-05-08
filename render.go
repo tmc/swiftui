@@ -4,7 +4,6 @@ package swiftui
 
 import (
 	"fmt"
-	"unsafe"
 )
 
 // RenderPNG renders a SwiftUI view hierarchy to a PNG file without opening a window.
@@ -40,16 +39,5 @@ func RenderPNG(path string, root View, width, height, scale float64) error {
 }
 
 func cString(p *byte) string {
-	if p == nil {
-		return ""
-	}
-	var buf []byte
-	for i := uintptr(0); ; i++ {
-		b := *(*byte)(unsafe.Pointer(uintptr(unsafe.Pointer(p)) + i))
-		if b == 0 {
-			break
-		}
-		buf = append(buf, b)
-	}
-	return string(buf)
+	return gostringFast(p)
 }

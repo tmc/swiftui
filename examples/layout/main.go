@@ -22,6 +22,14 @@ import (
 func init() { runtime.LockOSThread() }
 
 func main() {
+	layoutMode := swiftui.NewIntState(0)
+	defer layoutMode.Release()
+
+	cardViews := []swiftui.Viewable{
+		statCard("Active Users", "42", "This week", "person.2.fill", 0.27, 0.62, 1.0),
+		statCard("Open Events", "128", "Current total", "bolt.fill", 0.96, 0.47, 0.29),
+		statCard("Monthly Revenue", "$9.8k", "Month to date", "banknote.fill", 0.28, 0.78, 0.44),
+	}
 	swiftui.Run(swiftui.AppConfig{
 		Title:  "Layout Demo",
 		Width:  720,
@@ -31,11 +39,10 @@ func main() {
 		swiftui.ScrollView(
 			swiftui.VStackSpaced(12,
 				header(),
-				swiftui.HStackSpaced(12,
-					statCard("Active Users", "42", "This week", "person.2.fill", 0.27, 0.62, 1.0),
-					statCard("Open Events", "128", "Current total", "bolt.fill", 0.96, 0.47, 0.29),
-					statCard("Monthly Revenue", "$9.8k", "Month to date", "banknote.fill", 0.28, 0.78, 0.44),
-				),
+				layoutSwitcher(layoutMode),
+				swiftui.DynamicView(layoutMode, func(mode int) swiftui.View {
+					return cardStrip(mode, cardViews...)
+				}),
 				swiftui.HStackSpaced(12,
 					trafficPanel().MaxFrame(-1, 0),
 					checklistPanel().MaxFrame(-1, 0),
@@ -77,6 +84,254 @@ func header() swiftui.View {
 			),
 		),
 	)
+}
+
+func layoutSwitcher(mode *swiftui.IntState) swiftui.View {
+	return swiftui.VStackAlignedSpaced(swiftui.HorizontalAlignmentLeading, 8,
+		swiftui.HStackSpaced(8,
+			swiftui.Button("Row", func() { mode.Set(0) }).ButtonStyle(swiftui.ButtonStyleBordered),
+			swiftui.Button("Grid", func() { mode.Set(1) }).ButtonStyle(swiftui.ButtonStyleBordered),
+			swiftui.Button("Flow", func() { mode.Set(2) }).ButtonStyle(swiftui.ButtonStyleBordered),
+			swiftui.Button("Responsive", func() { mode.Set(3) }).ButtonStyle(swiftui.ButtonStyleBordered),
+			swiftui.Button("Adaptive Grid", func() { mode.Set(4) }).ButtonStyle(swiftui.ButtonStyleBordered),
+			swiftui.Spacer(),
+		),
+		swiftui.HStackSpaced(8,
+			swiftui.Button("Viewport Rules", func() { mode.Set(5) }).ButtonStyle(swiftui.ButtonStyleBordered),
+			swiftui.Button("Tagged", func() { mode.Set(6) }).ButtonStyle(swiftui.ButtonStyleBordered),
+			swiftui.Button("Tag Counts", func() { mode.Set(7) }).ButtonStyle(swiftui.ButtonStyleBordered),
+			swiftui.Button("Tag Order", func() { mode.Set(8) }).ButtonStyle(swiftui.ButtonStyleBordered),
+			swiftui.Button("Preset", func() { mode.Set(9) }).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
+			swiftui.Button("Shell", func() { mode.Set(10) }).ButtonStyle(swiftui.ButtonStyleBordered),
+			swiftui.Button("Board", func() { mode.Set(11) }).ButtonStyle(swiftui.ButtonStyleBordered),
+			swiftui.Spacer(),
+		),
+		swiftui.Text("LayoutProposal names the constrained width, height, and child-count inputs. Tags plus concrete placement hints (span and priority) remain the only metadata path, and the layouts stay narrower than SwiftUI's raw Layout protocol.").
+			Font(swiftui.FontCaption).
+			ForegroundStyleNamed("secondary").
+			LineLimit(0).
+			AsView(),
+		swiftui.Text(swiftui.NewLayoutProposal(760, 260, 3).String()).
+			Font(swiftui.FontCaption).
+			ForegroundStyleNamed("secondary").
+			AsView(),
+	)
+}
+
+func cardStrip(mode int, cards ...swiftui.Viewable) swiftui.View {
+	if mode == 3 {
+		model := swiftui.NewResponsiveLayoutModel(
+			swiftui.VStackLayout(swiftui.HorizontalAlignmentLeading, 12),
+			swiftui.AtLeastWidth(460, swiftui.HStackLayout(swiftui.VerticalAlignmentTop, 12)),
+			swiftui.AtLeastWidth(760, swiftui.VGridLayout([]swiftui.GridItem{
+				swiftui.FlexibleGridItem(180, 260),
+				swiftui.FlexibleGridItem(180, 260),
+			}, 12)),
+		)
+		return swiftui.CustomLayout(model, cards...).Frame(640, 220)
+	}
+	if mode == 4 {
+		model := swiftui.NewAdaptiveGridModel(
+			swiftui.VStackLayout(swiftui.HorizontalAlignmentLeading, 12),
+			180,
+			12,
+		)
+		model.MaxColumns = 3
+		return swiftui.CustomLayout(model, cards...).Frame(640, 220)
+	}
+	if mode == 5 {
+		model := swiftui.NewRuleBasedLayoutModel(
+			swiftui.VStackLayout(swiftui.HorizontalAlignmentLeading, 12),
+			swiftui.LayoutRule{
+				MaxChildren: 2,
+				Layout:      swiftui.HStackLayout(swiftui.VerticalAlignmentTop, 12),
+			},
+			swiftui.LayoutRule{
+				MaxWidth:    420,
+				MinChildren: 3,
+				Layout:      swiftui.FlowLayout(180, 12),
+			},
+			swiftui.LayoutRule{
+				MinWidth:    760,
+				MinHeight:   220,
+				MinChildren: 3,
+				Layout: swiftui.VGridLayout([]swiftui.GridItem{
+					swiftui.FlexibleGridItem(180, 260),
+					swiftui.FlexibleGridItem(180, 260),
+				}, 12),
+			},
+		)
+		return swiftui.CustomLayout(model, cards...).Frame(640, 200)
+	}
+	if mode == 6 {
+		model := swiftui.NewTaggedRuleBasedLayoutModel(
+			swiftui.VStackLayout(swiftui.HorizontalAlignmentLeading, 12),
+			swiftui.TaggedLayoutRule{
+				MinWidth:    900,
+				MinChildren: 4,
+				RequireTags: []swiftui.LayoutTag{"hero"},
+				Layout: swiftui.VGridLayout([]swiftui.GridItem{
+					swiftui.FlexibleGridItem(180, 260),
+					swiftui.FlexibleGridItem(180, 260),
+				}, 12),
+			},
+			swiftui.TaggedLayoutRule{
+				MinWidth:    640,
+				RequireTags: []swiftui.LayoutTag{"hero", "detail"},
+				Layout:      swiftui.HStackLayout(swiftui.VerticalAlignmentTop, 12),
+			},
+			swiftui.TaggedLayoutRule{
+				MaxWidth:    420,
+				MinChildren: 3,
+				RequireTags: []swiftui.LayoutTag{"hero"},
+				Layout:      swiftui.FlowLayout(180, 12),
+			},
+		)
+		return swiftui.CustomLayoutTagged(model, taggedOverviewCards()...).Frame(640, 220)
+	}
+	if mode == 7 {
+		model := swiftui.NewTaggedRuleBasedLayoutModel(
+			swiftui.VStackLayout(swiftui.HorizontalAlignmentLeading, 12),
+			swiftui.TaggedLayoutRule{
+				MinWidth:    900,
+				MinChildren: 4,
+				RequireTags: []swiftui.LayoutTag{"hero"},
+				TagCounts: []swiftui.TagCountConstraint{
+					swiftui.AtLeastTagCount("meta", 2),
+				},
+				Layout: swiftui.VGridLayout([]swiftui.GridItem{
+					swiftui.FlexibleGridItem(180, 260),
+					swiftui.FlexibleGridItem(180, 260),
+				}, 12),
+			},
+			swiftui.TaggedLayoutRule{
+				MinWidth:    640,
+				RequireTags: []swiftui.LayoutTag{"hero", "detail"},
+				TagCounts: []swiftui.TagCountConstraint{
+					swiftui.TagCountBetween("meta", 1, 2),
+				},
+				Layout: swiftui.HStackLayout(swiftui.VerticalAlignmentTop, 12),
+			},
+			swiftui.TaggedLayoutRule{
+				MaxWidth: 420,
+				TagCounts: []swiftui.TagCountConstraint{
+					swiftui.AtLeastTagCount("meta", 2),
+				},
+				Layout: swiftui.FlowLayout(180, 12),
+			},
+		)
+		return swiftui.CustomLayoutTagged(model, taggedBoardCards()...).Frame(640, 240)
+	}
+	if mode == 8 {
+		model := swiftui.NewTaggedRuleBasedLayoutModel(
+			swiftui.VStackLayout(swiftui.HorizontalAlignmentLeading, 12),
+			swiftui.TaggedLayoutRule{
+				MinWidth:    900,
+				MinChildren: 4,
+				RequireTags: []swiftui.LayoutTag{"hero"},
+				TagCounts: []swiftui.TagCountConstraint{
+					swiftui.AtLeastTagCount("meta", 2),
+				},
+				LeadingTags: []swiftui.LayoutTag{"hero"},
+				Layout: swiftui.VGridLayout([]swiftui.GridItem{
+					swiftui.FlexibleGridItem(180, 260),
+					swiftui.FlexibleGridItem(180, 260),
+				}, 12),
+			},
+			swiftui.TaggedLayoutRule{
+				MinWidth:    640,
+				RequireTags: []swiftui.LayoutTag{"hero", "detail"},
+				TagCounts: []swiftui.TagCountConstraint{
+					swiftui.TagCountBetween("meta", 1, 2),
+				},
+				LeadingTags:  []swiftui.LayoutTag{"hero", "detail"},
+				TrailingTags: []swiftui.LayoutTag{"meta"},
+				Layout:       swiftui.HStackLayout(swiftui.VerticalAlignmentTop, 12),
+			},
+			swiftui.TaggedLayoutRule{
+				MaxWidth: 420,
+				TagCounts: []swiftui.TagCountConstraint{
+					swiftui.AtLeastTagCount("meta", 2),
+				},
+				Layout: swiftui.FlowLayout(180, 12),
+			},
+		)
+		return swiftui.CustomLayoutTagged(model, orderedBoardCards()...).Frame(640, 240)
+	}
+	if mode == 9 {
+		model := swiftui.NewPlacementLayoutModel(swiftui.PlacementPresetFeaturedGrid, 12)
+		model.Breakpoint = 680
+		model.MinItemWidth = 180
+		return swiftui.CustomLayoutTagged(model, taggedOverviewCards()...).Frame(640, 220)
+	}
+	if mode == 10 {
+		model := swiftui.NewPlacementLayoutModel(swiftui.PlacementPresetPrimarySecondary, 14)
+		model.Breakpoint = 700
+		return swiftui.CustomLayoutTagged(model, shellCards()...).Frame(640, 220)
+	}
+	if mode == 11 {
+		model := swiftui.NewPlacementLayoutModel(swiftui.PlacementPresetDashboardBoard, 14)
+		model.Breakpoint = 700
+		model.MinItemWidth = 200
+		return swiftui.CustomLayoutTagged(model, boardCards()...).Frame(700, 240)
+	}
+	spec := swiftui.HStackLayout(swiftui.VerticalAlignmentTop, 12)
+	switch mode {
+	case 1:
+		spec = swiftui.VGridLayout([]swiftui.GridItem{
+			swiftui.FlexibleGridItem(180, 260),
+			swiftui.FlexibleGridItem(180, 260),
+			swiftui.FlexibleGridItem(180, 260),
+		}, 12)
+	case 2:
+		spec = swiftui.FlowLayout(210, 12)
+	}
+	return swiftui.AnyLayout(spec, cards...)
+}
+
+func taggedOverviewCards() []swiftui.TaggedView {
+	return []swiftui.TaggedView{
+		swiftui.Tagged("hero", statCard("North Star", "94%", "Primary KPI", "star.fill", 0.27, 0.62, 1.0)),
+		swiftui.Tagged("detail", statCard("Launches", "12", "This week", "paperplane.fill", 0.96, 0.47, 0.29)),
+		swiftui.Tagged("meta", statCard("Risk Review", "3", "Open follow-ups", "flag.fill", 0.89, 0.32, 0.45)),
+		swiftui.Tagged("meta", statCard("Capacity", "71%", "Available headroom", "gauge.with.dots.needle.67percent", 0.28, 0.78, 0.44)),
+	}
+}
+
+func taggedBoardCards() []swiftui.TaggedView {
+	return []swiftui.TaggedView{
+		swiftui.Tagged("hero", statCard("Launch Readiness", "88%", "Primary board signal", "star.square.fill", 0.27, 0.62, 1.0)),
+		swiftui.Tagged("detail", statCard("Owner Notes", "7", "Review items", "text.bubble.fill", 0.96, 0.47, 0.29)),
+		swiftui.Tagged("meta", statCard("Legal", "2", "Open approvals", "doc.text.fill", 0.89, 0.32, 0.45)),
+		swiftui.Tagged("meta", statCard("Assets", "5", "Pending exports", "photo.stack.fill", 0.28, 0.78, 0.44)),
+		swiftui.Tagged("meta", statCard("Ops", "1", "Deploy block", "shippingbox.fill", 0.95, 0.73, 0.24)),
+	}
+}
+
+func orderedBoardCards() []swiftui.TaggedView {
+	return []swiftui.TaggedView{
+		swiftui.Tagged("hero", statCard("Launch Narrative", "3", "Lead decision", "doc.richtext.fill", 0.27, 0.62, 1.0)),
+		swiftui.Tagged("detail", statCard("Review Deck", "9", "Slides ready", "rectangle.on.rectangle.fill", 0.96, 0.47, 0.29)),
+		swiftui.Tagged("meta", statCard("Approvals", "2", "Remaining sign-offs", "checkmark.seal.fill", 0.89, 0.32, 0.45)),
+		swiftui.Tagged("meta", statCard("Risks", "4", "Open items", "exclamationmark.triangle.fill", 0.95, 0.73, 0.24)),
+	}
+}
+
+func shellCards() []swiftui.TaggedView {
+	return []swiftui.TaggedView{
+		swiftui.Tagged("primary", statCard("Primary Signal", "76%", "Decision-ready summary", "sidebar.left", 0.27, 0.62, 1.0)),
+		swiftui.Tagged("secondary", statCard("Secondary Detail", "14", "Supporting evidence", "doc.text.magnifyingglass", 0.96, 0.47, 0.29)),
+		swiftui.Tagged("meta", statCard("Context", "3", "Open follow-ups", "flag.fill", 0.89, 0.32, 0.45)),
+	}
+}
+
+func boardCards() []swiftui.TaggedView {
+	return []swiftui.TaggedView{
+		swiftui.TaggedWithPlacement("primary", swiftui.PlacementHint(2, 2), statCard("Primary Signal", "91%", "Board-ready summary", "rectangle.grid.3x2.fill", 0.27, 0.62, 1.0)),
+		swiftui.TaggedWithPlacement("detail", swiftui.PlacementHint(1, 1), statCard("Detail", "16", "Supporting metrics", "text.magnifyingglass", 0.96, 0.47, 0.29)),
+		swiftui.TaggedWithPlacement("meta", swiftui.PlacementHint(1, 0), statCard("Meta A", "4", "Open items", "flag.fill", 0.89, 0.32, 0.45)),
+		swiftui.TaggedWithPlacement("meta", swiftui.PlacementHint(1, 0), statCard("Meta B", "2", "Next follow-up", "checkmark.seal.fill", 0.28, 0.78, 0.44)),
+	}
 }
 
 func statCard(title, value, note, icon string, r, g, b float64) swiftui.View {

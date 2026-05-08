@@ -2,9 +2,14 @@
 
 This note tracks the current SwiftUI binding gaps separately from the generator design review and the demo work.
 
-Update on March 29, 2026:
+Update on April 16, 2026:
 
 - Landed since this snapshot:
+  - `SelectableText(...)` for read-only native text selection
+  - curated `Markdown(source string)` for native markdown/result surfaces
+  - `OnTapGestureCount(count, action)`
+  - `AnimationWithDuration(...)` plus duration-aware animated state setters
+  - `ScaleEffectAnchor(scale, anchor)`
   - `MenuView`
   - `DisclosureGroupView`
   - `SectionExpandedView`
@@ -12,20 +17,56 @@ Update on March 29, 2026:
   - Bool-backed `SheetPresented`, `AlertPresented`, `ConfirmationDialogPresented`, `PopoverPresented`, and `FullScreenCoverPresented`
   - `ToolbarItem`, `ToolbarRole`, `KeyboardShortcut`, `Searchable`, `PointerStyle`, and `ID`
   - curated `OutlineGroup` and `Table` helpers on the Go side
+  - `DocumentGroup`, `DocumentGroupWithHandle`, `WindowGroup`, `Window`, and `MenuBarExtra` scene descriptors
+  - generated scene-plan runner support for multiple window/document scenes plus one menu bar extra
+  - `ShareLink` URL/item wrappers and curated drop payload handling
+  - `Refreshable`
+  - accessibility rotor entries through `AccessibilityRotorModel`
+  - runner-owned app command menus, standard system-backed File/Edit/Window handling, and settings/quit ownership through `RunScenes`
+  - runner-owned document workflows: open/save/save as/export/import/revert/close, dirty-close policy, recent documents, and relaunch restoration
+  - focus routing primitives with `FocusSection`, `FocusScopeID`, `PrefersDefaultFocus`, and `NewFocusNamespace`
+  - native-backed table/outline AX proof surfaces plus stable selection/detail identifiers
+  - `LinearGradient`, `RadialGradient`, and curated `MeshGradient4`
+  - `LayoutSpec` / `AnyLayout` v1, `CustomLayout(...)`, tagged layout models, and concrete placement presets
+  - `PhotosPickerSelectionState`, native `PhotosPickerNative(...)`, and a concrete curated `PhotosPicker(...)` surface
+  - Bool-backed `Focused(...)` for explicit programmatic text-input focus control
+  - `TextSelectionState` plus explicit `TextFieldSelection(...)`, `SecureFieldSelection(...)`, and `TextEditorSelection(...)` on top of AppKit-backed editable controls
 - Important caveat:
   - `HoverEffect` remains intentionally absent because `View.hoverEffect(_:)` is unavailable on macOS.
   - `Table` is currently a curated table-layout helper, not a direct bridge to SwiftUI's generic native `Table`.
+  - `PhotosPicker(...)` is now split honestly between a native metadata bridge (`PhotosPickerNative(...)`) and a deterministic curated sample mode on top of `PhotosPickerSelectionState`; it is still not a direct public `PhotosUI` mirror.
+  - `LayoutSpec` / `AnyLayout` is the supported v1 layout surface. `CustomLayout(...)`, tagged rules, and placement presets are concrete Go-native layout models, not a bridge for SwiftUI's protocol-heavy `Layout` / `LayoutValueKey` system.
+  - Curated gradients are landed, but native `MeshGradient` constructors and keyframe animation families remain explicit backlog.
+  - Native `Table` / `OutlineGroup` parity remains separate backlog from the curated data-surface helpers.
+  - The current multi-window path is AppKit-owned scene planning, not full SwiftUI `App` / `Scene` environment parity.
+  - Scene action availability is now explicitly bridge-signaled by capability. The current runner injects window/document/refresh availability and a bounded immersive-space path, but does not claim full SwiftUI environment-action parity.
+  - Runner-backed scene status is exposed through concrete query helpers such as `SceneStatus` and `SceneRuntimeState`; this is explicit host state, not native SwiftUI scene lifecycle parity.
+  - `Focused(...)` now covers explicit “focus this field / clear focus” flows with `BoolState`, but it does not claim full enum/token-based `FocusState` parity.
+  - The current text-selection model owns UTF-16 ranges on AppKit-backed text controls; it does not yet claim full parity with SwiftUI's broader text-selection affinity or rich-text editor families.
 
 Source snapshot:
 
-- Report file: `/tmp/swiftui-report.json`
-- Generated on: `2026-03-29`
+- Generated on: `2026-04-16`
 - Command:
 
 ```bash
 cd /Volumes/tmc/go/src/github.com/tmc/appledocs
-go run ./cmd/applegen swiftui-report SwiftUI --output /tmp/swiftui-report.json
+GOWORK=off go run ./cmd/applegen swift-bridge SwiftUI --dry-run --swiftui-report
 ```
+
+## What Completion Means
+
+This note is complete when:
+
+- shipped or curated-covered items stay out of the active backlog
+- the only closeable work left is in the `promote` bucket
+- every `requires_runtime_model` item points to one active execution note or
+  one closed note with explicit reopen criteria
+- the remaining unsupported surface is clearly separated into intentional
+  omissions, implementation details, and deeper type-model work
+
+This note should not imply that every deferred SwiftUI symbol needs to become a
+public Go API.
 
 ## Snapshot
 
@@ -92,7 +133,6 @@ The `351` codegen-ready symbols are not all equal. The report now splits them by
   - timer-backed `ProgressView` initializers
   - `ShareLink` initializers
   - `Table` / `TableColumn` / `TableColumnForEach`
-  - `TextSelection`
   - `OpenDocumentAction`, `OpenWindowAction`, `OpenImmersiveSpaceAction`, `RefreshAction`
   - `TimeDataSource`
 
@@ -141,8 +181,75 @@ If the goal is to grow coverage without losing the curated shape:
 
 1. Burn down the `promote` bucket first.
 2. Keep `covered_by_catalog` and `implementation_detail` closed.
-3. Treat `requires_runtime_model` as design work, not emitter backlog.
+3. Treat `requires_runtime_model` as execution-note work, not emitter backlog.
 4. Revisit `policy_unresolved_type`, `policy_generic_specialization`, `policy_nested_type`, and `policy_collection` only after there is a concrete API shape worth promoting.
+
+## Path To Completion
+
+Near-term closeable work:
+
+1. Burn down the `promote` bucket only when an item materially improves the
+   shipped product story or flagship examples.
+2. Keep `covered_by_catalog` and curated/native-overlap items closed as the
+   catalog and reports evolve.
+3. Do not reopen `TextSelection`, runner-owned scene status, or baseline
+   menu-shell work unless a concrete regression appears.
+
+Active execution notes:
+
+1. `scene-app-parity-path.md`
+   This is the only active runtime-execution note for deeper app/scene host
+   ownership.
+2. `performance-optimization.md`
+   This is the active execution note for bridge hot-path speed and regression
+   gates.
+
+Closed notes with explicit reopen criteria:
+
+1. `table-outline-native-parity-path.md`
+   Reopen only if a concrete desktop workflow fails both the curated and the
+   native-backed data surfaces.
+2. `layout-runtime-parity.md`
+   Reopen only if a real layout cannot be expressed by the shipped tagged and
+   placement-aware models.
+3. richer text/editor depth
+   Reopen only if a real product needs more than the current AppKit-backed
+   controls plus `TextSelectionState`.
+4. broader graphics/type-model families such as keyframes or native
+   `MeshGradient` constructors
+   Reopen only with a named Go-native API design, example, and test target.
+
+Retire this note when:
+
+1. the `promote` bucket is empty or explicitly deferred
+2. the runtime-model bucket maps only to the named execution notes above
+3. the remaining unsupported surface is mostly intentional omission,
+   implementation detail, or deeper type-model work
+
+## Curated Surface Vs Native Backlog
+
+The current repo state is intentionally split:
+
+- Supported curated v1 surface:
+  - `LayoutSpec` / `AnyLayout` for runtime-switchable stacks, curated grids, and flow layouts
+  - `LayoutProposal` as the concrete value object for constrained width/height/child-count inputs
+  - `LinearGradient`, `RadialGradient`, and curated `MeshGradient4`
+  - curated `Table` / `OutlineGroup` helpers
+  - concrete `PhotosPickerSelectionState` plus curated `PhotosPicker(...)`
+  - `TextSelectionState` plus explicit selection-owned text controls on top of
+    AppKit-backed editable fields and editors
+
+- Explicit design backlog:
+  - native SwiftUI `App` / `Scene` host parity beyond the current scene-plan runner
+  - raw `Layout`, `AnyLayout`, `LayoutValueKey`, and child-metadata parity
+  - `KeyframeAnimator`, `KeyframeTimeline`, and `KeyframeTrack`
+  - native `MeshGradient` constructor families
+  - native SwiftUI `Table` / `OutlineGroup` parity
+  - broader text-selection affinity and richer editor-depth parity only if a
+    concrete product needs them
+
+Those backlog items should be treated as execution-note or type-model work, not
+as small missing symbol patches.
 
 ## Codex Clone Priorities
 
@@ -191,12 +298,11 @@ This bucket is much smaller now. On macOS, the main remaining “types already m
 
 ### Still missing or still design work
 
-- `SafeAreaInset`
 - Rich transcript presentation helpers for markdown, code blocks, badges, and diff rows
-- Focus state bindings beyond simple `Focusable(bool)`
+- Full `FocusState` parity beyond Bool-backed `Focused(...)`
 - Native `OutlineGroup` / `Table` parity beyond the current curated Go helpers
 
-For the Codex clone, the biggest remaining blockers are richer transcript primitives, safe-area-aware shell layout, and more capable focus management. Nested disclosure and programmatic scroll-to are no longer first-order blockers, even though the current outline/table helpers are curated rather than one-to-one SwiftUI API mirrors.
+For the Codex clone, the biggest remaining blockers are richer transcript primitives, safe-area-aware shell layout, and focus coordination beyond simple Bool-backed field focus. Nested disclosure and programmatic scroll-to are no longer first-order blockers, even though the current outline/table helpers are curated rather than one-to-one SwiftUI API mirrors.
 
 ### Existing bindings the clone should adopt before adding more surface
 
@@ -220,7 +326,6 @@ The Codex shell does not just need more symbols. A few remaining places still wa
 If the goal is to make `examples/codex-clone` substantially cleaner without overexpanding the public surface, the highest-payoff additions are:
 
 1. Rich transcript primitives for markdown, code blocks, badges, and diff rows, so `/Volumes/tmc/go/src/github.com/tmc/swiftui/examples/codex-clone/shell.go:570` and `/Volumes/tmc/go/src/github.com/tmc/swiftui/examples/codex-clone/shell.go:631` do not need every message and review row spelled out as custom layout.
-2. `SafeAreaInset`, so footer and accessory chrome can attach semantically instead of being packed into manual outer stacks.
-3. Focus state bindings beyond simple `Focusable(bool)`, so keyboard navigation can move through the shell without manual focus bookkeeping.
-4. If platform scope ever expands beyond macOS, revisit `HoverEffect`. On macOS it remains intentionally absent because the underlying SwiftUI modifier is unavailable.
-5. If native platform parity becomes important, a second pass on true SwiftUI `OutlineGroup` / `Table` bindings rather than the current curated helpers.
+2. Focus state bindings beyond simple `Focusable(bool)`, so keyboard navigation can move through the shell without manual focus bookkeeping.
+3. If platform scope ever expands beyond macOS, revisit `HoverEffect`. On macOS it remains intentionally absent because the underlying SwiftUI modifier is unavailable.
+4. If native platform parity becomes important, a second pass on true SwiftUI `OutlineGroup` / `Table` bindings rather than the current curated helpers.

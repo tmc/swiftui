@@ -1,0 +1,46 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/tmc/swiftui
+cpu: Apple M4 Max
+BenchmarkRetainAcquireOwned-16        	123697206	        19.84 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireOwned-16        	100000000	        20.78 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireOwned-16        	71982454	        28.12 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireOwned-16        	123215970	        19.93 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireOwned-16        	127736626	        18.44 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireOwned-16        	125269827	        18.61 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireOwned-16        	127609141	        18.90 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireOwned-16        	128800580	        18.43 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireOwned-16        	126585054	        19.14 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireOwned-16        	129527272	        18.51 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireTransient-16    	130114928	        20.04 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireTransient-16    	130454668	        18.38 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireTransient-16    	124853986	        18.79 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireTransient-16    	126641733	        18.74 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireTransient-16    	129261363	        18.54 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireTransient-16    	129583003	        18.55 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireTransient-16    	129375304	        18.66 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireTransient-16    	126742062	        18.44 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireTransient-16    	130007679	        18.39 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainAcquireTransient-16    	124812626	        18.33 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainReleaseOwned-16        	87441912	        26.89 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainReleaseOwned-16        	89791512	        26.77 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainReleaseOwned-16        	90123355	        27.07 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainReleaseOwned-16        	89609220	        26.75 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainReleaseOwned-16        	89778638	        26.82 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainReleaseOwned-16        	88408101	        27.01 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainReleaseOwned-16        	89049259	        27.15 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainReleaseOwned-16        	89050086	        27.28 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainReleaseOwned-16        	89383809	        27.55 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainReleaseOwned-16        	79219141	        28.82 ns/op	      48 B/op	       1 allocs/op
+BenchmarkRetainReleaseTransient-16    	544460440	         4.425 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRetainReleaseTransient-16    	491918403	         4.437 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRetainReleaseTransient-16    	541809184	         4.430 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRetainReleaseTransient-16    	541059918	         4.443 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRetainReleaseTransient-16    	542922909	         4.432 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRetainReleaseTransient-16    	539506838	         4.434 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRetainReleaseTransient-16    	544279858	         4.426 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRetainReleaseTransient-16    	534074906	         4.422 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRetainReleaseTransient-16    	543823333	         4.415 ns/op	       0 B/op	       0 allocs/op
+BenchmarkRetainReleaseTransient-16    	539309329	         4.427 ns/op	       0 B/op	       0 allocs/op
+PASS
+ok  	github.com/tmc/swiftui	134.626s

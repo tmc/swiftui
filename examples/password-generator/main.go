@@ -254,7 +254,8 @@ func main() {
 						AsView().
 						MaxFrame(-1, 0).
 						Padding(8),
-					swiftui.SecureField("Password", password, func() {}),
+					swiftui.SecureField("Password", password, func() {}).
+						TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
 					swiftui.HStackSpaced(12,
 						swiftui.Button("Regenerate", func() {
 							regen()
@@ -294,7 +295,8 @@ func main() {
 					),
 				),
 				swiftui.Section("Exclusions",
-					swiftui.TextField("Characters to exclude", exclude, func() { regen() }),
+					swiftui.TextField("Characters to exclude", exclude, func() { regen() }).
+						TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
 				),
 				swiftui.Section("Separator",
 					swiftui.VStack(

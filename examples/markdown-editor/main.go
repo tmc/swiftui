@@ -5,8 +5,7 @@
 //
 // The left pane is a TextEditor bound to a StringState. The right pane is a
 // DynamicView that rebuilds whenever the refresh counter changes, rendering
-// lines starting with # as titles, lines starting with - as labeled items,
-// and everything else as body text.
+// the curated Markdown surface with native text selection enabled.
 //
 // Usage:
 //
@@ -15,7 +14,6 @@ package main
 
 import (
 	"runtime"
-	"strings"
 
 	"github.com/tmc/swiftui"
 )
@@ -46,7 +44,11 @@ func main() {
 		swiftui.HStack(
 			// Left: editor
 			swiftui.TextEditor(content).
+				Padding(8).
 				MaxFrame(-1, -1).
+				ScrollContentBackgroundHidden().
+				BackgroundRoundedRect(0.14, 0.15, 0.18, 0.98, 14).
+				ClipRoundedRect(14).
 				Font(swiftui.FontBody),
 			swiftui.Divider(),
 			// Right: preview
@@ -58,25 +60,10 @@ func main() {
 }
 
 func renderPreview(text string) swiftui.View {
-	lines := strings.Split(text, "\n")
-	var views []swiftui.Viewable
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		switch {
-		case strings.HasPrefix(trimmed, "# "):
-			views = append(views, swiftui.Text(strings.TrimPrefix(trimmed, "# ")).
-				Font(swiftui.FontTitle).
-				FontWeight(swiftui.WeightBold))
-		case strings.HasPrefix(trimmed, "- "):
-			views = append(views, swiftui.Label(strings.TrimPrefix(trimmed, "- "), "circle.fill"))
-		case trimmed == "":
-			views = append(views, swiftui.Spacer().Frame(0, 8))
-		default:
-			views = append(views, swiftui.Text(trimmed).Font(swiftui.FontBody))
-		}
-	}
 	return swiftui.ScrollView(
-		swiftui.VStackSpaced(4, views...).
+		swiftui.VStack(
+			swiftui.Markdown(text),
+		).
 			MaxFrame(-1, 0).
 			Padding(12),
 	)

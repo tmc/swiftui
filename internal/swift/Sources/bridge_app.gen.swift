@@ -19,36 +19,39 @@ nonisolated(unsafe) var _popover: NSPopover?
 @MainActor
 public func SUIRun(_ rootView: UnsafeMutableRawPointer, _ title: UnsafePointer<CChar>,
                     _ width: Double, _ height: Double) {
-    let view = Unmanaged<Box<AnyView>>.fromOpaque(rootView).takeUnretainedValue().value
-    let t = String(cString: title)
+    suiOnMainSync {
+        let view = Unmanaged<Box<AnyView>>.fromOpaque(rootView).takeUnretainedValue().value
+        let t = String(cString: title)
 
-    let app = NSApplication.shared
-    app.setActivationPolicy(.regular)
+        let app = NSApplication.shared
+        app.setActivationPolicy(.regular)
 
-    let delegate = SUIAppDelegate()
-    _appDelegate = delegate
-    app.delegate = delegate
+        let delegate = SUIAppDelegate()
+        _appDelegate = delegate
+        app.delegate = delegate
+        SUIInstallDefaultMenus(includeSettings: false, settingsTarget: nil, settingsAction: nil, includeWindowMenu: true)
 
-    let sized = AnyView(
-        view.frame(minWidth: width, minHeight: height)
-    )
+        let sized = AnyView(
+            view.frame(minWidth: width, minHeight: height)
+        )
 
-    let hc = NSHostingController(rootView: sized)
-    hc.sizingOptions = []
+        let hc = NSHostingController(rootView: sized)
+        hc.sizingOptions = []
 
-    let window = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: width, height: height),
-        styleMask: [.titled, .closable, .resizable, .miniaturizable],
-        backing: .buffered, defer: false
-    )
-    window.title = t
-    window.contentViewController = hc
-    window.setContentSize(NSSize(width: width, height: height))
-    window.minSize = NSSize(width: 300, height: 200)
-    window.center()
-    window.makeKeyAndOrderFront(nil)
-    app.activate()
-    app.run()
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered, defer: false
+        )
+        window.title = t
+        window.contentViewController = hc
+        window.setContentSize(NSSize(width: width, height: height))
+        window.minSize = NSSize(width: 300, height: 200)
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        app.activate()
+        app.run()
+    }
 }
 
 class SUIMenuBarAppDelegate: NSObject, NSApplicationDelegate {
@@ -91,41 +94,44 @@ public func SUIRunMenuBarEx(_ label: UnsafePointer<CChar>,
                              _ content: UnsafeMutableRawPointer,
                              _ width: Double, _ height: Double,
                              _ openOnLaunch: Int32) {
-    let view = Unmanaged<Box<AnyView>>.fromOpaque(content).takeUnretainedValue().value
-    let labelStr = String(cString: label)
-    let imageStr = String(cString: systemImage)
+    suiOnMainSync {
+        let view = Unmanaged<Box<AnyView>>.fromOpaque(content).takeUnretainedValue().value
+        let labelStr = String(cString: label)
+        let imageStr = String(cString: systemImage)
 
-    let app = NSApplication.shared
-    app.setActivationPolicy(.accessory)
+        let app = NSApplication.shared
+        app.setActivationPolicy(.accessory)
 
-    let delegate = SUIMenuBarAppDelegate()
-    _menuBarDelegate = delegate
-    app.delegate = delegate
+        let delegate = SUIMenuBarAppDelegate()
+        _menuBarDelegate = delegate
+        app.delegate = delegate
+        SUIInstallDefaultMenus(includeSettings: false, settingsTarget: nil, settingsAction: nil, includeWindowMenu: false)
 
-    let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    if let img = NSImage(systemSymbolName: imageStr, accessibilityDescription: labelStr) {
-        item.button?.image = img
-    }
-    item.button?.title = " " + labelStr
-    item.button?.target = delegate
-    item.button?.action = #selector(SUIMenuBarAppDelegate.togglePopover(_:))
-    _statusItem = item
-
-    let popover = NSPopover()
-    popover.contentSize = NSSize(width: width, height: height)
-    popover.behavior = .transient
-    let hc = NSHostingController(rootView: AnyView(view.frame(minWidth: width, minHeight: height)))
-    popover.contentViewController = hc
-    _popover = popover
-
-    if openOnLaunch != 0 {
-        DispatchQueue.main.async {
-            delegate.openPopoverOnLaunch()
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let img = NSImage(systemSymbolName: imageStr, accessibilityDescription: labelStr) {
+            item.button?.image = img
         }
-    }
+        item.button?.title = " " + labelStr
+        item.button?.target = delegate
+        item.button?.action = #selector(SUIMenuBarAppDelegate.togglePopover(_:))
+        _statusItem = item
 
-    app.activate()
-    app.run()
+        let popover = NSPopover()
+        popover.contentSize = NSSize(width: width, height: height)
+        popover.behavior = .transient
+        let hc = NSHostingController(rootView: AnyView(view.frame(minWidth: width, minHeight: height)))
+        popover.contentViewController = hc
+        _popover = popover
+
+        if openOnLaunch != 0 {
+            DispatchQueue.main.async {
+                delegate.openPopoverOnLaunch()
+            }
+        }
+
+        app.activate()
+        app.run()
+    }
 }
 
 @_cdecl("SUIRunWithMenuBar")
@@ -137,52 +143,55 @@ public func SUIRunWithMenuBar(_ rootView: UnsafeMutableRawPointer,
                                _ menuSystemImage: UnsafePointer<CChar>,
                                _ menuContent: UnsafeMutableRawPointer,
                                _ menuWidth: Double, _ menuHeight: Double) {
-    let view = Unmanaged<Box<AnyView>>.fromOpaque(rootView).takeUnretainedValue().value
-    let t = String(cString: title)
-    let menuView = Unmanaged<Box<AnyView>>.fromOpaque(menuContent).takeUnretainedValue().value
-    let menuLabelStr = String(cString: menuLabel)
-    let menuImageStr = String(cString: menuSystemImage)
+    suiOnMainSync {
+        let view = Unmanaged<Box<AnyView>>.fromOpaque(rootView).takeUnretainedValue().value
+        let t = String(cString: title)
+        let menuView = Unmanaged<Box<AnyView>>.fromOpaque(menuContent).takeUnretainedValue().value
+        let menuLabelStr = String(cString: menuLabel)
+        let menuImageStr = String(cString: menuSystemImage)
 
-    let app = NSApplication.shared
-    app.setActivationPolicy(.regular)
+        let app = NSApplication.shared
+        app.setActivationPolicy(.regular)
 
-    let delegate = SUIMenuBarAppDelegate()
-    _menuBarDelegate = delegate
-    app.delegate = delegate
+        let delegate = SUIMenuBarAppDelegate()
+        _menuBarDelegate = delegate
+        app.delegate = delegate
+        SUIInstallDefaultMenus(includeSettings: false, settingsTarget: nil, settingsAction: nil, includeWindowMenu: true)
 
-    let sized = AnyView(view.frame(minWidth: width, minHeight: height))
-    let hc = NSHostingController(rootView: sized)
-    hc.sizingOptions = []
-    let window = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: width, height: height),
-        styleMask: [.titled, .closable, .resizable, .miniaturizable],
-        backing: .buffered, defer: false
-    )
-    window.title = t
-    window.contentViewController = hc
-    window.setContentSize(NSSize(width: width, height: height))
-    window.minSize = NSSize(width: 300, height: 200)
-    window.center()
-    window.makeKeyAndOrderFront(nil)
+        let sized = AnyView(view.frame(minWidth: width, minHeight: height))
+        let hc = NSHostingController(rootView: sized)
+        hc.sizingOptions = []
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+            backing: .buffered, defer: false
+        )
+        window.title = t
+        window.contentViewController = hc
+        window.setContentSize(NSSize(width: width, height: height))
+        window.minSize = NSSize(width: 300, height: 200)
+        window.center()
+        window.makeKeyAndOrderFront(nil)
 
-    let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    if let img = NSImage(systemSymbolName: menuImageStr, accessibilityDescription: menuLabelStr) {
-        item.button?.image = img
+        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+        if let img = NSImage(systemSymbolName: menuImageStr, accessibilityDescription: menuLabelStr) {
+            item.button?.image = img
+        }
+        item.button?.title = " " + menuLabelStr
+        item.button?.target = delegate
+        item.button?.action = #selector(SUIMenuBarAppDelegate.togglePopover(_:))
+        _statusItem = item
+
+        let popover = NSPopover()
+        popover.contentSize = NSSize(width: menuWidth, height: menuHeight)
+        popover.behavior = .transient
+        let menuHC = NSHostingController(rootView: AnyView(menuView.frame(minWidth: menuWidth, minHeight: menuHeight)))
+        popover.contentViewController = menuHC
+        _popover = popover
+
+        app.activate()
+        app.run()
     }
-    item.button?.title = " " + menuLabelStr
-    item.button?.target = delegate
-    item.button?.action = #selector(SUIMenuBarAppDelegate.togglePopover(_:))
-    _statusItem = item
-
-    let popover = NSPopover()
-    popover.contentSize = NSSize(width: menuWidth, height: menuHeight)
-    popover.behavior = .transient
-    let menuHC = NSHostingController(rootView: AnyView(menuView.frame(minWidth: menuWidth, minHeight: menuHeight)))
-    popover.contentViewController = menuHC
-    _popover = popover
-
-    app.activate()
-    app.run()
 }
 
 @_cdecl("SUIUpdateMenuBarLabel")

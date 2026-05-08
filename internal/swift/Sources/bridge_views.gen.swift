@@ -29,6 +29,48 @@ public func SUIImage(_ systemName: UnsafePointer<CChar>) -> UnsafeMutableRawPoin
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIImageNamed")
+public func SUIImageNamed(_ name: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let n = String(cString: name)
+    let view = AnyView(Image(n))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIImageFromFile")
+public func SUIImageFromFile(_ path: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let p = String(cString: path)
+    let view: AnyView
+    if let nsImage = NSImage(contentsOfFile: p) {
+        view = AnyView(Image(nsImage: nsImage))
+    } else {
+        view = AnyView(Image(systemName: "photo"))
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIAsyncImage")
+public func SUIAsyncImage(_ urlStr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let str = String(cString: urlStr)
+    let view: AnyView
+    if let url = URL(string: str) {
+        view = AnyView(AsyncImage(url: url) { phase in
+            switch phase {
+            case .success(let image):
+                image.resizable().aspectRatio(contentMode: .fit)
+            case .failure:
+                Image(systemName: "exclamationmark.triangle")
+            case .empty:
+                ProgressView()
+            @unknown default:
+                EmptyView()
+            }
+        })
+    } else {
+        view = AnyView(Image(systemName: "photo"))
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 private func suiHorizontalAlignment(_ raw: Int32) -> HorizontalAlignment {
     switch raw {
     case 0: return .leading
@@ -224,6 +266,99 @@ public func SUIButtonWithLabel(_ text: UnsafePointer<CChar>, _ systemImage: Unsa
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIPasteButton")
+@MainActor
+public func SUIPasteButton(_ labelPtr: UnsafePointer<CChar>, _ stateRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let title = String(cString: labelPtr)
+    let state = Unmanaged<BridgedStringState>.fromOpaque(stateRef).takeUnretainedValue()
+    let view = AnyView(Button(title) {
+        if let pasted = NSPasteboard.general.string(forType: .string), !pasted.isEmpty {
+            state.setAndBump(pasted)
+        }
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIPasteButtonPayload")
+@MainActor
+public func SUIPasteButtonPayload(_ labelPtr: UnsafePointer<CChar>, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let title = String(cString: labelPtr)
+    let view = AnyView(Button(title) {
+        let pasteboard = NSPasteboard.general
+        if let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL], let url = urls.first {
+            let kind = url.isFileURL ? "file" : "url"
+            let value = url.isFileURL ? url.path : url.absoluteString
+            guard !value.isEmpty else {
+                return
+            }
+            let _: Int32? = kind.withCString { kindPtr in
+                value.withCString { valuePtr in
+                    _SUIPasteCallback?(callbackID, kindPtr, valuePtr)
+                }
+            }
+            return
+        }
+        if let pasted = pasteboard.string(forType: .string), !pasted.isEmpty {
+            let _: Int32? = "text".withCString { kindPtr in
+                pasted.withCString { valuePtr in
+                    _SUIPasteCallback?(callbackID, kindPtr, valuePtr)
+                }
+            }
+        }
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIShareLinkURL")
+public func SUIShareLinkURL(_ titlePtr: UnsafePointer<CChar>, _ urlPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let title = String(cString: titlePtr)
+    let urlString = String(cString: urlPtr)
+    let view: AnyView
+    if let url = URL(string: urlString) {
+        view = AnyView(ShareLink(item: url) {
+            Text(title)
+        })
+    } else {
+        view = AnyView(Button(title) {})
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIShareLinkItem")
+public func SUIShareLinkItem(_ titlePtr: UnsafePointer<CChar>, _ kindPtr: UnsafePointer<CChar>, _ valuePtr: UnsafePointer<CChar>, _ filePathPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let title = String(cString: titlePtr)
+    let kind = String(cString: kindPtr)
+    let value = String(cString: valuePtr)
+    let filePath = String(cString: filePathPtr)
+    let view: AnyView
+    switch kind {
+    case "text":
+        view = AnyView(ShareLink(item: value) {
+            Text(title)
+        })
+    case "url":
+        if let url = URL(string: value) {
+            view = AnyView(ShareLink(item: url) {
+                Text(title)
+            })
+        } else {
+            view = AnyView(Button(title) {})
+        }
+    case "file":
+        let path = filePath.isEmpty ? value : filePath
+        if path.isEmpty {
+            view = AnyView(Button(title) {})
+        } else {
+            view = AnyView(ShareLink(item: URL(fileURLWithPath: path)) {
+                Text(title)
+            })
+        }
+    default:
+        view = AnyView(Button(title) {})
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUISpacer")
 public func SUISpacer() -> UnsafeMutableRawPointer {
     let view = AnyView(Spacer())
@@ -373,7 +508,7 @@ public func SUISelectableList(_ selectionRef: UnsafeMutableRawPointer, _ childre
     }
     let list = AnyView(List(selection: Binding<Int?>(
         get: { state.value == 0 ? nil : state.value },
-        set: { state.value = $0 ?? 0 }
+        set: { state.setAndBump($0 ?? 0) }
     )) {
         ForEach(views.indices, id: \.self) { i in
             views[i]
@@ -639,6 +774,75 @@ public func SUIColor(_ r: Double, _ g: Double, _ b: Double, _ a: Double) -> Unsa
     return retainView(view)
 }
 
+@_cdecl("SUILinearGradient")
+public func SUILinearGradient(
+    _ startR: Double, _ startG: Double, _ startB: Double, _ startA: Double,
+    _ endR: Double, _ endG: Double, _ endB: Double, _ endA: Double,
+    _ startX: Double, _ startY: Double,
+    _ endX: Double, _ endY: Double
+) -> UnsafeMutableRawPointer {
+    let start = Color(red: startR, green: startG, blue: startB, opacity: startA)
+    let end = Color(red: endR, green: endG, blue: endB, opacity: endA)
+    let view = AnyView(LinearGradient(
+        colors: [start, end],
+        startPoint: UnitPoint(x: startX, y: startY),
+        endPoint: UnitPoint(x: endX, y: endY)
+    ))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIRadialGradient")
+public func SUIRadialGradient(
+    _ innerR: Double, _ innerG: Double, _ innerB: Double, _ innerA: Double,
+    _ outerR: Double, _ outerG: Double, _ outerB: Double, _ outerA: Double,
+    _ centerX: Double, _ centerY: Double,
+    _ startRadius: Double, _ endRadius: Double
+) -> UnsafeMutableRawPointer {
+    let inner = Color(red: innerR, green: innerG, blue: innerB, opacity: innerA)
+    let outer = Color(red: outerR, green: outerG, blue: outerB, opacity: outerA)
+    let view = AnyView(RadialGradient(
+        colors: [inner, outer],
+        center: UnitPoint(x: centerX, y: centerY),
+        startRadius: startRadius,
+        endRadius: endRadius
+    ))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIMeshGradient4")
+public func SUIMeshGradient4(_ dataPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let values = String(cString: dataPtr)
+        .split(separator: ",")
+        .compactMap { Double($0.trimmingCharacters(in: .whitespacesAndNewlines)) }
+    guard values.count == 16 else {
+        let view = AnyView(LinearGradient(colors: [.clear, .clear], startPoint: .topLeading, endPoint: .bottomTrailing))
+        return Unmanaged.passRetained(Box(view)).toOpaque()
+    }
+    let topLeading = Color(red: values[0], green: values[1], blue: values[2], opacity: values[3])
+    let topTrailing = Color(red: values[4], green: values[5], blue: values[6], opacity: values[7])
+    let bottomLeading = Color(red: values[8], green: values[9], blue: values[10], opacity: values[11])
+    let bottomTrailing = Color(red: values[12], green: values[13], blue: values[14], opacity: values[15])
+    let view: AnyView
+    if #available(macOS 15.0, *) {
+        view = AnyView(MeshGradient(
+            width: 2,
+            height: 2,
+            points: [
+                SIMD2<Float>(0, 0), SIMD2<Float>(1, 0),
+                SIMD2<Float>(0, 1), SIMD2<Float>(1, 1),
+            ],
+            colors: [topLeading, topTrailing, bottomLeading, bottomTrailing]
+        ))
+    } else {
+        view = AnyView(LinearGradient(
+            colors: [topLeading, bottomTrailing],
+            startPoint: .topLeading,
+            endPoint: .bottomTrailing
+        ))
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUICircle")
 public func SUICircle() -> UnsafeMutableRawPointer {
     let shape = Circle()
@@ -662,6 +866,216 @@ public func SUICapsule() -> UnsafeMutableRawPointer {
     let shape = Capsule()
     return retainView(AnyView(shape), shape: AnyShape(shape))
 }
+// MARK: - Path / Canvas opcode decoder (v1)
+//
+// Wire format is shared with the Go side (canvas.go). All integers are
+// little-endian; floats are IEEE-754 f64. Path opcodes live in 0x01..0x0F.
+// Canvas opcodes live in 0x10..0x1F. See canvas.go for the authoritative
+// opcode table.
+
+private let suiPathOpMove: UInt8 = 0x01
+private let suiPathOpLine: UInt8 = 0x02
+private let suiPathOpQuad: UInt8 = 0x03
+private let suiPathOpCubic: UInt8 = 0x04
+private let suiPathOpArc: UInt8 = 0x05
+private let suiPathOpRect: UInt8 = 0x06
+private let suiPathOpEllipse: UInt8 = 0x07
+private let suiPathOpClose: UInt8 = 0x08
+
+private let suiCanvasOpStroke: UInt8 = 0x10
+private let suiCanvasOpFill: UInt8 = 0x11
+private let suiCanvasOpClip: UInt8 = 0x12
+private let suiCanvasOpTranslate: UInt8 = 0x13
+private let suiCanvasOpScale: UInt8 = 0x14
+private let suiCanvasOpRotate: UInt8 = 0x15
+private let suiCanvasOpSave: UInt8 = 0x16
+private let suiCanvasOpRestore: UInt8 = 0x17
+private let suiCanvasOpOpacity: UInt8 = 0x18
+
+// suiDecodePath consumes len opcode-bytes starting at offset and builds a
+// SwiftUI Path. On decode error (truncated operand or unknown opcode) it
+// returns the partial path built so far — callers treat this as best-effort.
+private func suiDecodePath(_ reader: inout SUIModifierReader, _ length: Int) -> Path {
+    var path = Path()
+    let end = reader.offset + length
+    while reader.offset < end {
+        guard let op = reader.readU8() else { break }
+        switch op {
+        case suiPathOpMove:
+            guard let x = reader.readF64(), let y = reader.readF64() else { return path }
+            path.move(to: CGPoint(x: x, y: y))
+        case suiPathOpLine:
+            guard let x = reader.readF64(), let y = reader.readF64() else { return path }
+            path.addLine(to: CGPoint(x: x, y: y))
+        case suiPathOpQuad:
+            guard let cx = reader.readF64(), let cy = reader.readF64(),
+                  let x = reader.readF64(), let y = reader.readF64() else { return path }
+            path.addQuadCurve(to: CGPoint(x: x, y: y), control: CGPoint(x: cx, y: cy))
+        case suiPathOpCubic:
+            guard let c1x = reader.readF64(), let c1y = reader.readF64(),
+                  let c2x = reader.readF64(), let c2y = reader.readF64(),
+                  let x = reader.readF64(), let y = reader.readF64() else { return path }
+            path.addCurve(to: CGPoint(x: x, y: y),
+                          control1: CGPoint(x: c1x, y: c1y),
+                          control2: CGPoint(x: c2x, y: c2y))
+        case suiPathOpArc:
+            guard let cx = reader.readF64(), let cy = reader.readF64(),
+                  let r = reader.readF64(), let a0 = reader.readF64(),
+                  let a1 = reader.readF64(), let cw = reader.readU8() else { return path }
+            path.addArc(center: CGPoint(x: cx, y: cy), radius: r,
+                        startAngle: .radians(a0), endAngle: .radians(a1),
+                        clockwise: cw != 0)
+        case suiPathOpRect:
+            guard let x = reader.readF64(), let y = reader.readF64(),
+                  let w = reader.readF64(), let h = reader.readF64() else { return path }
+            path.addRect(CGRect(x: x, y: y, width: w, height: h))
+        case suiPathOpEllipse:
+            guard let x = reader.readF64(), let y = reader.readF64(),
+                  let w = reader.readF64(), let h = reader.readF64() else { return path }
+            path.addEllipse(in: CGRect(x: x, y: y, width: w, height: h))
+        case suiPathOpClose:
+            path.closeSubpath()
+        default:
+            // Unknown opcode: stop decoding to avoid misreading operands.
+            return path
+        }
+    }
+    return path
+}
+
+@_cdecl("SUIPath")
+public func SUIPath(_ bufPtr: UnsafePointer<UInt8>?, _ bufLen: Int32) -> UnsafeMutableRawPointer {
+    var reader = SUIModifierReader(bufPtr, Int(bufLen))
+    let path = suiDecodePath(&reader, Int(bufLen))
+    return retainView(AnyView(path), shape: AnyShape(path))
+}
+
+// MARK: - Canvas state + renderer
+
+@Observable
+final class BridgedCanvasState: AnyBridgedState, @unchecked Sendable {
+    var blob: Data
+    private(set) var gen: UInt32 = 0
+    init(_ blob: Data) { self.blob = blob }
+
+    func setAndBump(_ v: Data) {
+        self.blob = v
+        self.gen &+= 1
+    }
+}
+
+@_cdecl("SUICanvasStateNew")
+public func SUICanvasStateNew(_ bufPtr: UnsafePointer<UInt8>?, _ bufLen: Int32) -> UnsafeMutableRawPointer {
+    let data: Data
+    if let bufPtr, bufLen > 0 {
+        data = Data(bytes: bufPtr, count: Int(bufLen))
+    } else {
+        data = Data()
+    }
+    return Unmanaged.passRetained(BridgedCanvasState(data)).toOpaque()
+}
+
+@_cdecl("SUICanvasStateSet")
+public func SUICanvasStateSet(_ ref: UnsafeMutableRawPointer, _ bufPtr: UnsafePointer<UInt8>?, _ bufLen: Int32) {
+    let s = Unmanaged<BridgedCanvasState>.fromOpaque(ref).takeUnretainedValue()
+    let data: Data
+    if let bufPtr, bufLen > 0 {
+        data = Data(bytes: bufPtr, count: Int(bufLen))
+    } else {
+        data = Data()
+    }
+    DispatchQueue.main.async { s.setAndBump(data) }
+}
+
+@MainActor
+private struct BridgedCanvasView: View {
+    var state: BridgedCanvasState
+    let width: Double
+    let height: Double
+
+    var body: some View {
+        Canvas { ctx, _ in
+            BridgedCanvasView.render(ctx: &ctx, blob: state.blob)
+        }
+        .frame(width: width, height: height)
+    }
+
+    static func render(ctx: inout GraphicsContext, blob: Data) {
+        blob.withUnsafeBytes { raw in
+            let base = raw.baseAddress?.assumingMemoryBound(to: UInt8.self)
+            var reader = SUIModifierReader(base, blob.count)
+            while reader.remaining > 0 {
+                guard let op = reader.readU8() else { return }
+                switch op {
+                case suiCanvasOpStroke:
+                    guard let pathLen = reader.readU32(),
+                          let r = reader.readF64(), let g = reader.readF64(),
+                          let b = reader.readF64(), let a = reader.readF64(),
+                          let w = reader.readF64(),
+                          let dashN = reader.readU8() else { return }
+                    var dashes: [CGFloat] = []
+                    if dashN > 0 {
+                        dashes.reserveCapacity(Int(dashN))
+                        for _ in 0..<dashN {
+                            guard let d = reader.readF64() else { return }
+                            dashes.append(CGFloat(d))
+                        }
+                    }
+                    let path = suiDecodePath(&reader, Int(pathLen))
+                    let color = Color(red: r, green: g, blue: b, opacity: a)
+                    let style = StrokeStyle(lineWidth: w, dash: dashes)
+                    ctx.stroke(path, with: .color(color), style: style)
+                case suiCanvasOpFill:
+                    guard let pathLen = reader.readU32(),
+                          let r = reader.readF64(), let g = reader.readF64(),
+                          let b = reader.readF64(), let a = reader.readF64() else { return }
+                    let path = suiDecodePath(&reader, Int(pathLen))
+                    ctx.fill(path, with: .color(Color(red: r, green: g, blue: b, opacity: a)))
+                case suiCanvasOpClip:
+                    guard let pathLen = reader.readU32() else { return }
+                    let path = suiDecodePath(&reader, Int(pathLen))
+                    ctx.clip(to: path)
+                case suiCanvasOpTranslate:
+                    guard let dx = reader.readF64(), let dy = reader.readF64() else { return }
+                    ctx.translateBy(x: dx, y: dy)
+                case suiCanvasOpScale:
+                    guard let sx = reader.readF64(), let sy = reader.readF64() else { return }
+                    ctx.scaleBy(x: sx, y: sy)
+                case suiCanvasOpRotate:
+                    guard let rad = reader.readF64() else { return }
+                    ctx.rotate(by: .radians(rad))
+                case suiCanvasOpSave, suiCanvasOpRestore:
+                    // GraphicsContext is a value type; save/restore scoping is
+                    // expressed by drawLayer { ... } in native Swift. In v1 the
+                    // opcode is reserved but the decoder treats it as a no-op.
+                    // v2 may introduce a begin/end-scope pair that actually
+                    // branches into a nested reader. For now, callers emitting
+                    // transforms should avoid relying on scope semantics —
+                    // transforms accumulate linearly until reset with an
+                    // inverse translate/scale/rotate.
+                    break
+                case suiCanvasOpOpacity:
+                    guard let a = reader.readF64() else { return }
+                    ctx.opacity = a
+                default:
+                    return
+                }
+            }
+        }
+    }
+}
+
+@_cdecl("SUICanvas")
+public func SUICanvas(_ stateRef: UnsafeMutableRawPointer, _ width: Double, _ height: Double) -> UnsafeMutableRawPointer {
+    let state = Unmanaged<BridgedCanvasState>.fromOpaque(stateRef).takeUnretainedValue()
+    // BridgedCanvasView.body is @MainActor (struct is @MainActor); construction
+    // itself is just initializer assignment and is safe off-main-thread. The
+    // view's render closure only fires when SwiftUI lays out the Canvas, which
+    // always happens on the main actor.
+    let view = AnyView(BridgedCanvasView(state: state, width: width, height: height))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 
 @_cdecl("SUILink")
 public func SUILink(_ titlePtr: UnsafePointer<CChar>, _ urlPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
@@ -737,12 +1151,14 @@ struct BridgedToggle: View {
         Toggle(label, isOn: Binding(
             get: { state.value != 0 },
             set: { newValue in
-                state.value = newValue ? 1 : 0
+                state.setAndBump(newValue ? 1 : 0)
                 _SUIButtonCallback?(callbackID)
             }
         ))
     }
 }
+
+
 
 @_cdecl("SUITextField")
 @MainActor
@@ -777,7 +1193,7 @@ struct BridgedTextField: View {
                     return
                 }
                 if state.value != newValue {
-                    state.value = newValue
+                    state.setAndBump(newValue)
                 }
                 
             }
@@ -790,7 +1206,7 @@ struct BridgedTextField: View {
             }
             .onSubmit {
                 if state.value != draft {
-                    state.value = draft
+                    state.setAndBump(draft)
                 }
                 if onSubmitID != 0 {
                     _SUIButtonCallback?(onSubmitID)
@@ -835,7 +1251,7 @@ struct BridgedTextFieldCallbacks: View {
                     return
                 }
                 if state.value != newValue {
-                    state.value = newValue
+                    state.setAndBump(newValue)
                 }
                 if onChangeID != 0 {
                     _SUIButtonCallback?(onChangeID)
@@ -851,7 +1267,7 @@ struct BridgedTextFieldCallbacks: View {
             }
             .onSubmit {
                 if state.value != draft {
-                    state.value = draft
+                    state.setAndBump(draft)
                 }
                 if onSubmitID != 0 {
                     _SUIButtonCallback?(onSubmitID)
@@ -894,7 +1310,7 @@ struct BridgedSecureField: View {
                     return
                 }
                 if state.value != newValue {
-                    state.value = newValue
+                    state.setAndBump(newValue)
                 }
                 
             }
@@ -907,7 +1323,7 @@ struct BridgedSecureField: View {
             }
             .onSubmit {
                 if state.value != draft {
-                    state.value = draft
+                    state.setAndBump(draft)
                 }
                 if onSubmitID != 0 {
                     _SUIButtonCallback?(onSubmitID)
@@ -952,7 +1368,7 @@ struct BridgedSecureFieldCallbacks: View {
                     return
                 }
                 if state.value != newValue {
-                    state.value = newValue
+                    state.setAndBump(newValue)
                 }
                 if onChangeID != 0 {
                     _SUIButtonCallback?(onChangeID)
@@ -968,7 +1384,7 @@ struct BridgedSecureFieldCallbacks: View {
             }
             .onSubmit {
                 if state.value != draft {
-                    state.value = draft
+                    state.setAndBump(draft)
                 }
                 if onSubmitID != 0 {
                     _SUIButtonCallback?(onSubmitID)
@@ -1006,7 +1422,7 @@ struct BridgedTextEditor: View {
                     return
                 }
                 if state.value != newValue {
-                    state.value = newValue
+                    state.setAndBump(newValue)
                 }
                 
             }
@@ -1051,7 +1467,7 @@ struct BridgedTextEditorOnChange: View {
                     return
                 }
                 if state.value != newValue {
-                    state.value = newValue
+                    state.setAndBump(newValue)
                 }
                 if onChangeID != 0 {
                     _SUIButtonCallback?(onChangeID)
@@ -1091,7 +1507,7 @@ struct BridgedSlider: View {
     var body: some View {
         Slider(value: Binding(
             get: { Double(state.value) },
-            set: { state.value = Int($0) }
+            set: { state.setAndBump(Int($0)) }
         ), in: minValue...maxValue) {
             Text(label)
         } onEditingChanged: { editing in
@@ -1123,7 +1539,7 @@ struct BridgedPicker: View {
         Picker(label, selection: Binding(
             get: { state.value },
             set: { newValue in
-                state.value = newValue
+                state.setAndBump(newValue)
                 _SUIButtonCallback?(callbackID)
             }
         )) {
@@ -1154,7 +1570,7 @@ struct BridgedStepper: View {
         Stepper(label, value: Binding(
             get: { state.value },
             set: { newValue in
-                state.value = newValue
+                state.setAndBump(newValue)
                 _SUIButtonCallback?(callbackID)
             }
         ), in: minValue...maxValue)
@@ -1182,7 +1598,7 @@ struct BridgedPickerMenu: View {
         Picker(label, selection: Binding(
             get: { state.value },
             set: { newValue in
-                state.value = newValue
+                state.setAndBump(newValue)
                 _SUIButtonCallback?(callbackID)
             }
         )) {

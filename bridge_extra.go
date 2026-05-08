@@ -8,6 +8,8 @@ import (
 )
 
 // ImageFit identifies remote image sizing behavior.
+//
+// Bridge surface.
 type ImageFit int32
 
 const (
@@ -19,12 +21,16 @@ const (
 )
 
 // DateBounds constrains a date picker to an optional lower and upper bound.
+//
+// Bridge surface.
 type DateBounds struct {
 	Min *float64
 	Max *float64
 }
 
 // DatePickerMode controls whether the picker shows a date, a time, or both.
+//
+// Bridge surface.
 type DatePickerMode int32
 
 const (
@@ -34,6 +40,8 @@ const (
 )
 
 // TextInputPolicy controls filtered text entry and validation state reporting.
+//
+// Bridge surface.
 type TextInputPolicy struct {
 	AllowedPattern    string
 	ValidationPattern string
@@ -41,15 +49,38 @@ type TextInputPolicy struct {
 }
 
 // ChoiceOption defines a labeled selectable value for searchable pickers.
+//
+// Bridge surface.
 type ChoiceOption struct {
 	Label string `json:"label"`
 	Value string `json:"value"`
 }
 
+// PhotosPickerMatching narrows the native PhotosPicker selection filter.
+//
+// Bridge surface.
+type PhotosPickerMatching int32
+
+const (
+	PhotosPickerMatchingAny PhotosPickerMatching = iota
+	PhotosPickerMatchingImages
+	PhotosPickerMatchingVideos
+)
+
+// PhotosPickerConfig controls the native PhotosPicker bridge.
+//
+// Bridge surface.
+type PhotosPickerConfig struct {
+	Matching          PhotosPickerMatching
+	MaxSelectionCount int
+}
+
 // StringListState is an observable slice of strings.
+//
+// Bridge surface.
 type StringListState struct {
 	ptr      uintptr
-	retained *retained
+	retained *retainedOwned
 }
 
 var (
@@ -63,11 +94,19 @@ var (
 	_SUITextEditorPolicy       func(uintptr, *byte, *byte, uintptr, uintptr) uintptr
 	_SUIViewFrameAligned       func(uintptr, float64, float64, int32, int32) uintptr
 	_SUIViewMaxFrameAligned    func(uintptr, float64, float64, int32, int32) uintptr
-	_SUIStateCreateStringList  func(*byte) uintptr
-	_SUIStateGetStringListJSON func(uintptr) *byte
-	_SUIStateSetStringListJSON func(uintptr, *byte)
-	_SUISearchablePicker       func(*byte, *byte, uintptr, *byte, uintptr) uintptr
-	_SUISearchableMultiPicker  func(*byte, *byte, uintptr, *byte, uintptr) uintptr
+	_SUIStateCreateStringList         func(*byte) uintptr
+	_SUIStateGetStringListJSON        func(uintptr) *byte
+	_SUIStateSetStringListJSON        func(uintptr, *byte)
+	_SUIStateCreateStringListPacked   func(*byte, int32) uintptr
+	_SUIStateGetStringListPacked      func(uintptr, *int32) *byte
+	_SUIStateSetStringListPacked      func(uintptr, *byte, int32)
+	_SUIFreePackedBuffer              func(*byte)
+	_SUISearchablePicker              func(*byte, *byte, uintptr, *byte, uintptr) uintptr
+	_SUISearchableMultiPicker         func(*byte, *byte, uintptr, *byte, uintptr) uintptr
+	_SUISearchablePickerPacked        func(*byte, *byte, uintptr, *byte, int32, uintptr) uintptr
+	_SUISearchableMultiPickerPacked   func(*byte, *byte, uintptr, *byte, int32, uintptr) uintptr
+	_SUIPhotosPicker           func(*byte, int32, int32, uintptr) uintptr
+	_SUIOpenPanel              func(*byte, uintptr) uintptr
 )
 
 func ensureExtraLibFuncs() {
@@ -84,8 +123,16 @@ func ensureExtraLibFuncs() {
 			tryRegisterLibFunc(&_SUIStateCreateStringList, libHandle, "SUIStateCreateStringList")
 			tryRegisterLibFunc(&_SUIStateGetStringListJSON, libHandle, "SUIStateGetStringListJSON")
 			tryRegisterLibFunc(&_SUIStateSetStringListJSON, libHandle, "SUIStateSetStringListJSON")
+			tryRegisterLibFunc(&_SUIStateCreateStringListPacked, libHandle, "SUIStateCreateStringListPacked")
+			tryRegisterLibFunc(&_SUIStateGetStringListPacked, libHandle, "SUIStateGetStringListPacked")
+			tryRegisterLibFunc(&_SUIStateSetStringListPacked, libHandle, "SUIStateSetStringListPacked")
+			tryRegisterLibFunc(&_SUIFreePackedBuffer, libHandle, "SUIFreePackedBuffer")
 			tryRegisterLibFunc(&_SUISearchablePicker, libHandle, "SUISearchablePicker")
 			tryRegisterLibFunc(&_SUISearchableMultiPicker, libHandle, "SUISearchableMultiPicker")
+			tryRegisterLibFunc(&_SUISearchablePickerPacked, libHandle, "SUISearchablePickerPacked")
+			tryRegisterLibFunc(&_SUISearchableMultiPickerPacked, libHandle, "SUISearchableMultiPickerPacked")
+			tryRegisterLibFunc(&_SUIPhotosPicker, libHandle, "SUIPhotosPicker")
+			tryRegisterLibFunc(&_SUIOpenPanel, libHandle, "SUIOpenPanel")
 		}
 		setExtraUnavailableStubs()
 	})
@@ -151,6 +198,8 @@ func setExtraUnavailableStubs() {
 	if _SUIStateSetStringListJSON == nil {
 		_SUIStateSetStringListJSON = func(uintptr, *byte) { stub("SUIStateSetStringListJSON") }
 	}
+	// Packed variants: left nil when the running dylib predates P4 so the
+	// Go-side helpers can transparently fall back to the JSON path.
 	if _SUISearchablePicker == nil {
 		_SUISearchablePicker = func(*byte, *byte, uintptr, *byte, uintptr) uintptr {
 			stub("SUISearchablePicker")
@@ -160,6 +209,18 @@ func setExtraUnavailableStubs() {
 	if _SUISearchableMultiPicker == nil {
 		_SUISearchableMultiPicker = func(*byte, *byte, uintptr, *byte, uintptr) uintptr {
 			stub("SUISearchableMultiPicker")
+			return 0
+		}
+	}
+	if _SUIPhotosPicker == nil {
+		_SUIPhotosPicker = func(*byte, int32, int32, uintptr) uintptr {
+			stub("SUIPhotosPicker")
+			return 0
+		}
+	}
+	if _SUIOpenPanel == nil {
+		_SUIOpenPanel = func(*byte, uintptr) uintptr {
+			stub("SUIOpenPanel")
 			return 0
 		}
 	}
@@ -181,7 +242,10 @@ func goStringAndFree(p *byte) string {
 	return string(buf)
 }
 
-func marshalStringSlice(v []string) string {
+// marshalStringSliceJSON JSON-encodes v. It is the pre-P4 encoder, retained as
+// an opt-in debug and persistence helper. The hot path between Go and Swift
+// uses the packed wire format (see wire_packed.go and withPackedStringSlice).
+func marshalStringSliceJSON(v []string) string {
 	if v == nil {
 		v = []string{}
 	}
@@ -192,7 +256,13 @@ func marshalStringSlice(v []string) string {
 	return string(data)
 }
 
-func marshalChoiceOptions(v []ChoiceOption) string {
+// marshalStringSlice is a compatibility alias for benchmarks and tests. New
+// bridge code should use withPackedStringSlice instead.
+func marshalStringSlice(v []string) string { return marshalStringSliceJSON(v) }
+
+// marshalChoiceOptionsJSON is the pre-P4 JSON encoder for ChoiceOption slices.
+// Retained for debug/persistence; hot paths use withPackedChoiceOptions.
+func marshalChoiceOptionsJSON(v []ChoiceOption) string {
 	if v == nil {
 		v = []ChoiceOption{}
 	}
@@ -202,6 +272,9 @@ func marshalChoiceOptions(v []ChoiceOption) string {
 	}
 	return string(data)
 }
+
+// marshalChoiceOptions is a compatibility alias; see marshalChoiceOptionsJSON.
+func marshalChoiceOptions(v []ChoiceOption) string { return marshalChoiceOptionsJSON(v) }
 
 func withTwoCStrings(a, b string, fn func(*byte, *byte)) {
 	withCString(a, func(aC *byte) {
@@ -215,10 +288,16 @@ func withTwoCStrings(a, b string, fn func(*byte, *byte)) {
 func NewStringListState(initial []string) *StringListState {
 	ensureExtraLibFuncs()
 	var ptr uintptr
-	withCString(marshalStringSlice(initial), func(jsonC *byte) {
-		ptr = _SUIStateCreateStringList(jsonC)
-	})
-	return &StringListState{ptr: ptr, retained: newRetained(ptr)}
+	if _SUIStateCreateStringListPacked != nil {
+		bp, p, n := acquirePackedStringSliceBuf(initial)
+		ptr = _SUIStateCreateStringListPacked(p, int32(n))
+		releasePackedBuf(bp)
+	} else {
+		withCString(marshalStringSliceJSON(initial), func(jsonC *byte) {
+			ptr = _SUIStateCreateStringList(jsonC)
+		})
+	}
+	return &StringListState{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // Get returns the current slice value.
@@ -226,6 +305,22 @@ func (s *StringListState) Get() []string {
 	ensureExtraLibFuncs()
 	if s == nil || s.ptr == 0 {
 		return nil
+	}
+	if _SUIStateGetStringListPacked != nil && _SUIFreePackedBuffer != nil {
+		var n int32
+		p := _SUIStateGetStringListPacked(s.ptr, &n)
+		if p == nil || n <= 0 {
+			if p != nil {
+				_SUIFreePackedBuffer(p)
+			}
+			return nil
+		}
+		out, err := decodePackedStringSliceFromPointer(p, int(n))
+		_SUIFreePackedBuffer(p)
+		if err != nil {
+			return nil
+		}
+		return out
 	}
 	data := goStringAndFree(_SUIStateGetStringListJSON(s.ptr))
 	if data == "" {
@@ -244,7 +339,16 @@ func (s *StringListState) Set(v []string) {
 	if s == nil || s.ptr == 0 {
 		return
 	}
-	withCString(marshalStringSlice(v), func(jsonC *byte) {
+	if _SUIStateSetStringListPacked != nil {
+		// Avoid a closure that would capture s and escape. The direct
+		// acquire/release form keeps StringListState.Set allocation-free
+		// aside from the purego reflect trampoline.
+		bp, p, n := acquirePackedStringSliceBuf(v)
+		_SUIStateSetStringListPacked(s.ptr, p, int32(n))
+		releasePackedBuf(bp)
+		return
+	}
+	withCString(marshalStringSliceJSON(v), func(jsonC *byte) {
 		_SUIStateSetStringListJSON(s.ptr, jsonC)
 	})
 }
@@ -266,7 +370,7 @@ func AsyncImageFit(url string, fit ImageFit) View {
 	withCString(url, func(urlC *byte) {
 		ptr = _SUIAsyncImageFit(urlC, int32(fit))
 	})
-	return View{ptr: ptr, retained: newRetained(ptr)}
+	return View{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // DatePickerBounded creates a date picker with optional minimum and maximum bounds.
@@ -301,7 +405,7 @@ func DatePickerBoundedMode(label string, state *DateState, bounds DateBounds, mo
 			ptr = _SUIDatePickerBounded(labelC, state.ptr, hasMin, min, hasMax, max, onChangeID)
 		}
 	})
-	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret := View{ptr: ptr, retained: newRetainedOwned(ptr)}
 	ret.retained.addCallbackID(onChangeID)
 	return ret
 }
@@ -321,7 +425,7 @@ func TextFieldPolicy(placeholder string, state *StringState, policy TextInputPol
 			ptr = _SUITextFieldPolicy(placeholderC, state.ptr, allowedC, validationC, validPtr, onChangeID, onSubmitID)
 		})
 	})
-	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret := View{ptr: ptr, retained: newRetainedOwned(ptr)}
 	ret.retained.addCallbackID(onChangeID)
 	ret.retained.addCallbackID(onSubmitID)
 	return ret
@@ -342,7 +446,7 @@ func SecureFieldPolicy(placeholder string, state *StringState, policy TextInputP
 			ptr = _SUISecureFieldPolicy(placeholderC, state.ptr, allowedC, validationC, validPtr, onChangeID, onSubmitID)
 		})
 	})
-	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret := View{ptr: ptr, retained: newRetainedOwned(ptr)}
 	ret.retained.addCallbackID(onChangeID)
 	ret.retained.addCallbackID(onSubmitID)
 	return ret
@@ -360,7 +464,7 @@ func TextEditorPolicy(state *StringState, policy TextInputPolicy, onChange func(
 	withTwoCStrings(policy.AllowedPattern, policy.ValidationPattern, func(allowedC, validationC *byte) {
 		ptr = _SUITextEditorPolicy(state.ptr, allowedC, validationC, validPtr, onChangeID)
 	})
-	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret := View{ptr: ptr, retained: newRetainedOwned(ptr)}
 	ret.retained.addCallbackID(onChangeID)
 	return ret
 }
@@ -369,16 +473,21 @@ func TextEditorPolicy(state *StringState, policy TextInputPolicy, onChange func(
 func SearchablePicker(label, prompt string, selection *StringState, options []ChoiceOption, onChange func()) View {
 	ensureExtraLibFuncs()
 	onChangeID := registerCallback(onChange)
-	optionsJSON := marshalChoiceOptions(options)
 	var ptr uintptr
 	withCString(label, func(labelC *byte) {
 		withCString(prompt, func(promptC *byte) {
-			withCString(optionsJSON, func(optionsC *byte) {
+			if _SUISearchablePickerPacked != nil {
+				withPackedChoiceOptions(options, func(p *byte, n int) {
+					ptr = _SUISearchablePickerPacked(labelC, promptC, selection.ptr, p, int32(n), onChangeID)
+				})
+				return
+			}
+			withCString(marshalChoiceOptionsJSON(options), func(optionsC *byte) {
 				ptr = _SUISearchablePicker(labelC, promptC, selection.ptr, optionsC, onChangeID)
 			})
 		})
 	})
-	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret := View{ptr: ptr, retained: newRetainedOwned(ptr)}
 	ret.retained.addCallbackID(onChangeID)
 	return ret
 }
@@ -387,17 +496,70 @@ func SearchablePicker(label, prompt string, selection *StringState, options []Ch
 func SearchableMultiPicker(label, prompt string, selection *StringListState, options []ChoiceOption, onChange func()) View {
 	ensureExtraLibFuncs()
 	onChangeID := registerCallback(onChange)
-	optionsJSON := marshalChoiceOptions(options)
 	var ptr uintptr
 	withCString(label, func(labelC *byte) {
 		withCString(prompt, func(promptC *byte) {
-			withCString(optionsJSON, func(optionsC *byte) {
+			if _SUISearchableMultiPickerPacked != nil {
+				withPackedChoiceOptions(options, func(p *byte, n int) {
+					ptr = _SUISearchableMultiPickerPacked(labelC, promptC, selection.ptr, p, int32(n), onChangeID)
+				})
+				return
+			}
+			withCString(marshalChoiceOptionsJSON(options), func(optionsC *byte) {
 				ptr = _SUISearchableMultiPicker(labelC, promptC, selection.ptr, optionsC, onChangeID)
 			})
 		})
 	})
-	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret := View{ptr: ptr, retained: newRetainedOwned(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	return ret
+}
+
+func unmarshalPhotosPickerItems(data string) []PhotosPickerItem {
+	if data == "" {
+		return nil
+	}
+	var items []PhotosPickerItem
+	if err := json.Unmarshal([]byte(data), &items); err != nil {
+		return nil
+	}
+	filtered := items[:0]
+	for _, item := range items {
+		item, ok := normalizePhotosPickerItem(item)
+		if !ok {
+			continue
+		}
+		filtered = append(filtered, item)
+	}
+	sortPhotosPickerItems(filtered)
+	return filtered
+}
+
+// PhotosPickerNative creates a native PhotosPicker bridge backed by PhotosPickerSelectionState.
+//
+// It keeps the Go API concrete: selected items are normalized to stable IDs,
+// filenames when available, and UTType identifiers. The native bridge itself
+// stays metadata-only; curated items may attach lazy file handles for
+// deterministic file-backed previews without exposing generic Transferable
+// decoding.
+func PhotosPickerNative(label string, selection *PhotosPickerSelectionState, config PhotosPickerConfig) View {
+	ensureExtraLibFuncs()
+	if label == "" {
+		label = "Choose Photos"
+	}
+	if selection == nil {
+		return Button(label, func() {})
+	}
+	callbackID := registerStringCallback(func(data string) bool {
+		selection.Set(unmarshalPhotosPickerItems(data))
+		return true
+	})
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIPhotosPicker(labelC, int32(config.Matching), int32(config.MaxSelectionCount), callbackID)
+	})
+	ret := View{ptr: ptr, retained: newRetainedOwned(ptr)}
+	ret.retained.addCallbackID(callbackID)
 	return ret
 }
 
@@ -406,7 +568,7 @@ func (v View) FrameAligned(width, height float64, horizontal HorizontalAlignment
 	ensureExtraLibFuncs()
 	ptr := _SUIViewFrameAligned(v.ptr, width, height, int32(horizontal), int32(vertical))
 	runtime.KeepAlive(v.retained)
-	return View{ptr: ptr, retained: newRetained(ptr)}
+	return View{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // MaxFrameAligned sets optional maximum frame constraints with explicit alignment.
@@ -415,5 +577,5 @@ func (v View) MaxFrameAligned(maxWidth, maxHeight float64, horizontal Horizontal
 	ensureExtraLibFuncs()
 	ptr := _SUIViewMaxFrameAligned(v.ptr, maxWidth, maxHeight, int32(horizontal), int32(vertical))
 	runtime.KeepAlive(v.retained)
-	return View{ptr: ptr, retained: newRetained(ptr)}
+	return View{ptr: ptr, retained: newRetainedOwned(ptr)}
 }

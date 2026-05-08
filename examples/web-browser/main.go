@@ -101,7 +101,9 @@ func main() {
 					ButtonStyle(swiftui.ButtonStyleBorderless),
 				swiftui.TextField("Search or enter URL", urlState, func() {
 					loadAddress(urlState.Get())
-				}).TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
+				}).
+					SubmitLabel(swiftui.SubmitLabelGo).
+					TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
 				swiftui.Button("Open in Safari", func() {
 					resolved := normalizeAddress(urlState.Get())
 					if resolved == "" {

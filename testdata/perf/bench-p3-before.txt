@@ -1,0 +1,63 @@
+# Machine: Apple M4 Max (Mac16,6)
+# macOS: 26.4
+# Go: go1.26.2
+# Swift: release (SwiftUIBridge)
+# go test -run=xxx -bench='Benchmark(CallbackDispatch|CallbackRegister|BoolCallback|StringCallback)' -benchmem -count=10 -benchtime=2s .
+# Pre-P3 state: sync.Mutex + map[uintptr]func() dispatch per callback shape
+#
+goos: darwin
+goarch: arm64
+pkg: github.com/tmc/swiftui
+cpu: Apple M4 Max
+BenchmarkCallbackDispatch-16            	345299995	         5.896 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatch-16            	434762720	         6.182 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatch-16            	402314341	         6.300 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatch-16            	335647416	         7.030 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatch-16            	377254093	         5.448 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatch-16            	378362077	         7.234 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatch-16            	443942986	         7.525 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatch-16            	356042035	         6.230 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatch-16            	429294296	         5.911 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatch-16            	362080058	         7.413 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatchParallel-16    	52585065	        48.56 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatchParallel-16    	56654191	        45.09 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatchParallel-16    	55477966	        49.17 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatchParallel-16    	42749061	        48.17 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatchParallel-16    	59197686	        42.81 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatchParallel-16    	100000000	        44.36 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatchParallel-16    	74812286	        50.22 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatchParallel-16    	57120868	        45.17 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatchParallel-16    	59852053	        46.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackDispatchParallel-16    	67621984	        49.42 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackRegister-16            	34185031	       111.3 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackRegister-16            	48389901	        53.30 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackRegister-16            	44531204	        53.75 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackRegister-16            	44074402	        50.42 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackRegister-16            	51289448	        80.50 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackRegister-16            	43281762	        52.79 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackRegister-16            	53709498	        52.18 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackRegister-16            	63140655	        86.44 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackRegister-16            	39369538	        53.43 ns/op	       0 B/op	       0 allocs/op
+BenchmarkCallbackRegister-16            	42704372	        55.30 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBoolCallbackDispatch-16        	342129831	        12.26 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBoolCallbackDispatch-16        	351077673	         6.200 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBoolCallbackDispatch-16        	422127018	         5.836 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBoolCallbackDispatch-16        	297517172	        13.29 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBoolCallbackDispatch-16        	374968486	         6.015 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBoolCallbackDispatch-16        	385464894	         5.549 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBoolCallbackDispatch-16        	382626320	         6.312 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBoolCallbackDispatch-16        	222655369	        10.25 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBoolCallbackDispatch-16        	401686609	         5.672 ns/op	       0 B/op	       0 allocs/op
+BenchmarkBoolCallbackDispatch-16        	371682778	         6.266 ns/op	       0 B/op	       0 allocs/op
+BenchmarkStringCallbackDispatch-16      	110514675	        21.17 ns/op	       2 B/op	       1 allocs/op
+BenchmarkStringCallbackDispatch-16      	132189699	        20.08 ns/op	       2 B/op	       1 allocs/op
+BenchmarkStringCallbackDispatch-16      	100000000	        23.53 ns/op	       2 B/op	       1 allocs/op
+BenchmarkStringCallbackDispatch-16      	124690581	        23.02 ns/op	       2 B/op	       1 allocs/op
+BenchmarkStringCallbackDispatch-16      	100000000	        22.39 ns/op	       2 B/op	       1 allocs/op
+BenchmarkStringCallbackDispatch-16      	100000000	        22.04 ns/op	       2 B/op	       1 allocs/op
+BenchmarkStringCallbackDispatch-16      	100000000	        21.51 ns/op	       2 B/op	       1 allocs/op
+BenchmarkStringCallbackDispatch-16      	88570689	        29.79 ns/op	       2 B/op	       1 allocs/op
+BenchmarkStringCallbackDispatch-16      	100000000	        23.15 ns/op	       2 B/op	       1 allocs/op
+BenchmarkStringCallbackDispatch-16      	113894067	        21.69 ns/op	       2 B/op	       1 allocs/op
+PASS
+ok  	github.com/tmc/swiftui	171.366s

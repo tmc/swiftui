@@ -2,7 +2,7 @@
 
 import SwiftUI
 
-private func animationForKind(_ kind: Int32) -> Animation {
+func animationForKind(_ kind: Int32) -> Animation {
     switch kind {
     case 1: return .easeIn
     case 2: return .easeOut
@@ -25,16 +25,53 @@ private func transitionForKind(_ kind: Int32) -> AnyTransition {
     }
 }
 
-@Observable
-final class BridgedIntState: @unchecked Sendable {
-    var value: Int
-    init(_ v: Int) { self.value = v }
+// MARK: - Generation counter protocol
+//
+// Every BridgedXxxState class exposes a monotonically-increasing gen
+// counter that is bumped after each value write (including two-way
+// Binding writes from SwiftUI controls). SUIStateGen returns this
+// counter via a single class-bound protocol so Go-side caches can
+// short-circuit Get() on cache hits without a typed FFI per shape.
+//
+// UInt32 is sufficient: at one bump per microsecond the counter wraps
+// every ~71 minutes, and Go compares for equality, not ordering.
+// Wraparound is safe.
+protocol AnyBridgedState: AnyObject {
+    var gen: UInt32 { get }
+}
+
+@_cdecl("SUIStateGen")
+public func SUIStateGen(_ ref: UnsafeMutableRawPointer) -> UInt32 {
+    // as! AnyBridgedState adds ~2-5 ns per call. That is well below the
+    // FFI floor and is the whole point of the class-bound protocol.
+    (Unmanaged<AnyObject>.fromOpaque(ref).takeUnretainedValue() as! any AnyBridgedState).gen
 }
 
 @Observable
-final class BridgedStringState: @unchecked Sendable {
+final class BridgedIntState: AnyBridgedState, @unchecked Sendable {
+    var value: Int
+    private(set) var gen: UInt32 = 0
+    init(_ v: Int) { self.value = v }
+
+    // setAndBump is the only path that writes value. All @_cdecl setters
+    // and all two-way Binding set closures must route through it so the
+    // generation counter stays in lockstep with value.
+    func setAndBump(_ v: Int) {
+        self.value = v
+        self.gen &+= 1
+    }
+}
+
+@Observable
+final class BridgedStringState: AnyBridgedState, @unchecked Sendable {
     var value: String
+    private(set) var gen: UInt32 = 0
     init(_ v: String) { self.value = v }
+
+    func setAndBump(_ v: String) {
+        self.value = v
+        self.gen &+= 1
+    }
 }
 
 // MARK: - Int state
@@ -52,7 +89,7 @@ public func SUIStateGetInt(_ ref: UnsafeMutableRawPointer) -> Int32 {
 @_cdecl("SUIStateSetInt")
 public func SUIStateSetInt(_ ref: UnsafeMutableRawPointer, _ value: Int32) {
     let s = Unmanaged<BridgedIntState>.fromOpaque(ref).takeUnretainedValue()
-    s.value = Int(value)
+    s.setAndBump(Int(value))
 }
 
 @_cdecl("SUIStateSetIntAnimated")
@@ -64,9 +101,13 @@ public func SUIStateSetIntAnimated(_ ref: UnsafeMutableRawPointer, _ value: Int3
 public func SUIStateSetIntAnimatedWith(_ ref: UnsafeMutableRawPointer, _ value: Int32, _ kind: Int32) {
     let s = Unmanaged<BridgedIntState>.fromOpaque(ref).takeUnretainedValue()
     let v = Int(value)
-    DispatchQueue.main.async {
-        withAnimation(animationForKind(kind)) {
-            s.value = v
+    if Thread.isMainThread {
+        BridgeCommandQueue.shared.applyInline(kind: kind) {
+            s.setAndBump(v)
+        }
+    } else {
+        BridgeCommandQueue.shared.enqueue(kind: kind) {
+            s.setAndBump(v)
         }
     }
 }
@@ -87,19 +128,35 @@ public func SUIStateGetString(_ ref: UnsafeMutableRawPointer) -> UnsafePointer<C
 @_cdecl("SUIStateSetString")
 public func SUIStateSetString(_ ref: UnsafeMutableRawPointer, _ value: UnsafePointer<CChar>) {
     let s = Unmanaged<BridgedStringState>.fromOpaque(ref).takeUnretainedValue()
-    s.value = String(cString: value)
+    s.setAndBump(String(cString: value))
 }
 
 // MARK: - Color state
 
 @Observable
-final class BridgedColorState: @unchecked Sendable {
+final class BridgedColorState: AnyBridgedState, @unchecked Sendable {
     var r: Double
     var g: Double
     var b: Double
     var a: Double
+    private(set) var gen: UInt32 = 0
     init(_ r: Double, _ g: Double, _ b: Double, _ a: Double) {
         self.r = r; self.g = g; self.b = b; self.a = a
+    }
+
+    // Color has four independent fields but one observable generation.
+    // Callers assign all components then bump once so Get-side cache
+    // consultation sees a single atomic transition per Set(r,g,b,a).
+    func setAndBump(r: Double, g: Double, b: Double, a: Double) {
+        self.r = r; self.g = g; self.b = b; self.a = a
+        self.gen &+= 1
+    }
+
+    // bumpGen lets two-way Binding set closures that must assign each
+    // component individually (e.g. ColorPicker decomposing an NSColor)
+    // still publish a single generation bump after the last field.
+    func bumpGen() {
+        self.gen &+= 1
     }
 }
 
@@ -131,7 +188,7 @@ public func SUIStateGetColorA(_ ref: UnsafeMutableRawPointer) -> Double {
 @_cdecl("SUIStateSetColor")
 public func SUIStateSetColor(_ ref: UnsafeMutableRawPointer, _ r: Double, _ g: Double, _ b: Double, _ a: Double) {
     let s = Unmanaged<BridgedColorState>.fromOpaque(ref).takeUnretainedValue()
-    s.r = r; s.g = g; s.b = b; s.a = a
+    s.setAndBump(r: r, g: g, b: b, a: a)
 }
 
 // MARK: - Color-bound views
@@ -156,10 +213,12 @@ struct BridgedColorPickerView: View {
             get: { Color(red: state.r, green: state.g, blue: state.b, opacity: state.a) },
             set: { newColor in
                 if let components = NSColor(newColor).usingColorSpace(.sRGB) {
-                    state.r = Double(components.redComponent)
-                    state.g = Double(components.greenComponent)
-                    state.b = Double(components.blueComponent)
-                    state.a = Double(components.alphaComponent)
+                    state.setAndBump(
+                        r: Double(components.redComponent),
+                        g: Double(components.greenComponent),
+                        b: Double(components.blueComponent),
+                        a: Double(components.alphaComponent)
+                    )
                 }
                 _SUIButtonCallback?(callbackID)
             }
@@ -170,9 +229,15 @@ struct BridgedColorPickerView: View {
 // MARK: - Date state
 
 @Observable
-final class BridgedDateState: @unchecked Sendable {
+final class BridgedDateState: AnyBridgedState, @unchecked Sendable {
     var value: Date
+    private(set) var gen: UInt32 = 0
     init(_ v: Date) { self.value = v }
+
+    func setAndBump(_ v: Date) {
+        self.value = v
+        self.gen &+= 1
+    }
 }
 
 @_cdecl("SUIStateCreateDate")
@@ -188,7 +253,7 @@ public func SUIStateGetDate(_ ref: UnsafeMutableRawPointer) -> Double {
 @_cdecl("SUIStateSetDate")
 public func SUIStateSetDate(_ ref: UnsafeMutableRawPointer, _ epochSeconds: Double) {
     let s = Unmanaged<BridgedDateState>.fromOpaque(ref).takeUnretainedValue()
-    s.value = Date(timeIntervalSince1970: epochSeconds)
+    s.setAndBump(Date(timeIntervalSince1970: epochSeconds))
 }
 
 // MARK: - Date-bound views
@@ -212,7 +277,7 @@ struct BridgedDatePicker: View {
         DatePicker(label, selection: Binding(
             get: { state.value },
             set: { newValue in
-                state.value = newValue
+                state.setAndBump(newValue)
                 _SUIButtonCallback?(callbackID)
             }
         ))
@@ -222,9 +287,15 @@ struct BridgedDatePicker: View {
 // MARK: - Float state
 
 @Observable
-final class BridgedFloatState: @unchecked Sendable {
+final class BridgedFloatState: AnyBridgedState, @unchecked Sendable {
     var value: Double
+    private(set) var gen: UInt32 = 0
     init(_ v: Double) { self.value = v }
+
+    func setAndBump(_ v: Double) {
+        self.value = v
+        self.gen &+= 1
+    }
 }
 
 @_cdecl("SUIStateCreateFloat")
@@ -240,7 +311,7 @@ public func SUIStateGetFloat(_ ref: UnsafeMutableRawPointer) -> Double {
 @_cdecl("SUIStateSetFloat")
 public func SUIStateSetFloat(_ ref: UnsafeMutableRawPointer, _ value: Double) {
     let s = Unmanaged<BridgedFloatState>.fromOpaque(ref).takeUnretainedValue()
-    s.value = value
+    s.setAndBump(value)
 }
 
 @_cdecl("SUIStateSetFloatAnimated")
@@ -251,9 +322,13 @@ public func SUIStateSetFloatAnimated(_ ref: UnsafeMutableRawPointer, _ value: Do
 @_cdecl("SUIStateSetFloatAnimatedWith")
 public func SUIStateSetFloatAnimatedWith(_ ref: UnsafeMutableRawPointer, _ value: Double, _ kind: Int32) {
     let s = Unmanaged<BridgedFloatState>.fromOpaque(ref).takeUnretainedValue()
-    DispatchQueue.main.async {
-        withAnimation(animationForKind(kind)) {
-            s.value = value
+    if Thread.isMainThread {
+        BridgeCommandQueue.shared.applyInline(kind: kind) {
+            s.setAndBump(value)
+        }
+    } else {
+        BridgeCommandQueue.shared.enqueue(kind: kind) {
+            s.setAndBump(value)
         }
     }
 }
@@ -261,9 +336,15 @@ public func SUIStateSetFloatAnimatedWith(_ ref: UnsafeMutableRawPointer, _ value
 // MARK: - Bool state
 
 @Observable
-final class BridgedBoolState: @unchecked Sendable {
+final class BridgedBoolState: AnyBridgedState, @unchecked Sendable {
     var value: Bool
+    private(set) var gen: UInt32 = 0
     init(_ initial: Bool) { self.value = initial }
+
+    func setAndBump(_ v: Bool) {
+        self.value = v
+        self.gen &+= 1
+    }
 }
 
 @_cdecl("SUIStateCreateBool")
@@ -279,16 +360,20 @@ public func SUIStateGetBool(_ ref: UnsafeMutableRawPointer) -> Int32 {
 @_cdecl("SUIStateSetBool")
 public func SUIStateSetBool(_ ref: UnsafeMutableRawPointer, _ v: Int32) {
     let s = Unmanaged<BridgedBoolState>.fromOpaque(ref).takeUnretainedValue()
-    s.value = (v != 0)
+    s.setAndBump(v != 0)
 }
 
 @_cdecl("SUIStateSetBoolAnimatedWith")
 public func SUIStateSetBoolAnimatedWith(_ ref: UnsafeMutableRawPointer, _ v: Int32, _ kind: Int32) {
     let s = Unmanaged<BridgedBoolState>.fromOpaque(ref).takeUnretainedValue()
     let value = (v != 0)
-    DispatchQueue.main.async {
-        withAnimation(animationForKind(kind)) {
-            s.value = value
+    if Thread.isMainThread {
+        BridgeCommandQueue.shared.applyInline(kind: kind) {
+            s.setAndBump(value)
+        }
+    } else {
+        BridgeCommandQueue.shared.enqueue(kind: kind) {
+            s.setAndBump(value)
         }
     }
 }
@@ -315,7 +400,7 @@ struct BridgedFloatSlider: View {
     var body: some View {
         Slider(value: Binding(
             get: { state.value },
-            set: { state.value = $0 }
+            set: { state.setAndBump($0) }
         ), in: minValue...maxValue) {
             Text(label)
         } onEditingChanged: { editing in

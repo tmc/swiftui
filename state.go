@@ -2,29 +2,39 @@
 
 package swiftui
 
-import "unsafe"
-
 // IntState is a reactive integer state that bridges Go and SwiftUI.
 // When the value changes via Set, any SwiftUI views observing this
 // state update automatically.
 type IntState struct {
 	ptr      uintptr
-	retained *retained
+	retained *retainedOwned
+	cache    intStateCache // P2: dirty-skip cache; see state_cache.go.
 }
 
 // NewIntState creates a new reactive integer state with the given initial value.
 func NewIntState(initial int) *IntState {
 	ptr := _SUIStateCreateInt(int32(initial))
-	return &IntState{ptr: ptr, retained: newRetained(ptr)}
+	s := &IntState{ptr: ptr, retained: newRetainedOwned(ptr)}
+	s.cache.observe(int64(initial))
+	return s
 }
 
 // Get returns the current value.
+//
+// Get does not update the dirty-skip cache: Swift may have drifted via a
+// two-way Binding, and re-caching that value would cost an atomic store
+// without helping subsequent Sets that already go through the cache on
+// their own input. The follow-up _SUIStateGen design lets Get short-cut
+// this entirely (P2 follow-up).
 func (s *IntState) Get() int {
 	return int(_SUIStateGetInt(s.ptr))
 }
 
 // Set updates the value, triggering SwiftUI view updates.
 func (s *IntState) Set(v int) {
+	if s.cache.checkSet(int64(v)) {
+		return
+	}
 	_SUIStateSetInt(s.ptr, int32(v))
 }
 
@@ -35,13 +45,15 @@ func (s *IntState) SetAnimated(v int) {
 
 // SetAnimatedWith updates the value using the provided animation curve.
 func (s *IntState) SetAnimatedWith(v int, kind AnimationKind) {
+	s.cache.observe(int64(v))
 	_SUIStateSetIntAnimatedWith(s.ptr, int32(v), int32(kind))
 }
 
 // StringState is a reactive string state that bridges Go and SwiftUI.
 type StringState struct {
 	ptr      uintptr
-	retained *retained
+	retained *retainedOwned
+	cache    stringStateCache // P2: dirty-skip cache; see state_cache.go.
 }
 
 // NewStringState creates a new reactive string state with the given initial value.
@@ -50,28 +62,22 @@ func NewStringState(initial string) *StringState {
 	withCString(initial, func(cs *byte) {
 		ptr = _SUIStateCreateString(cs)
 	})
-	return &StringState{ptr: ptr, retained: newRetained(ptr)}
+	s := &StringState{ptr: ptr, retained: newRetainedOwned(ptr)}
+	s.cache.observe(initial)
+	return s
 }
 
-// Get returns the current string value.
+// Get returns the current string value. See IntState.Get for the
+// rationale behind not refreshing the dirty-skip cache on Get.
 func (s *StringState) Get() string {
-	p := _SUIStateGetString(s.ptr)
-	if p == nil {
-		return ""
-	}
-	var buf []byte
-	for i := uintptr(0); ; i++ {
-		b := *(*byte)(unsafe.Pointer(uintptr(unsafe.Pointer(p)) + i))
-		if b == 0 {
-			break
-		}
-		buf = append(buf, b)
-	}
-	return string(buf)
+	return gostringFast(_SUIStateGetString(s.ptr))
 }
 
 // Set updates the string value, triggering SwiftUI view updates.
 func (s *StringState) Set(v string) {
+	if s.cache.checkSet(v) {
+		return
+	}
 	withCString(v, func(cs *byte) {
 		_SUIStateSetString(s.ptr, cs)
 	})
@@ -80,13 +86,16 @@ func (s *StringState) Set(v string) {
 // ColorState is a reactive RGBA color state that bridges Go and SwiftUI.
 type ColorState struct {
 	ptr      uintptr
-	retained *retained
+	retained *retainedOwned
+	cache    colorStateCache // P2: dirty-skip cache; see state_cache.go.
 }
 
 // NewColorState creates a new reactive color state from RGBA values (0.0-1.0).
 func NewColorState(r, g, b, a float64) *ColorState {
 	ptr := _SUIStateCreateColor(r, g, b, a)
-	return &ColorState{ptr: ptr, retained: newRetained(ptr)}
+	s := &ColorState{ptr: ptr, retained: newRetainedOwned(ptr)}
+	s.cache.checkSet(r, g, b, a)
+	return s
 }
 
 // R returns the red component (0.0-1.0).
@@ -103,6 +112,9 @@ func (s *ColorState) A() float64 { return _SUIStateGetColorA(s.ptr) }
 
 // Set updates the RGBA color values.
 func (s *ColorState) Set(r, g, b, a float64) {
+	if s.cache.checkSet(r, g, b, a) {
+		return
+	}
 	_SUIStateSetColor(s.ptr, r, g, b, a)
 }
 
@@ -110,44 +122,58 @@ func (s *ColorState) Set(r, g, b, a float64) {
 // Dates are represented as Unix epoch seconds (float64).
 type DateState struct {
 	ptr      uintptr
-	retained *retained
+	retained *retainedOwned
+	cache    floatStateCache // P2: dirty-skip cache; see state_cache.go.
 }
 
 // NewDateState creates a new reactive date state from Unix epoch seconds.
 func NewDateState(epochSeconds float64) *DateState {
 	ptr := _SUIStateCreateDate(epochSeconds)
-	return &DateState{ptr: ptr, retained: newRetained(ptr)}
+	s := &DateState{ptr: ptr, retained: newRetainedOwned(ptr)}
+	s.cache.checkSet(epochSeconds)
+	return s
 }
 
-// Get returns the current date as Unix epoch seconds.
+// Get returns the current date as Unix epoch seconds. See IntState.Get
+// for the rationale behind not refreshing the dirty-skip cache on Get.
 func (s *DateState) Get() float64 {
 	return _SUIStateGetDate(s.ptr)
 }
 
 // Set updates the date from Unix epoch seconds.
 func (s *DateState) Set(epochSeconds float64) {
+	if s.cache.checkSet(epochSeconds) {
+		return
+	}
 	_SUIStateSetDate(s.ptr, epochSeconds)
 }
 
 // FloatState is a reactive float64 state that bridges Go and SwiftUI.
 type FloatState struct {
 	ptr      uintptr
-	retained *retained
+	retained *retainedOwned
+	cache    floatStateCache // P2: dirty-skip cache; see state_cache.go.
 }
 
 // NewFloatState creates a new reactive float64 state with the given initial value.
 func NewFloatState(initial float64) *FloatState {
 	ptr := _SUIStateCreateFloat(initial)
-	return &FloatState{ptr: ptr, retained: newRetained(ptr)}
+	s := &FloatState{ptr: ptr, retained: newRetainedOwned(ptr)}
+	s.cache.checkSet(initial)
+	return s
 }
 
-// Get returns the current float64 value.
+// Get returns the current float64 value. See IntState.Get for the
+// rationale behind not refreshing the dirty-skip cache on Get.
 func (s *FloatState) Get() float64 {
 	return _SUIStateGetFloat(s.ptr)
 }
 
 // Set updates the float64 value, triggering SwiftUI view updates.
 func (s *FloatState) Set(v float64) {
+	if s.cache.checkSet(v) {
+		return
+	}
 	_SUIStateSetFloat(s.ptr, v)
 }
 
@@ -158,13 +184,15 @@ func (s *FloatState) SetAnimated(v float64) {
 
 // SetAnimatedWith updates the float64 value using the provided animation curve.
 func (s *FloatState) SetAnimatedWith(v float64, kind AnimationKind) {
+	s.cache.checkSet(v)
 	_SUIStateSetFloatAnimatedWith(s.ptr, v, int32(kind))
 }
 
 // BoolState is an observable boolean state value.
 type BoolState struct {
 	ptr      uintptr
-	retained *retained
+	retained *retainedOwned
+	cache    boolStateCache // P2: dirty-skip cache; see state_cache.go.
 }
 
 // NewBoolState creates a new observable boolean state.
@@ -174,16 +202,22 @@ func NewBoolState(initial bool) *BoolState {
 		v = 1
 	}
 	ptr := _SUIStateCreateBool(v)
-	return &BoolState{ptr: ptr, retained: newRetained(ptr)}
+	s := &BoolState{ptr: ptr, retained: newRetainedOwned(ptr)}
+	s.cache.checkSet(initial)
+	return s
 }
 
-// Get returns the current boolean value.
+// Get returns the current boolean value. See IntState.Get for the
+// rationale behind not refreshing the dirty-skip cache on Get.
 func (s *BoolState) Get() bool {
 	return _SUIStateGetBool(s.ptr) != 0
 }
 
 // Set updates the boolean value.
 func (s *BoolState) Set(v bool) {
+	if s.cache.checkSet(v) {
+		return
+	}
 	var vv int32
 	if v {
 		vv = 1
@@ -198,6 +232,7 @@ func (s *BoolState) SetAnimated(v bool) {
 
 // SetAnimatedWith updates the boolean value using the provided animation curve.
 func (s *BoolState) SetAnimatedWith(v bool, kind AnimationKind) {
+	s.cache.checkSet(v)
 	var vv int32
 	if v {
 		vv = 1

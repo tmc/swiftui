@@ -13,6 +13,8 @@ var (
 
 // OpenWindowAction opens a scene or window provided by the SwiftUI environment.
 //
+// Runtime surface.
+//
 // The zero value is not usable. These handles are borrowed capabilities, not
 // owned state, so they do not require Release.
 type OpenWindowAction func(id string) error
@@ -29,6 +31,8 @@ func (a OpenWindowAction) Open(id string) error {
 }
 
 // OpenDocumentAction opens a document provided by the SwiftUI environment.
+//
+// Runtime surface.
 //
 // The zero value is not usable. These handles are borrowed capabilities, not
 // owned state, so they do not require Release.
@@ -47,6 +51,8 @@ func (a OpenDocumentAction) Open(path string) error {
 
 // RefreshAction refreshes the current scene.
 //
+// Runtime surface.
+//
 // The zero value is not usable. These handles are borrowed capabilities, not
 // owned state, so they do not require Release.
 type RefreshAction func() error
@@ -60,6 +66,8 @@ func (a RefreshAction) Refresh() error {
 }
 
 // OpenImmersiveSpaceAction opens a named immersive space.
+//
+// Runtime surface.
 //
 // The zero value is not usable. These handles are borrowed capabilities, not
 // owned state, so they do not require Release.

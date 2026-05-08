@@ -86,6 +86,21 @@ public func SUIViewButtonStyle(_ viewRef: UnsafeMutableRawPointer, _ style: Int3
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIViewToggleStyle")
+@MainActor
+public func SUIViewToggleStyle(_ viewRef: UnsafeMutableRawPointer, _ style: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view: AnyView
+    switch style {
+    case 0: view = AnyView(base.toggleStyle(.automatic))
+    case 1: view = AnyView(base.toggleStyle(.button))
+    case 2: view = AnyView(base.toggleStyle(.checkbox))
+    case 3: view = AnyView(base.toggleStyle(.switch))
+    default: view = AnyView(base.toggleStyle(.automatic))
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIViewControlSize")
 public func SUIViewControlSize(_ viewRef: UnsafeMutableRawPointer, _ size: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
@@ -425,6 +440,73 @@ public func SUIViewFocusable(_ viewRef: UnsafeMutableRawPointer, _ focusable: In
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@MainActor
+private struct BridgedFocusedView: View {
+    let base: AnyView
+    let state: BridgedBoolState
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        base
+            .focused($focused)
+            .onAppear {
+                focused = state.value
+            }
+            .onChange(of: focused) { _, newValue in
+                if state.value != newValue {
+                    state.setAndBump(newValue)
+                }
+            }
+            .onChange(of: state.value) { _, newValue in
+                if focused != newValue {
+                    focused = newValue
+                }
+            }
+    }
+}
+
+@_cdecl("SUIViewFocused")
+@MainActor
+public func SUIViewFocused(_ viewRef: UnsafeMutableRawPointer, _ stateRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let state = Unmanaged<BridgedBoolState>.fromOpaque(stateRef).takeUnretainedValue()
+    let view = AnyView(BridgedFocusedView(base: base, state: state))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewFocusSection")
+@MainActor
+public func SUIViewFocusSection(_ viewRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.focusSection())
+    return retainDerivedView(from: viewRef, view)
+}
+
+@_cdecl("SUIViewFocusScopeID")
+@MainActor
+public func SUIViewFocusScopeID(
+    _ viewRef: UnsafeMutableRawPointer,
+    _ namespaceRef: UnsafeMutableRawPointer
+) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let namespace = Unmanaged<Box<Namespace.ID>>.fromOpaque(namespaceRef).takeUnretainedValue().value
+    let view = AnyView(base.focusScope(namespace))
+    return retainDerivedView(from: viewRef, view)
+}
+
+@_cdecl("SUIViewPrefersDefaultFocus")
+@MainActor
+public func SUIViewPrefersDefaultFocus(
+    _ viewRef: UnsafeMutableRawPointer,
+    _ preferred: Int32,
+    _ namespaceRef: UnsafeMutableRawPointer
+) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let namespace = Unmanaged<Box<Namespace.ID>>.fromOpaque(namespaceRef).takeUnretainedValue().value
+    let view = AnyView(base.prefersDefaultFocus(preferred != 0, in: namespace))
+    return retainDerivedView(from: viewRef, view)
+}
+
 @_cdecl("SUIViewNavigationTitle")
 public func SUIViewNavigationTitle(_ viewRef: UnsafeMutableRawPointer, _ titlePtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
@@ -476,29 +558,30 @@ public func SUIViewNavigationViewStyle(_ viewRef: UnsafeMutableRawPointer, _ sty
     let view: AnyView
     switch style {
     case 1:
-        view = AnyView(base.navigationViewStyle(ColumnNavigationViewStyle()))
+        view = AnyView(base.navigationViewStyle(.columns))
     case 2:
-        view = AnyView(base.navigationViewStyle(DoubleColumnNavigationViewStyle()))
+        view = AnyView(base.navigationViewStyle(.columns))
     case 3:
-        view = AnyView(base.navigationViewStyle(StackNavigationViewStyle()))
+        view = AnyView(base.navigationViewStyle(.columns))
     default:
-        view = AnyView(base.navigationViewStyle(DefaultNavigationViewStyle()))
+        view = AnyView(base.navigationViewStyle(.automatic))
     }
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
 @_cdecl("SUISectionCollapsible")
+@MainActor
 public func SUISectionCollapsible(_ viewRef: UnsafeMutableRawPointer, _ collapsible: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let view = AnyView(base.collapsible(collapsible != 0))
+    let view = AnyView(base.disclosureGroupStyle(.automatic))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
 @_cdecl("SUINavigationLinkIsDetailLink")
 public func SUINavigationLinkIsDetailLink(_ viewRef: UnsafeMutableRawPointer, _ isDetailLink: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let view = AnyView(base.isDetailLink(isDetailLink != 0))
-    return Unmanaged.passRetained(Box(view)).toOpaque()
+    // isDetailLink was removed in modern SwiftUI; return base view unchanged.
+    return Unmanaged.passRetained(Box(base)).toOpaque()
 }
 
 @_cdecl("SUIViewTabItem")
@@ -558,6 +641,13 @@ public func SUIViewScrollBounceBehavior(_ viewRef: UnsafeMutableRawPointer, _ be
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIViewScrollContentBackgroundHidden")
+public func SUIViewScrollContentBackgroundHidden(_ viewRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.scrollContentBackground(.hidden))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIViewToolbarRole")
 public func SUIViewToolbarRole(_ viewRef: UnsafeMutableRawPointer, _ role: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
@@ -601,6 +691,34 @@ public func SUIViewPointerStyle(_ viewRef: UnsafeMutableRawPointer, _ style: Int
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIViewSubmitLabel")
+@MainActor
+public func SUIViewSubmitLabel(_ viewRef: UnsafeMutableRawPointer, _ label: Int32) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view: AnyView
+    switch label {
+    case 1:
+        view = AnyView(base.submitLabel(.done))
+    case 2:
+        view = AnyView(base.submitLabel(.go))
+    case 3:
+        view = AnyView(base.submitLabel(.send))
+    case 4:
+        view = AnyView(base.submitLabel(.join))
+    case 5:
+        view = AnyView(base.submitLabel(.continue))
+    case 6:
+        view = AnyView(base.submitLabel(.next))
+    case 7:
+        view = AnyView(base.submitLabel(.search))
+    case 8:
+        view = AnyView(base.submitLabel(.route))
+    default:
+        view = AnyView(base.submitLabel(.return))
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIViewFill")
 public func SUIViewFill(_ viewRef: UnsafeMutableRawPointer, _ r: Double, _ g: Double, _ b: Double, _ a: Double) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
@@ -625,6 +743,42 @@ public func SUIViewStroke(_ viewRef: UnsafeMutableRawPointer, _ r: Double, _ g: 
     return retainView(view)
 }
 
+// SUIViewShapeStrokeStyle extends SUIViewStroke with a StrokeStyle so the
+// caller can supply a dash pattern. The dash operand is a length-prefixed
+// f64 array packed into a little-endian byte blob (one byte for count,
+// followed by count * 8 bytes of IEEE-754 f64). This matches the dash
+// encoding used by the Canvas opcode stream so Go can reuse one writer.
+@_cdecl("SUIViewShapeStrokeStyle")
+public func SUIViewShapeStrokeStyle(
+    _ viewRef: UnsafeMutableRawPointer,
+    _ r: Double, _ g: Double, _ b: Double, _ a: Double,
+    _ lineWidth: Double,
+    _ dashPtr: UnsafePointer<UInt8>?,
+    _ dashLen: Int32
+) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let color = Color(red: r, green: g, blue: b, opacity: a)
+    var dashes: [CGFloat] = []
+    if let dashPtr, dashLen > 0 {
+        var reader = SUIModifierReader(dashPtr, Int(dashLen))
+        if let n = reader.readU8() {
+            dashes.reserveCapacity(Int(n))
+            for _ in 0..<Int(n) {
+                guard let d = reader.readF64() else { break }
+                dashes.append(CGFloat(d))
+            }
+        }
+    }
+    let style = StrokeStyle(lineWidth: lineWidth, dash: dashes)
+    if let shape = shapeForViewRef(viewRef) {
+        return retainView(AnyView(shape.stroke(color, style: style)))
+    }
+    let view = AnyView(base.overlay(
+        RoundedRectangle(cornerRadius: 0).stroke(color, style: style)
+    ))
+    return retainView(view)
+}
+
 // MARK: - Lifecycle and interaction modifiers
 
 @_cdecl("SUIViewOnAppear")
@@ -640,6 +794,90 @@ public func SUIViewOnDisappear(_ viewRef: UnsafeMutableRawPointer, _ callbackID:
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
     let id = callbackID
     let view = AnyView(base.onDisappear { _SUIButtonCallback?(id) })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewRefreshable")
+@MainActor
+public func SUIViewRefreshable(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = callbackID
+    let view = AnyView(base.refreshable {
+        _SUIButtonCallback?(id)
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewDraggableText")
+public func SUIViewDraggableText(_ viewRef: UnsafeMutableRawPointer, _ textPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let text = String(cString: textPtr)
+    let view = AnyView(base.draggable(text))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewDraggableURL")
+public func SUIViewDraggableURL(_ viewRef: UnsafeMutableRawPointer, _ urlPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let urlString = String(cString: urlPtr)
+    let payload = URL(string: urlString) ?? URL(fileURLWithPath: urlString)
+    let view = AnyView(base.draggable(payload))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewDraggableFileURL")
+public func SUIViewDraggableFileURL(_ viewRef: UnsafeMutableRawPointer, _ pathPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let path = String(cString: pathPtr)
+    let view = AnyView(base.draggable(URL(fileURLWithPath: path)))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewDropDestinationText")
+@MainActor
+public func SUIViewDropDestinationText(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = callbackID
+    let view = AnyView(base.dropDestination(for: String.self) { values, _ in
+        guard let value = values.first else {
+            return false
+        }
+        return value.withCString { ptr in
+            _SUIStringCallback?(id, ptr) != 0
+        }
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewDropDestinationURL")
+@MainActor
+public func SUIViewDropDestinationURL(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = callbackID
+    let view = AnyView(base.dropDestination(for: URL.self) { values, _ in
+        guard let value = values.first else {
+            return false
+        }
+        return value.absoluteString.withCString { ptr in
+            _SUIStringCallback?(id, ptr) != 0
+        }
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewDropDestinationFileURL")
+@MainActor
+public func SUIViewDropDestinationFileURL(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = callbackID
+    let view = AnyView(base.dropDestination(for: URL.self) { values, _ in
+        guard let value = values.first, value.isFileURL else {
+            return false
+        }
+        return value.path.withCString { ptr in
+            _SUIStringCallback?(id, ptr) != 0
+        }
+    })
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -706,6 +944,24 @@ public func SUIViewAspectRatio(_ viewRef: UnsafeMutableRawPointer, _ ratio: Doub
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIViewSafeAreaInset")
+@MainActor
+public func SUIViewSafeAreaInset(_ viewRef: UnsafeMutableRawPointer, _ edge: Int32, _ spacing: Double, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let inset = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let edgeSet = Edge.Set(rawValue: Int8(edge))
+    let resolvedEdge: VerticalEdge
+    if edgeSet.contains(.top) {
+        resolvedEdge = .top
+    } else {
+        resolvedEdge = .bottom
+    }
+    let view = AnyView(base.safeAreaInset(edge: resolvedEdge, spacing: spacing) {
+        inset
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIViewSheet")
 @MainActor
 public func SUIViewSheet(_ viewRef: UnsafeMutableRawPointer, _ stateRef: UnsafeMutableRawPointer, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
@@ -725,7 +981,7 @@ struct BridgedSheetView: View {
     var body: some View {
         base.sheet(isPresented: Binding(
             get: { state.value != 0 },
-            set: { if !$0 { state.value = 0 } }
+            set: { if !$0 { state.setAndBump(0) } }
         )) {
             sheetContent
         }
@@ -753,7 +1009,7 @@ struct BridgedAlertView: View {
     var body: some View {
         base.alert(title, isPresented: Binding(
             get: { state.value != 0 },
-            set: { if !$0 { state.value = 0 } }
+            set: { if !$0 { state.setAndBump(0) } }
         )) {
             Button("OK") {}
         } message: {
@@ -783,7 +1039,7 @@ struct BridgedConfirmationDialogView: View {
     var body: some View {
         base.confirmationDialog(title, isPresented: Binding(
             get: { state.value != 0 },
-            set: { if !$0 { state.value = 0 } }
+            set: { if !$0 { state.setAndBump(0) } }
         )) {
             actions
         }
@@ -913,10 +1169,42 @@ public func SUIViewAccessibilityHint(_ viewRef: UnsafeMutableRawPointer, _ hintP
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIViewAccessibilityValue")
+public func SUIViewAccessibilityValue(_ viewRef: UnsafeMutableRawPointer, _ valuePtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let value = String(cString: valuePtr)
+    let view = AnyView(base.accessibilityValue(value))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIViewAccessibilityHidden")
 public func SUIViewAccessibilityHidden(_ viewRef: UnsafeMutableRawPointer, _ hidden: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
     let view = AnyView(base.accessibilityHidden(hidden != 0))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+private struct SUIAccessibilityRotorPayload: Decodable {
+    struct Entry: Decodable, Hashable {
+        let id: String
+        let label: String
+    }
+
+    let name: String
+    let entries: [Entry]
+}
+
+@_cdecl("SUIViewAccessibilityRotor")
+public func SUIViewAccessibilityRotor(_ viewRef: UnsafeMutableRawPointer, _ modelPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let payload = String(cString: modelPtr)
+    guard let data = payload.data(using: .utf8),
+          let model = try? JSONDecoder().decode(SUIAccessibilityRotorPayload.self, from: data),
+          !model.name.isEmpty,
+          !model.entries.isEmpty else {
+        return Unmanaged.passRetained(Box(base)).toOpaque()
+    }
+    let view = AnyView(base.accessibilityRotor(LocalizedStringKey(model.name), entries: model.entries, entryID: \.id, entryLabel: \.label))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -1044,7 +1332,7 @@ struct BridgedPopoverView: View {
     var body: some View {
         base.popover(isPresented: Binding(
             get: { state.value != 0 },
-            set: { if !$0 { state.value = 0 } }
+            set: { if !$0 { state.setAndBump(0) } }
         )) {
             popoverContent
         }
@@ -1072,14 +1360,14 @@ struct BridgedFullScreenCoverView: View {
         #if os(iOS)
         base.fullScreenCover(isPresented: Binding(
             get: { state.value != 0 },
-            set: { if !$0 { state.value = 0 } }
+            set: { if !$0 { state.setAndBump(0) } }
         )) {
             coverContent
         }
         #else
         base.sheet(isPresented: Binding(
             get: { state.value != 0 },
-            set: { if !$0 { state.value = 0 } }
+            set: { if !$0 { state.setAndBump(0) } }
         )) {
             coverContent
         }
@@ -1212,4 +1500,335 @@ struct BridgedFullScreenCoverBoolView: View {
         }
         #endif
     }
+}
+
+// MARK: - Packed modifier chain (SUIApplyModifiers)
+//
+// Wire format (little-endian):
+//   [count: UInt32]
+//   [ [kind: UInt32] [payload_len: UInt32] [payload: payload_len bytes] ]*count
+//
+// Kind payloads:
+//   1 padding              : Double amount
+//   2 paddingEdge          : Int32 edges, Double amount
+//   3 opacity              : Double
+//   4 foregroundRGBA       : 4 Doubles r,g,b,a
+//   5 backgroundRGBA       : 4 Doubles r,g,b,a
+//   6 tintRGBA             : 4 Doubles r,g,b,a
+//   7 disabled             : UInt8 (0/1)
+//   8 bold                 : empty
+//   9 italic               : empty
+//  10 underline            : empty
+//  11 strikethrough        : empty
+//  12 clipped              : empty
+//  13 monospacedDigit      : empty
+//  14 labelsHidden         : empty
+//  15 blur                 : Double radius
+//  16 cornerRadius         : Double radius
+//  17 scaleEffect          : Double scale
+//  18 rotationEffect       : Double degrees
+//  19 zIndex               : Double
+//  20 layoutPriority       : Double
+//  21 frame                : 2 Doubles w,h
+//  22 maxFrame             : 2 Doubles maxW, maxH
+//  23 fontWeight           : Int32
+//  24 fontDesign           : Int32
+//  25 imageScale           : Int32
+//  26 controlSize          : Int32
+//  27 buttonStyle          : Int32
+//  28 toggleStyle          : Int32
+//  29 multilineTextAlignment: Int32
+//  30 truncationMode       : Int32
+//  31 fixedSize            : empty
+//
+// Unknown kinds are rejected (the call becomes a no-op and the original view
+// ref is returned with its retain unchanged). This matches the P4 discipline
+// of failing loudly rather than silently dropping modifiers. Per-modifier
+// @_cdecl entries remain available for backward compatibility.
+private let suiModifierWireKindPadding: UInt32 = 1
+private let suiModifierWireKindPaddingEdge: UInt32 = 2
+private let suiModifierWireKindOpacity: UInt32 = 3
+private let suiModifierWireKindForegroundRGBA: UInt32 = 4
+private let suiModifierWireKindBackgroundRGBA: UInt32 = 5
+private let suiModifierWireKindTintRGBA: UInt32 = 6
+private let suiModifierWireKindDisabled: UInt32 = 7
+private let suiModifierWireKindBold: UInt32 = 8
+private let suiModifierWireKindItalic: UInt32 = 9
+private let suiModifierWireKindUnderline: UInt32 = 10
+private let suiModifierWireKindStrikethrough: UInt32 = 11
+private let suiModifierWireKindClipped: UInt32 = 12
+private let suiModifierWireKindMonospacedDigit: UInt32 = 13
+private let suiModifierWireKindLabelsHidden: UInt32 = 14
+private let suiModifierWireKindBlur: UInt32 = 15
+private let suiModifierWireKindCornerRadius: UInt32 = 16
+private let suiModifierWireKindScaleEffect: UInt32 = 17
+private let suiModifierWireKindRotationEffect: UInt32 = 18
+private let suiModifierWireKindZIndex: UInt32 = 19
+private let suiModifierWireKindLayoutPriority: UInt32 = 20
+private let suiModifierWireKindFrame: UInt32 = 21
+private let suiModifierWireKindMaxFrame: UInt32 = 22
+private let suiModifierWireKindFontWeight: UInt32 = 23
+private let suiModifierWireKindFontDesign: UInt32 = 24
+private let suiModifierWireKindImageScale: UInt32 = 25
+private let suiModifierWireKindControlSize: UInt32 = 26
+private let suiModifierWireKindButtonStyle: UInt32 = 27
+private let suiModifierWireKindToggleStyle: UInt32 = 28
+private let suiModifierWireKindTextAlignment: UInt32 = 29
+private let suiModifierWireKindTruncationMode: UInt32 = 30
+private let suiModifierWireKindFixedSize: UInt32 = 31
+
+// Shared across bridge_modifiers.gen.swift (packed modifier chains) and
+// bridge_views.gen.swift (Path/Canvas opcode decoder). Access level is
+// module-internal so both files can decode little-endian wire payloads.
+struct SUIModifierReader {
+    let buffer: UnsafeBufferPointer<UInt8>
+    var offset: Int = 0
+
+    init(_ ptr: UnsafePointer<UInt8>?, _ length: Int) {
+        if let ptr, length > 0 {
+            self.buffer = UnsafeBufferPointer(start: ptr, count: length)
+        } else {
+            self.buffer = UnsafeBufferPointer(start: nil, count: 0)
+        }
+    }
+
+    var remaining: Int { buffer.count - offset }
+
+    mutating func readU32() -> UInt32? {
+        guard remaining >= 4 else { return nil }
+        let b0 = UInt32(buffer[offset])
+        let b1 = UInt32(buffer[offset + 1])
+        let b2 = UInt32(buffer[offset + 2])
+        let b3 = UInt32(buffer[offset + 3])
+        offset += 4
+        return (b3 << 24) | (b2 << 16) | (b1 << 8) | b0
+    }
+
+    mutating func readU8() -> UInt8? {
+        guard remaining >= 1 else { return nil }
+        let v = buffer[offset]
+        offset += 1
+        return v
+    }
+
+    mutating func readI32() -> Int32? {
+        guard let u = readU32() else { return nil }
+        return Int32(bitPattern: u)
+    }
+
+    mutating func readF64() -> Double? {
+        guard remaining >= 8 else { return nil }
+        var bits: UInt64 = 0
+        for i in 0..<8 {
+            bits |= UInt64(buffer[offset + i]) << (UInt64(i) * 8)
+        }
+        offset += 8
+        return Double(bitPattern: bits)
+    }
+}
+
+enum SUIModifierDecodeError: Error {
+    case truncated
+    case unknownKind(UInt32)
+}
+
+private func suiApplyPackedModifier(_ base: AnyView, kind: UInt32, payload: UnsafePointer<UInt8>?, payloadLen: Int) throws -> AnyView {
+    var reader = SUIModifierReader(payload, payloadLen)
+    switch kind {
+    case suiModifierWireKindPadding:
+        guard let amount = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.padding(amount))
+    case suiModifierWireKindPaddingEdge:
+        guard let edges = reader.readI32(), let amount = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        let edgeSet = Edge.Set(rawValue: Int8(edges))
+        return AnyView(base.padding(edgeSet, amount))
+    case suiModifierWireKindOpacity:
+        guard let opacity = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.opacity(opacity))
+    case suiModifierWireKindForegroundRGBA:
+        guard let r = reader.readF64(), let g = reader.readF64(), let b = reader.readF64(), let a = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.foregroundStyle(Color(red: r, green: g, blue: b, opacity: a)))
+    case suiModifierWireKindBackgroundRGBA:
+        guard let r = reader.readF64(), let g = reader.readF64(), let b = reader.readF64(), let a = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.background(Color(red: r, green: g, blue: b, opacity: a)))
+    case suiModifierWireKindTintRGBA:
+        guard let r = reader.readF64(), let g = reader.readF64(), let b = reader.readF64(), let a = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.tint(Color(red: r, green: g, blue: b, opacity: a)))
+    case suiModifierWireKindDisabled:
+        guard let v = reader.readU8() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.disabled(v != 0))
+    case suiModifierWireKindBold:
+        return AnyView(base.bold())
+    case suiModifierWireKindItalic:
+        return AnyView(base.italic())
+    case suiModifierWireKindUnderline:
+        return AnyView(base.underline())
+    case suiModifierWireKindStrikethrough:
+        return AnyView(base.strikethrough())
+    case suiModifierWireKindClipped:
+        return AnyView(base.clipped())
+    case suiModifierWireKindMonospacedDigit:
+        return AnyView(base.monospacedDigit())
+    case suiModifierWireKindLabelsHidden:
+        return AnyView(base.labelsHidden())
+    case suiModifierWireKindBlur:
+        guard let r = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.blur(radius: r))
+    case suiModifierWireKindCornerRadius:
+        guard let r = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.cornerRadius(r))
+    case suiModifierWireKindScaleEffect:
+        guard let s = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.scaleEffect(s))
+    case suiModifierWireKindRotationEffect:
+        guard let d = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.rotationEffect(.degrees(d)))
+    case suiModifierWireKindZIndex:
+        guard let z = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.zIndex(z))
+    case suiModifierWireKindLayoutPriority:
+        guard let p = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.layoutPriority(p))
+    case suiModifierWireKindFrame:
+        guard let w = reader.readF64(), let h = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        return AnyView(base.frame(width: w, height: h))
+    case suiModifierWireKindMaxFrame:
+        guard let mw = reader.readF64(), let mh = reader.readF64() else { throw SUIModifierDecodeError.truncated }
+        var w: CGFloat? = nil
+        if mw < 0 { w = .infinity } else if mw > 0 { w = CGFloat(mw) }
+        var h: CGFloat? = nil
+        if mh < 0 { h = .infinity } else if mh > 0 { h = CGFloat(mh) }
+        return AnyView(base.frame(maxWidth: w, maxHeight: h))
+    case suiModifierWireKindFontWeight:
+        guard let raw = reader.readI32() else { throw SUIModifierDecodeError.truncated }
+        let w: Font.Weight
+        switch raw {
+        case 0: w = .ultraLight
+        case 1: w = .thin
+        case 2: w = .light
+        case 3: w = .regular
+        case 4: w = .medium
+        case 5: w = .semibold
+        case 6: w = .bold
+        case 7: w = .heavy
+        case 8: w = .black
+        default: w = .regular
+        }
+        return AnyView(base.fontWeight(w))
+    case suiModifierWireKindFontDesign:
+        guard let raw = reader.readI32() else { throw SUIModifierDecodeError.truncated }
+        let d: Font.Design
+        switch raw {
+        case 0: d = .default
+        case 1: d = .rounded
+        case 2: d = .monospaced
+        case 3: d = .serif
+        default: d = .default
+        }
+        return AnyView(base.fontDesign(d))
+    case suiModifierWireKindImageScale:
+        guard let raw = reader.readI32() else { throw SUIModifierDecodeError.truncated }
+        let s: Image.Scale
+        switch raw {
+        case 0: s = .small
+        case 1: s = .medium
+        case 2: s = .large
+        default: s = .medium
+        }
+        return AnyView(base.imageScale(s))
+    case suiModifierWireKindControlSize:
+        guard let raw = reader.readI32() else { throw SUIModifierDecodeError.truncated }
+        let cs: ControlSize
+        switch raw {
+        case 0: cs = .mini
+        case 1: cs = .small
+        case 2: cs = .regular
+        case 3: cs = .large
+        case 4: cs = .extraLarge
+        default: cs = .regular
+        }
+        return AnyView(base.controlSize(cs))
+    case suiModifierWireKindButtonStyle:
+        guard let raw = reader.readI32() else { throw SUIModifierDecodeError.truncated }
+        switch raw {
+        case 0: return AnyView(base.buttonStyle(.automatic))
+        case 1: return AnyView(base.buttonStyle(.bordered))
+        case 2: return AnyView(base.buttonStyle(.borderedProminent))
+        case 3: return AnyView(base.buttonStyle(.borderless))
+        case 4: return AnyView(base.buttonStyle(.plain))
+        default: return AnyView(base.buttonStyle(.automatic))
+        }
+    case suiModifierWireKindToggleStyle:
+        guard let raw = reader.readI32() else { throw SUIModifierDecodeError.truncated }
+        switch raw {
+        case 0: return AnyView(base.toggleStyle(.automatic))
+        case 1: return AnyView(base.toggleStyle(.button))
+        case 2: return AnyView(base.toggleStyle(.checkbox))
+        case 3: return AnyView(base.toggleStyle(.switch))
+        default: return AnyView(base.toggleStyle(.automatic))
+        }
+    case suiModifierWireKindTextAlignment:
+        guard let raw = reader.readI32() else { throw SUIModifierDecodeError.truncated }
+        let a: TextAlignment
+        switch raw {
+        case 0: a = .leading
+        case 1: a = .center
+        case 2: a = .trailing
+        default: a = .center
+        }
+        return AnyView(base.multilineTextAlignment(a))
+    case suiModifierWireKindTruncationMode:
+        guard let raw = reader.readI32() else { throw SUIModifierDecodeError.truncated }
+        let m: Text.TruncationMode
+        switch raw {
+        case 0: m = .head
+        case 1: m = .middle
+        case 2: m = .tail
+        default: m = .tail
+        }
+        return AnyView(base.truncationMode(m))
+    case suiModifierWireKindFixedSize:
+        return AnyView(base.fixedSize())
+    default:
+        throw SUIModifierDecodeError.unknownKind(kind)
+    }
+}
+
+/// Apply a packed chain of modifiers in order. Returns a new retained view ref
+/// on success. On decode failure (truncation or unknown kind) returns the
+/// input ref with its retain count unchanged (i.e., NULL is never returned).
+/// This lets the Go side distinguish "no change" from "changed".
+@_cdecl("SUIApplyModifiers")
+public func SUIApplyModifiers(_ viewRef: UnsafeMutableRawPointer, _ bufPtr: UnsafePointer<UInt8>?, _ bufLen: Int32) -> UnsafeMutableRawPointer {
+    var reader = SUIModifierReader(bufPtr, Int(bufLen))
+    guard let count = reader.readU32() else {
+        return viewRef
+    }
+    if count == 0 {
+        return viewRef
+    }
+    var current = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    for _ in 0..<count {
+        guard let kind = reader.readU32(), let payloadLen = reader.readU32() else {
+            return viewRef
+        }
+        let plen = Int(payloadLen)
+        guard reader.remaining >= plen else {
+            return viewRef
+        }
+        let payloadPtr: UnsafePointer<UInt8>?
+        if plen > 0 {
+            payloadPtr = reader.buffer.baseAddress?.advanced(by: reader.offset)
+        } else {
+            payloadPtr = nil
+        }
+        do {
+            current = try suiApplyPackedModifier(current, kind: kind, payload: payloadPtr, payloadLen: plen)
+        } catch {
+            // Unknown kind or truncated payload: abort and return original.
+            return viewRef
+        }
+        reader.offset += plen
+    }
+    return retainDerivedView(from: viewRef, current)
 }

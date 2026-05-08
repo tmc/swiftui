@@ -1,0 +1,87 @@
+# Machine: Apple M4 Max (Mac16,6)
+# macOS: 26.4
+# Go: go1.26.2
+# Swift: release (SwiftUIBridge)
+# Bridge: internal/swift/.build/arm64-apple-macosx/release/libSwiftUIBridge.dylib
+# go test -run='^$' -bench='Benchmark(StateGenReadHot|StateGenReadMiss|StringStateGetRepeated)' -benchmem -count=10 -benchtime=1s .
+# Pre-P2-tail: Go-side State.Get still crosses FFI on every call.
+# _SUIStateGen exists on the Swift side (from P2-tail Swift work) but
+# is not yet consulted by Go. Numbers here are the MISS framing for
+# StringStateGetRepeated that the P2 ledger still carries.
+#
+goos: darwin
+goarch: arm64
+pkg: github.com/tmc/swiftui
+cpu: Apple M4 Max
+BenchmarkStringStateGetRepeated-16    	  945374	      1242 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	  974212	      1230 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	  967198	      1231 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	  985240	      1234 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	  970120	      1240 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	  950704	      1239 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	  972880	      1237 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	  973989	      1235 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	  985838	      1243 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	  992025	      1236 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStateGenReadHot/int-16       	 5265373	       228.1 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/int-16       	 5231258	       227.8 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/int-16       	 5256142	       227.0 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/int-16       	 5252464	       227.9 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/int-16       	 5273479	       228.0 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/int-16       	 5286022	       227.5 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/int-16       	 5278683	       227.8 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/int-16       	 5263659	       227.1 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/int-16       	 5296580	       226.5 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/int-16       	 5272339	       233.6 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/string-16    	 3816416	       315.0 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStateGenReadHot/string-16    	 3834838	       314.4 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStateGenReadHot/string-16    	 3786100	       323.5 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStateGenReadHot/string-16    	 3630019	       480.6 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStateGenReadHot/string-16    	 2896706	       457.0 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStateGenReadHot/string-16    	 2964552	       356.6 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStateGenReadHot/string-16    	 3135982	       330.4 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStateGenReadHot/string-16    	 3412104	       346.8 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStateGenReadHot/string-16    	 1380435	      1120 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStateGenReadHot/string-16    	 3805880	       314.8 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStateGenReadHot/float-16     	 5365245	       224.8 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/float-16     	 5268524	       225.3 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/float-16     	 5345679	       223.6 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/float-16     	 5345136	       224.7 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/float-16     	 5354234	       224.6 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/float-16     	 5363935	       224.3 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/float-16     	 5347311	       224.4 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/float-16     	 5374681	       226.3 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/float-16     	 5340596	       224.8 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/float-16     	 5338900	       224.6 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/bool-16      	 5308090	       226.7 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/bool-16      	 5293228	       226.5 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/bool-16      	 5315000	       226.1 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/bool-16      	 5314236	       225.7 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/bool-16      	 5319045	       226.7 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/bool-16      	 5264427	       227.6 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/bool-16      	 5270140	       227.9 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/bool-16      	 5262938	       228.4 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/bool-16      	 5262402	       229.1 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadHot/bool-16      	 5250974	       228.4 ns/op	      40 B/op	       3 allocs/op
+BenchmarkStateGenReadMiss/int-16      	 2130030	       566.2 ns/op	     104 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/int-16      	 2130243	       564.9 ns/op	     104 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/int-16      	 2128329	       564.2 ns/op	     104 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/int-16      	 2125740	       564.3 ns/op	     104 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/int-16      	 2130296	       564.4 ns/op	     104 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/int-16      	 2117176	       565.3 ns/op	     104 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/int-16      	 2120865	       564.7 ns/op	     104 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/int-16      	 2125514	       565.7 ns/op	     104 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/int-16      	 2126482	       565.2 ns/op	     104 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/int-16      	 2122754	       565.2 ns/op	     104 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/string-16   	 1709517	       701.7 ns/op	     112 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/string-16   	 1712192	       702.0 ns/op	     112 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/string-16   	 1713111	       700.6 ns/op	     112 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/string-16   	 1642870	       925.5 ns/op	     112 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/string-16   	 1284630	       955.8 ns/op	     112 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/string-16   	 1341760	       875.4 ns/op	     112 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/string-16   	 1287098	       787.4 ns/op	     112 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/string-16   	 1454902	       794.4 ns/op	     112 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/string-16   	 1629964	       754.3 ns/op	     112 B/op	       6 allocs/op
+BenchmarkStateGenReadMiss/string-16   	 1557062	       849.2 ns/op	     112 B/op	       6 allocs/op
+PASS
+ok  	github.com/tmc/swiftui	111.254s

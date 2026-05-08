@@ -34,6 +34,12 @@ func TestExtraBridgeRegistersA2UISymbols(t *testing.T) {
 	if _SUIViewMaxFrameAligned == nil {
 		t.Fatal("SUIViewMaxFrameAligned not registered")
 	}
+	if _SUIPhotosPicker == nil {
+		t.Fatal("SUIPhotosPicker not registered")
+	}
+	if _SUIOpenPanel == nil {
+		t.Fatal("SUIOpenPanel not registered")
+	}
 }
 
 func TestStringListStateRoundTrip(t *testing.T) {
@@ -47,5 +53,16 @@ func TestStringListStateRoundTrip(t *testing.T) {
 	state.Set([]string{"beta", "gamma"})
 	if got := state.Get(); !reflect.DeepEqual(got, []string{"beta", "gamma"}) {
 		t.Fatalf("Get() after Set = %v, want [beta gamma]", got)
+	}
+}
+
+func TestUnmarshalPhotosPickerItems(t *testing.T) {
+	got := unmarshalPhotosPickerItems(`[{"id":"b","filename":"b.heic","utType":"public.heic","mediaKind":"image","order":1},{"id":"a","filename":"clip.mov","utType":"public.movie","order":0},{"id":"","filename":"skip","utType":"public.jpeg"}]`)
+	want := []PhotosPickerItem{
+		{ID: "a", Filename: "clip.mov", UTType: "public.movie", MediaKind: "video", Order: 0},
+		{ID: "b", Filename: "b.heic", UTType: "public.heic", MediaKind: "image", Order: 1},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("unmarshalPhotosPickerItems() = %#v, want %#v", got, want)
 	}
 }

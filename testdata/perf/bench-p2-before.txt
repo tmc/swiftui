@@ -1,0 +1,123 @@
+# Machine: Apple M4 Max (Mac16,6)
+# macOS: 26.4
+# Go: go1.26.2
+# Swift: release (SwiftUIBridge)
+# go test -run=xxx -bench='^(Bench...)$' -benchmem -count=10 -benchtime=2s .
+# Pre-P2 state: no value caching; every Set/Get crosses the FFI boundary.
+#
+goos: darwin
+goarch: arm64
+pkg: github.com/tmc/swiftui
+cpu: Apple M4 Max
+BenchmarkStringStateSet/short_new-16  	 3866866	       555.8 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_new-16  	 5921341	       447.9 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_new-16  	 5302386	       498.1 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_new-16  	 4951896	       437.7 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_new-16  	 4840464	       440.3 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_new-16  	 4464360	       523.4 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_new-16  	 5218407	       482.0 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_new-16  	 5459686	       527.0 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_new-16  	 4706293	       487.7 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_new-16  	 5906520	       478.7 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_same-16 	 5779462	       373.2 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_same-16 	 6737106	       370.1 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_same-16 	 6798938	       423.8 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_same-16 	 6689247	       344.2 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_same-16 	 6219277	       413.2 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_same-16 	 6231482	       438.4 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_same-16 	 7101157	       404.8 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_same-16 	 7507800	       346.3 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_same-16 	 7848792	       364.1 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/short_same-16 	 8169369	       357.0 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/long_new-16   	 4124107	       557.5 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/long_new-16   	 4692247	       557.2 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/long_new-16   	 4320436	       525.8 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/long_new-16   	 3753134	       587.0 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/long_new-16   	 3410911	       596.0 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/long_new-16   	 4429394	       575.5 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/long_new-16   	 3729406	       556.7 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/long_new-16   	 3594535	       642.7 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/long_new-16   	 3865784	       725.4 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateSet/long_new-16   	 4055958	       589.8 ns/op	      56 B/op	       2 allocs/op
+BenchmarkStringStateGet/short-16      	 5034219	       497.1 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStringStateGet/short-16      	 4594156	       621.2 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStringStateGet/short-16      	 4225196	       541.7 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStringStateGet/short-16      	 4873464	       483.5 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStringStateGet/short-16      	 4779865	       525.5 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStringStateGet/short-16      	 4510860	       564.4 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStringStateGet/short-16      	 5294400	       503.7 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStringStateGet/short-16      	 5455104	       445.9 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStringStateGet/short-16      	 4512322	       497.8 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStringStateGet/short-16      	 4555672	       502.7 ns/op	      48 B/op	       4 allocs/op
+BenchmarkStringStateGet/long-16       	 1000000	      2651 ns/op	    1192 B/op	       4 allocs/op
+BenchmarkStringStateGet/long-16       	 1122368	      2060 ns/op	    1192 B/op	       4 allocs/op
+BenchmarkStringStateGet/long-16       	  971275	      2361 ns/op	    1192 B/op	       4 allocs/op
+BenchmarkStringStateGet/long-16       	 1000000	      2662 ns/op	    1192 B/op	       4 allocs/op
+BenchmarkStringStateGet/long-16       	  793819	      2743 ns/op	    1192 B/op	       4 allocs/op
+BenchmarkStringStateGet/long-16       	 1102233	      2350 ns/op	    1192 B/op	       4 allocs/op
+BenchmarkStringStateGet/long-16       	 1000000	      2864 ns/op	    1192 B/op	       4 allocs/op
+BenchmarkStringStateGet/long-16       	 1000000	      2120 ns/op	    1192 B/op	       4 allocs/op
+BenchmarkStringStateGet/long-16       	 1000000	      2346 ns/op	    1192 B/op	       4 allocs/op
+BenchmarkStringStateGet/long-16       	 1000000	      2013 ns/op	    1192 B/op	       4 allocs/op
+BenchmarkIntStateSetSame-16           	 7085828	       359.3 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetSame-16           	 7449940	       370.1 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetSame-16           	 7235876	       385.3 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetSame-16           	 6344083	       444.4 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetSame-16           	 5107951	       423.6 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetSame-16           	 5748403	       425.2 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetSame-16           	 4218205	       475.6 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetSame-16           	 5621990	       379.4 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetSame-16           	 5839155	       537.9 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetSame-16           	 5048018	       504.2 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetChanging-16       	 5039887	       490.9 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetChanging-16       	 5690634	       496.3 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetChanging-16       	 4164631	       538.4 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetChanging-16       	 4842439	       627.9 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetChanging-16       	 3637107	       656.1 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetChanging-16       	 3425344	       797.0 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetChanging-16       	 4087942	       618.9 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetChanging-16       	 4266718	       634.9 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetChanging-16       	 3296498	       668.6 ns/op	      64 B/op	       3 allocs/op
+BenchmarkIntStateSetChanging-16       	 3201846	       669.6 ns/op	      64 B/op	       3 allocs/op
+BenchmarkStringStateGetRepeated-16    	  957211	      2584 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	 1000000	      2473 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	 1000000	      3186 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	 1000000	      3920 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	 1217228	      1992 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	 1226601	      2145 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	 1000000	      4208 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	 1000000	      2157 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	 1296122	      1938 ns/op	     192 B/op	      16 allocs/op
+BenchmarkStringStateGetRepeated-16    	 1000000	      2027 ns/op	     192 B/op	      16 allocs/op
+BenchmarkBoolStateSetSame-16          	 4057742	       911.2 ns/op	      64 B/op	       3 allocs/op
+BenchmarkBoolStateSetSame-16          	 6594627	       421.2 ns/op	      64 B/op	       3 allocs/op
+BenchmarkBoolStateSetSame-16          	 5457853	       514.3 ns/op	      64 B/op	       3 allocs/op
+BenchmarkBoolStateSetSame-16          	 4916362	       859.8 ns/op	      64 B/op	       3 allocs/op
+BenchmarkBoolStateSetSame-16          	 5249994	       474.6 ns/op	      64 B/op	       3 allocs/op
+BenchmarkBoolStateSetSame-16          	 6682126	       486.3 ns/op	      64 B/op	       3 allocs/op
+BenchmarkBoolStateSetSame-16          	 4167571	       956.6 ns/op	      64 B/op	       3 allocs/op
+BenchmarkBoolStateSetSame-16          	 5112094	       484.6 ns/op	      64 B/op	       3 allocs/op
+BenchmarkBoolStateSetSame-16          	 6092271	       399.7 ns/op	      64 B/op	       3 allocs/op
+BenchmarkBoolStateSetSame-16          	 6520908	       640.6 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFloatStateSetSame-16         	 5924632	       376.1 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFloatStateSetSame-16         	 7511030	       426.6 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFloatStateSetSame-16         	 7269280	       306.8 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFloatStateSetSame-16         	 8748938	       288.9 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFloatStateSetSame-16         	 8078108	       332.1 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFloatStateSetSame-16         	 8459271	       318.9 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFloatStateSetSame-16         	 6831304	       305.5 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFloatStateSetSame-16         	 7901046	       329.9 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFloatStateSetSame-16         	 7074024	       448.1 ns/op	      64 B/op	       3 allocs/op
+BenchmarkFloatStateSetSame-16         	 7218693	       322.4 ns/op	      64 B/op	       3 allocs/op
+BenchmarkDateStateSetSame-16          	 7231989	       394.1 ns/op	      64 B/op	       3 allocs/op
+BenchmarkDateStateSetSame-16          	 7700736	       390.5 ns/op	      64 B/op	       3 allocs/op
+BenchmarkDateStateSetSame-16          	 4537939	       651.6 ns/op	      64 B/op	       3 allocs/op
+BenchmarkDateStateSetSame-16          	 6740552	       313.3 ns/op	      64 B/op	       3 allocs/op
+BenchmarkDateStateSetSame-16          	 9597282	       369.5 ns/op	      64 B/op	       3 allocs/op
+BenchmarkDateStateSetSame-16          	 9261469	       327.1 ns/op	      64 B/op	       3 allocs/op
+BenchmarkDateStateSetSame-16          	 7267754	       340.9 ns/op	      64 B/op	       3 allocs/op
+BenchmarkDateStateSetSame-16          	 7748277	       309.5 ns/op	      64 B/op	       3 allocs/op
+BenchmarkDateStateSetSame-16          	 8079524	       312.1 ns/op	      64 B/op	       3 allocs/op
+BenchmarkDateStateSetSame-16          	 8397847	       327.1 ns/op	      64 B/op	       3 allocs/op
+PASS
+ok  	github.com/tmc/swiftui	375.113s

@@ -1,0 +1,134 @@
+# Machine: Apple M4 Max (Mac16,6)
+# macOS: 26.4.1
+# Go: go1.26.2
+# Swift: release (SwiftUIBridge)
+# go test -run=^$ -bench='^(BenchmarkTableModelSetRows|BenchmarkTableModelAppend|BenchmarkTableModelApplyDelta|BenchmarkOutlineModelSetRoots)$' -benchmem -count=10 -benchtime=2s .
+# Pre-P5 state: TableModel.SetRows rebuilds the full slice on every call.
+# ApplyDelta/Append/Insert/Remove are stubs that route through SetRows.
+#
+goos: darwin
+goarch: arm64
+pkg: github.com/tmc/swiftui
+cpu: Apple M4 Max
+BenchmarkTableModelSetRows/64-16    	  262046	      9976 ns/op	    4731 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/64-16    	  243931	     11497 ns/op	    4731 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/64-16    	  229788	      9360 ns/op	    4731 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/64-16    	  285436	      8829 ns/op	    4731 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/64-16    	  237278	      8582 ns/op	    4731 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/64-16    	  232514	      9476 ns/op	    4731 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/64-16    	  292149	      8266 ns/op	    4731 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/64-16    	  308660	      8427 ns/op	    4731 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/64-16    	  324490	     10209 ns/op	    4731 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/64-16    	  286653	      7918 ns/op	    4731 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/1024-16  	   14005	    151833 ns/op	   68397 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/1024-16  	   16003	    165822 ns/op	   68398 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/1024-16  	   15008	    180720 ns/op	   68396 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/1024-16  	   14515	    162834 ns/op	   68397 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/1024-16  	   15309	    143160 ns/op	   68397 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/1024-16  	   19216	    148848 ns/op	   68397 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/1024-16  	   16993	    158529 ns/op	   68397 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/1024-16  	   14166	    154858 ns/op	   68397 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/1024-16  	   16830	    157028 ns/op	   68397 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/1024-16  	   14962	    148363 ns/op	   68397 B/op	      12 allocs/op
+BenchmarkTableModelSetRows/16384-16 	     921	   2770687 ns/op	 1046592 B/op	      43 allocs/op
+BenchmarkTableModelSetRows/16384-16 	     925	   2588187 ns/op	 1047302 B/op	      43 allocs/op
+BenchmarkTableModelSetRows/16384-16 	     854	   2955925 ns/op	 1047352 B/op	      43 allocs/op
+BenchmarkTableModelSetRows/16384-16 	    1008	   2376023 ns/op	 1046640 B/op	      43 allocs/op
+BenchmarkTableModelSetRows/16384-16 	    1036	   2351294 ns/op	 1047372 B/op	      43 allocs/op
+BenchmarkTableModelSetRows/16384-16 	    1018	   2295095 ns/op	 1046576 B/op	      43 allocs/op
+BenchmarkTableModelSetRows/16384-16 	    1033	   2308862 ns/op	 1046393 B/op	      43 allocs/op
+BenchmarkTableModelSetRows/16384-16 	    1028	   2328751 ns/op	 1046383 B/op	      43 allocs/op
+BenchmarkTableModelSetRows/16384-16 	    1036	   2326816 ns/op	 1046551 B/op	      43 allocs/op
+BenchmarkTableModelSetRows/16384-16 	    1030	   2323179 ns/op	 1046632 B/op	      43 allocs/op
+BenchmarkTableModelAppend/1024+20-SetRows-16         	  428882	      5928 ns/op	   54697 B/op	       8 allocs/op
+BenchmarkTableModelAppend/1024+20-SetRows-16         	  414607	      6662 ns/op	   54697 B/op	       8 allocs/op
+BenchmarkTableModelAppend/1024+20-SetRows-16         	  322651	     11122 ns/op	   54699 B/op	       8 allocs/op
+BenchmarkTableModelAppend/1024+20-SetRows-16         	  369424	      6158 ns/op	   54697 B/op	       8 allocs/op
+BenchmarkTableModelAppend/1024+20-SetRows-16         	  405871	      6892 ns/op	   54697 B/op	       8 allocs/op
+BenchmarkTableModelAppend/1024+20-SetRows-16         	  121106	     19874 ns/op	   54698 B/op	       8 allocs/op
+BenchmarkTableModelAppend/1024+20-SetRows-16         	  145959	     13922 ns/op	   54698 B/op	       8 allocs/op
+BenchmarkTableModelAppend/1024+20-SetRows-16         	  305026	      8565 ns/op	   54697 B/op	       8 allocs/op
+BenchmarkTableModelAppend/1024+20-SetRows-16         	  338580	      7466 ns/op	   54697 B/op	       8 allocs/op
+BenchmarkTableModelAppend/1024+20-SetRows-16         	  292161	      7262 ns/op	   54697 B/op	       8 allocs/op
+BenchmarkTableModelAppend/1024+20-Append-16          	  169572	     16126 ns/op	  136550 B/op	      11 allocs/op
+BenchmarkTableModelAppend/1024+20-Append-16          	  168138	     16229 ns/op	  136548 B/op	      11 allocs/op
+BenchmarkTableModelAppend/1024+20-Append-16          	  144686	     14294 ns/op	  136550 B/op	      11 allocs/op
+BenchmarkTableModelAppend/1024+20-Append-16          	  171336	     15006 ns/op	  136550 B/op	      11 allocs/op
+BenchmarkTableModelAppend/1024+20-Append-16          	  158308	     14604 ns/op	  136548 B/op	      11 allocs/op
+BenchmarkTableModelAppend/1024+20-Append-16          	  171084	     14936 ns/op	  136549 B/op	      11 allocs/op
+BenchmarkTableModelAppend/1024+20-Append-16          	  145945	     15600 ns/op	  136550 B/op	      11 allocs/op
+BenchmarkTableModelAppend/1024+20-Append-16          	  157419	     15025 ns/op	  136549 B/op	      11 allocs/op
+BenchmarkTableModelAppend/1024+20-Append-16          	  128203	     36187 ns/op	  136548 B/op	      11 allocs/op
+BenchmarkTableModelAppend/1024+20-Append-16          	  108292	     19076 ns/op	  136550 B/op	      11 allocs/op
+BenchmarkTableModelApplyDelta/insert-16              	  172730	     19120 ns/op	  109306 B/op	      12 allocs/op
+BenchmarkTableModelApplyDelta/insert-16              	  146655	     14509 ns/op	  109304 B/op	      12 allocs/op
+BenchmarkTableModelApplyDelta/insert-16              	  140199	     19383 ns/op	  109307 B/op	      12 allocs/op
+BenchmarkTableModelApplyDelta/insert-16              	  176583	     15078 ns/op	  109305 B/op	      12 allocs/op
+BenchmarkTableModelApplyDelta/insert-16              	  209320	     12048 ns/op	  109304 B/op	      12 allocs/op
+BenchmarkTableModelApplyDelta/insert-16              	  201770	     14248 ns/op	  109305 B/op	      12 allocs/op
+BenchmarkTableModelApplyDelta/insert-16              	  196903	     12037 ns/op	  109304 B/op	      12 allocs/op
+BenchmarkTableModelApplyDelta/insert-16              	  207450	     13310 ns/op	  109305 B/op	      12 allocs/op
+BenchmarkTableModelApplyDelta/insert-16              	  172114	     15215 ns/op	  109305 B/op	      12 allocs/op
+BenchmarkTableModelApplyDelta/insert-16              	  151807	     15799 ns/op	  109305 B/op	      12 allocs/op
+BenchmarkTableModelApplyDelta/remove-16              	  119728	     19518 ns/op	  144916 B/op	      13 allocs/op
+BenchmarkTableModelApplyDelta/remove-16              	  100012	     21805 ns/op	  144915 B/op	      13 allocs/op
+BenchmarkTableModelApplyDelta/remove-16              	  121358	     18561 ns/op	  144915 B/op	      13 allocs/op
+BenchmarkTableModelApplyDelta/remove-16              	  134058	     18737 ns/op	  144915 B/op	      13 allocs/op
+BenchmarkTableModelApplyDelta/remove-16              	  131322	     19526 ns/op	  144915 B/op	      13 allocs/op
+BenchmarkTableModelApplyDelta/remove-16              	  138526	     19837 ns/op	  144915 B/op	      13 allocs/op
+BenchmarkTableModelApplyDelta/remove-16              	  144978	     17447 ns/op	  144915 B/op	      13 allocs/op
+BenchmarkTableModelApplyDelta/remove-16              	  122048	     21128 ns/op	  144915 B/op	      13 allocs/op
+BenchmarkTableModelApplyDelta/remove-16              	  122002	     30237 ns/op	  144917 B/op	      13 allocs/op
+BenchmarkTableModelApplyDelta/remove-16              	   92454	     24533 ns/op	  144916 B/op	      13 allocs/op
+BenchmarkTableModelApplyDelta/update-16              	  168156	     14248 ns/op	  109265 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/update-16              	  157611	     14651 ns/op	  109266 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/update-16              	  162015	     23006 ns/op	  109265 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/update-16              	  122707	     17472 ns/op	  109268 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/update-16              	  151156	     18347 ns/op	  109268 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/update-16              	  130429	     16384 ns/op	  109267 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/update-16              	  120537	     18875 ns/op	  109269 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/update-16              	  165963	     14267 ns/op	  109266 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/update-16              	  201152	     14010 ns/op	  109267 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/update-16              	  170762	     13770 ns/op	  109267 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/move-16                	  159466	     17034 ns/op	  109266 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/move-16                	  155662	     16402 ns/op	  109266 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/move-16                	  128397	     16207 ns/op	  109265 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/move-16                	  140440	     16093 ns/op	  109265 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/move-16                	  190689	     12865 ns/op	  109265 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/move-16                	  189603	     12740 ns/op	  109265 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/move-16                	  184738	     13396 ns/op	  109266 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/move-16                	  162837	     12792 ns/op	  109265 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/move-16                	  191750	     12832 ns/op	  109265 B/op	      10 allocs/op
+BenchmarkTableModelApplyDelta/move-16                	  188492	     12741 ns/op	  109265 B/op	      10 allocs/op
+BenchmarkOutlineModelSetRoots/64-16                  	  368439	      6690 ns/op	    9863 B/op	      20 allocs/op
+BenchmarkOutlineModelSetRoots/64-16                  	  358850	      6659 ns/op	    9863 B/op	      20 allocs/op
+BenchmarkOutlineModelSetRoots/64-16                  	  353539	      6623 ns/op	    9863 B/op	      20 allocs/op
+BenchmarkOutlineModelSetRoots/64-16                  	  362403	      6567 ns/op	    9863 B/op	      20 allocs/op
+BenchmarkOutlineModelSetRoots/64-16                  	  361617	      6647 ns/op	    9863 B/op	      20 allocs/op
+BenchmarkOutlineModelSetRoots/64-16                  	  363012	      6586 ns/op	    9863 B/op	      20 allocs/op
+BenchmarkOutlineModelSetRoots/64-16                  	  365821	      6538 ns/op	    9863 B/op	      20 allocs/op
+BenchmarkOutlineModelSetRoots/64-16                  	  366009	      6617 ns/op	    9863 B/op	      20 allocs/op
+BenchmarkOutlineModelSetRoots/64-16                  	  368395	      6628 ns/op	    9863 B/op	      20 allocs/op
+BenchmarkOutlineModelSetRoots/64-16                  	  362475	      6590 ns/op	    9863 B/op	      20 allocs/op
+BenchmarkOutlineModelSetRoots/1024-16                	   23556	    101727 ns/op	  150187 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots/1024-16                	   23266	    102611 ns/op	  150189 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots/1024-16                	   23436	    101764 ns/op	  150188 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots/1024-16                	   23529	    102337 ns/op	  150188 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots/1024-16                	   23559	    101855 ns/op	  150188 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots/1024-16                	   22719	    102002 ns/op	  150188 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots/1024-16                	   23518	    102885 ns/op	  150188 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots/1024-16                	   23323	    102143 ns/op	  150188 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots/1024-16                	   23437	    102480 ns/op	  150189 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots/1024-16                	   23468	    103298 ns/op	  150189 B/op	      31 allocs/op
+BenchmarkOutlineModelSetRoots/16384-16               	    1171	   2050754 ns/op	 2400959 B/op	     186 allocs/op
+BenchmarkOutlineModelSetRoots/16384-16               	    1173	   2081013 ns/op	 2400923 B/op	     186 allocs/op
+BenchmarkOutlineModelSetRoots/16384-16               	    1170	   2071568 ns/op	 2400654 B/op	     186 allocs/op
+BenchmarkOutlineModelSetRoots/16384-16               	    1147	   2106790 ns/op	 2401174 B/op	     186 allocs/op
+BenchmarkOutlineModelSetRoots/16384-16               	    1131	   2337202 ns/op	 2401560 B/op	     186 allocs/op
+BenchmarkOutlineModelSetRoots/16384-16               	    1156	   2074091 ns/op	 2401154 B/op	     186 allocs/op
+BenchmarkOutlineModelSetRoots/16384-16               	    1147	   2117159 ns/op	 2401120 B/op	     186 allocs/op
+BenchmarkOutlineModelSetRoots/16384-16               	    1170	   2069919 ns/op	 2400741 B/op	     186 allocs/op
+BenchmarkOutlineModelSetRoots/16384-16               	    1159	   2067573 ns/op	 2401251 B/op	     186 allocs/op
+BenchmarkOutlineModelSetRoots/16384-16               	    1161	   2058767 ns/op	 2401228 B/op	     186 allocs/op
+PASS
+ok  	github.com/tmc/swiftui	368.766s

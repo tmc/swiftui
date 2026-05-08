@@ -96,6 +96,8 @@ func sortTimes(src []time.Time) {
 
 // DateSelectionState owns a set of selected calendar days.
 //
+// Curated surface.
+//
 // The state is normalized to calendar-day precision and exposes a revision
 // counter plus count accessor states for use with DynamicView when the bridge
 // is available.
@@ -299,6 +301,8 @@ func sameDateSet(a, b map[dateKey]time.Time) bool {
 
 // DateRangeState owns a single date interval.
 //
+// Curated surface.
+//
 // The state preserves the current range plus a revision counter and exposes
 // optional primitive states for the start, end, valid, and revision values.
 type DateRangeState struct {
@@ -443,6 +447,8 @@ func normalizeRange(start, end time.Time) (time.Time, time.Time) {
 }
 
 // TimerState owns the state required for a countdown or stopwatch surface.
+//
+// Curated surface.
 //
 // It stores the total duration, remaining duration, running flag, progress,
 // and a revision counter. When the bridge is available it also exposes the

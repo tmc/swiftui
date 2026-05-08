@@ -6,6 +6,8 @@ import (
 )
 
 // NavigationSplitViewColumnKind identifies the preferred compact column.
+//
+// Bridge surface.
 type NavigationSplitViewColumnKind int32
 
 const (
@@ -16,6 +18,8 @@ const (
 )
 
 // NavigationPathState owns a stable stack of route tokens for manual router flows.
+//
+// Curated surface.
 type NavigationPathState struct {
 	mu       sync.RWMutex
 	segments []string
@@ -182,6 +186,8 @@ func (s *NavigationPathState) Release() {
 }
 
 // CompactColumnState owns the preferred compact column for split navigation.
+//
+// Curated surface.
 //
 // It is backed by the existing IntState bridge so current examples can feed it
 // into the generated split-view visibility helpers today.

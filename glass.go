@@ -67,13 +67,13 @@ const (
 // The zero value is not usable; call NewNamespace.
 type Namespace struct {
 	ptr      uintptr
-	retained *retained
+	retained *retainedOwned
 }
 
 // NewNamespace creates a new SwiftUI namespace handle for glass effect IDs.
 func NewNamespace() *Namespace {
 	ptr := _SUINamespaceCreate()
-	return &Namespace{ptr: ptr, retained: newRetained(ptr)}
+	return &Namespace{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // Release decrements the underlying Swift retain count.
@@ -90,14 +90,14 @@ func (ns *Namespace) Release() {
 func GlassEffectContainer(content View) View {
 	ptr := _SUIGlassEffectContainer(content.ptr, -1)
 	runtime.KeepAlive(content.retained)
-	return View{ptr: ptr, retained: newRetained(ptr)}
+	return View{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // GlassEffectContainerSpaced groups Liquid Glass effects with explicit container spacing.
 func GlassEffectContainerSpaced(spacing float64, content View) View {
 	ptr := _SUIGlassEffectContainer(content.ptr, spacing)
 	runtime.KeepAlive(content.retained)
-	return View{ptr: ptr, retained: newRetained(ptr)}
+	return View{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // GlassEffect applies the default Liquid Glass effect to the view.
@@ -148,7 +148,7 @@ func (v View) glassEffect(glass Glass, shape GlassShape, cornerRadius float64) V
 		cornerRadius,
 	)
 	runtime.KeepAlive(v.retained)
-	return View{ptr: ptr, retained: newRetained(ptr)}
+	return View{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // GlassEffectID assigns an identifier to Liquid Glass effects in the view.
@@ -159,7 +159,7 @@ func (v View) GlassEffectID(id string, namespace *Namespace) View {
 	})
 	runtime.KeepAlive(v.retained)
 	runtime.KeepAlive(namespace.retained)
-	return View{ptr: ptr, retained: newRetained(ptr)}
+	return View{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // GlassEffectUnion assigns a union identifier to Liquid Glass effects in the view.
@@ -170,14 +170,14 @@ func (v View) GlassEffectUnion(id string, namespace *Namespace) View {
 	})
 	runtime.KeepAlive(v.retained)
 	runtime.KeepAlive(namespace.retained)
-	return View{ptr: ptr, retained: newRetained(ptr)}
+	return View{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // GlassEffectTransition assigns the transition used when Liquid Glass effects appear or disappear.
 func (v View) GlassEffectTransition(transition GlassEffectTransitionKind) View {
 	ptr := _SUIViewGlassEffectTransition(v.ptr, int32(transition))
 	runtime.KeepAlive(v.retained)
-	return View{ptr: ptr, retained: newRetained(ptr)}
+	return View{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // GlassButtonStyle applies the standard Liquid Glass button style.
@@ -206,12 +206,12 @@ func (v View) GlassButtonStyle(glass Glass) View {
 		interactiveEnabled,
 	)
 	runtime.KeepAlive(v.retained)
-	return View{ptr: ptr, retained: newRetained(ptr)}
+	return View{ptr: ptr, retained: newRetainedOwned(ptr)}
 }
 
 // GlassProminentButtonStyle applies the prominent Liquid Glass button style.
 func (v View) GlassProminentButtonStyle() View {
 	ptr := _SUIViewGlassProminentButtonStyle(v.ptr)
 	runtime.KeepAlive(v.retained)
-	return View{ptr: ptr, retained: newRetained(ptr)}
+	return View{ptr: ptr, retained: newRetainedOwned(ptr)}
 }

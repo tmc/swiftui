@@ -1,0 +1,45 @@
+# Machine: Apple M4 Max (Mac16,6)
+# macOS: 26.4.1 (25E253)
+# Go: go1.26.2
+# Swift: release (SwiftUIBridge, built from internal/swift)
+# go test -run=nothing -bench='BenchmarkModifierChain' -benchmem -count=10 -benchtime=2s .
+# Post-P6b state: chains of length >=2 encode onto a pooled scratch buffer
+# and flush as a single SUIApplyModifiers bridge call. N=1 keeps the
+# legacy per-modifier @_cdecl fast path.
+#
+goos: darwin
+goarch: arm64
+pkg: github.com/tmc/swiftui
+cpu: Apple M4 Max
+BenchmarkModifierChain/1-16  	 5594706	       458.7 ns/op	     120 B/op	       5 allocs/op
+BenchmarkModifierChain/1-16  	 5526097	       434.8 ns/op	     120 B/op	       5 allocs/op
+BenchmarkModifierChain/1-16  	 5647116	       427.5 ns/op	     120 B/op	       5 allocs/op
+BenchmarkModifierChain/1-16  	 5630420	       424.8 ns/op	     120 B/op	       5 allocs/op
+BenchmarkModifierChain/1-16  	 5668214	       425.5 ns/op	     120 B/op	       5 allocs/op
+BenchmarkModifierChain/1-16  	 5626423	       425.9 ns/op	     120 B/op	       5 allocs/op
+BenchmarkModifierChain/1-16  	 5615199	       425.8 ns/op	     120 B/op	       5 allocs/op
+BenchmarkModifierChain/1-16  	 5593290	       425.4 ns/op	     120 B/op	       5 allocs/op
+BenchmarkModifierChain/1-16  	 5641886	       436.5 ns/op	     120 B/op	       5 allocs/op
+BenchmarkModifierChain/1-16  	 5620225	       426.7 ns/op	     120 B/op	       5 allocs/op
+BenchmarkModifierChain/5-16  	 1538648	      1564 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/5-16  	 1543971	      1564 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/5-16  	 1546329	      1554 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/5-16  	 1536054	      1566 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/5-16  	 1538527	      1559 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/5-16  	 1528039	      1560 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/5-16  	 1493347	      1872 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/5-16  	  784069	      2733 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/5-16  	 1000000	      2303 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/5-16  	 1000000	      2326 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/10-16 	  559598	      3830 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/10-16 	  752352	      3430 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/10-16 	  759496	      3349 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/10-16 	  723286	      4529 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/10-16 	  540261	      4108 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/10-16 	  647636	      3780 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/10-16 	  614440	      3514 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/10-16 	  818786	      3833 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/10-16 	  621950	      3880 ns/op	      72 B/op	       2 allocs/op
+BenchmarkModifierChain/10-16 	  610341	      3374 ns/op	      72 B/op	       2 allocs/op
+PASS
+ok  	github.com/tmc/swiftui	90.709s

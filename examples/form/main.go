@@ -25,6 +25,11 @@ func main() {
 	name := swiftui.NewStringState("Taylor")
 	password := swiftui.NewStringState("")
 	bio := swiftui.NewStringState("Building native macOS UIs from Go.")
+	nameValid := swiftui.NewBoolState(true)
+	passwordValid := swiftui.NewBoolState(true)
+	bioValid := swiftui.NewBoolState(true)
+	nameFocus := swiftui.NewBoolState(true)
+	passwordFocus := swiftui.NewBoolState(false)
 	notifications := swiftui.NewIntState(1)
 	volume := swiftui.NewIntState(50)
 	color := swiftui.NewColorState(0.2, 0.5, 1.0, 1.0)
@@ -59,8 +64,47 @@ func main() {
 			swiftui.HStackSpaced(12,
 				swiftui.GroupBox("Account",
 					swiftui.VStackSpaced(12,
-						swiftui.TextField("Name", name, func() {}),
-						swiftui.SecureField("Password", password, func() {}),
+						swiftui.TextFieldPolicy("Name", name, swiftui.TextInputPolicy{
+							AllowedPattern:    `[A-Za-z .'-]*`,
+							ValidationPattern: `^[A-Za-z][A-Za-z .'-]{1,31}$`,
+							ValidState:        nameValid,
+						}, nil, func() {
+							nameFocus.Set(false)
+							passwordFocus.Set(true)
+						}).
+							Focused(nameFocus).
+							SubmitLabel(swiftui.SubmitLabelNext).
+							TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
+						swiftui.SecureFieldPolicy("Password", password, swiftui.TextInputPolicy{
+							ValidationPattern: `^.{8,}$`,
+							ValidState:        passwordValid,
+						}, nil, func() {
+							passwordFocus.Set(false)
+						}).
+							Focused(passwordFocus).
+							SubmitLabel(swiftui.SubmitLabelDone).
+							TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
+						swiftui.HStackSpaced(8,
+							swiftui.Button("Focus name", func() {
+								passwordFocus.Set(false)
+								nameFocus.Set(true)
+							}),
+							swiftui.Button("Focus password", func() {
+								nameFocus.Set(false)
+								passwordFocus.Set(true)
+							}),
+							swiftui.Button("Clear focus", func() {
+								nameFocus.Set(false)
+								passwordFocus.Set(false)
+							}),
+						),
+						infoLine("Focused field", focusedFieldLabel(nameFocus, passwordFocus)),
+						swiftui.DynamicBoolView(nameValid, func(ok bool) swiftui.View {
+							return infoLine("Name validation", onOffLabel(ok, "Accepted", "Use 2-32 letters"))
+						}),
+						swiftui.DynamicBoolView(passwordValid, func(ok bool) swiftui.View {
+							return infoLine("Password validation", onOffLabel(ok, "Accepted", "Use at least 8 characters"))
+						}),
 						infoLine("Access", "Member workspace"),
 					).Padding(10),
 				).MaxFrame(-1, 0),
@@ -75,7 +119,20 @@ func main() {
 			),
 
 			swiftui.GroupBox("Profile",
-				swiftui.TextEditor(bio).Frame(600, 110),
+				swiftui.VStackAlignedSpaced(swiftui.HorizontalAlignmentLeading, 8,
+					swiftui.TextEditorPolicy(bio, swiftui.TextInputPolicy{
+						ValidationPattern: `(?s)^.{0,240}$`,
+						ValidState:        bioValid,
+					}, nil).
+						Padding(6).
+						Frame(600, 110).
+						ScrollContentBackgroundHidden().
+						BackgroundRoundedRect(0.15, 0.16, 0.20, 0.98, 10).
+						ClipRoundedRect(10),
+					swiftui.DynamicBoolView(bioValid, func(ok bool) swiftui.View {
+						return infoLine("Bio validation", onOffLabel(ok, "Within 240 characters", "Too long"))
+					}),
+				),
 			).MaxFrame(-1, 0),
 
 			swiftui.GroupBox("Preferences",
@@ -106,4 +163,15 @@ func onOffLabel(v bool, on, off string) string {
 		return on
 	}
 	return off
+}
+
+func focusedFieldLabel(nameFocus, passwordFocus *swiftui.BoolState) string {
+	switch {
+	case nameFocus.Get():
+		return "Name"
+	case passwordFocus.Get():
+		return "Password"
+	default:
+		return "None"
+	}
 }

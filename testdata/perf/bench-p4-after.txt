@@ -1,0 +1,93 @@
+# Machine: Apple M4 Max (Mac16,6)
+# macOS: 26.4.1 (25E253)
+# Go: go1.26.2
+# Swift: release (SwiftUIBridge, rebuilt with packed-wire entry points)
+# go test -run=xxx -bench='BenchmarkMarshalStringSlice|BenchmarkStringListStateSet|BenchmarkMarshalChoiceOptions' -benchmem -count=10 -benchtime=2s .
+# Post-P4 state: StringListState.{Set,New} use acquirePackedStringSliceBuf/releasePackedBuf to hand pointer+length directly to Swift (no escaping closure). Searchable pickers use withPackedChoiceOptions. MarshalStringSlice/MarshalChoiceOptions benches exercise the renamed marshalStringSliceJSON/marshalChoiceOptionsJSON (kept for debug/persistence).
+#
+goos: darwin
+goarch: arm64
+pkg: github.com/tmc/swiftui
+cpu: Apple M4 Max
+BenchmarkMarshalStringSlice/10-16   	 1587531	      1492 ns/op	     472 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/10-16   	 2688092	       984.9 ns/op	     472 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/10-16   	 2962189	       836.4 ns/op	     472 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/10-16   	 3100874	       948.8 ns/op	     472 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/10-16   	 2938839	      1051 ns/op	     472 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/10-16   	 2044323	      1046 ns/op	     472 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/10-16   	 2885245	       921.3 ns/op	     472 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/10-16   	 4822977	       680.3 ns/op	     472 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/10-16   	 4901005	       680.9 ns/op	     472 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/10-16   	 5063690	       647.0 ns/op	     472 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/100-16  	  505290	      4603 ns/op	    6173 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/100-16  	  522716	      4571 ns/op	    6174 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/100-16  	  534656	      4562 ns/op	    6173 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/100-16  	  522760	      4514 ns/op	    6173 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/100-16  	  524469	      4586 ns/op	    6173 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/100-16  	  536276	      4594 ns/op	    6174 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/100-16  	  535159	      4551 ns/op	    6173 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/100-16  	  514521	      4643 ns/op	    6173 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/100-16  	  527234	      4652 ns/op	    6173 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/100-16  	  513423	      4600 ns/op	    6173 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/1000-16 	   51813	     45774 ns/op	   65797 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/1000-16 	   51204	     46073 ns/op	   65826 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/1000-16 	   50326	     46860 ns/op	   65806 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/1000-16 	   52496	     46122 ns/op	   65853 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/1000-16 	   50911	     45871 ns/op	   65874 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/1000-16 	   51435	     46666 ns/op	   65820 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/1000-16 	   51855	     45688 ns/op	   65761 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/1000-16 	   52801	     46030 ns/op	   65813 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/1000-16 	   51802	     46490 ns/op	   65848 B/op	       3 allocs/op
+BenchmarkMarshalStringSlice/1000-16 	   52305	     46169 ns/op	   65793 B/op	       3 allocs/op
+BenchmarkStringListStateSet/10-16   	 2787020	       857.2 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/10-16   	 2789392	       858.3 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/10-16   	 2807218	       859.6 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/10-16   	 2789892	       856.6 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/10-16   	 2768289	       859.5 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/10-16   	 2789617	       860.5 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/10-16   	 2805476	       858.6 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/10-16   	 2805147	       859.7 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/10-16   	 2785975	       858.7 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/10-16   	 2776332	       856.7 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/100-16  	  387656	      6207 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/100-16  	  386913	      6215 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/100-16  	  387750	      6285 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/100-16  	  389242	      6230 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/100-16  	  388819	      6376 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/100-16  	  380932	      6321 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/100-16  	  377582	      6268 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/100-16  	  369700	      6337 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/100-16  	  365905	      6282 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/100-16  	  380858	      6297 ns/op	      96 B/op	       3 allocs/op
+BenchmarkStringListStateSet/1000-16 	   37590	     63728 ns/op	     100 B/op	       3 allocs/op
+BenchmarkStringListStateSet/1000-16 	   37232	     64246 ns/op	     100 B/op	       3 allocs/op
+BenchmarkStringListStateSet/1000-16 	   37130	     63985 ns/op	     100 B/op	       3 allocs/op
+BenchmarkStringListStateSet/1000-16 	   37201	     64071 ns/op	     100 B/op	       3 allocs/op
+BenchmarkStringListStateSet/1000-16 	   37171	     63794 ns/op	     100 B/op	       3 allocs/op
+BenchmarkStringListStateSet/1000-16 	   37466	     63984 ns/op	     100 B/op	       3 allocs/op
+BenchmarkStringListStateSet/1000-16 	   37131	     64268 ns/op	     100 B/op	       3 allocs/op
+BenchmarkStringListStateSet/1000-16 	   37398	     64084 ns/op	     100 B/op	       3 allocs/op
+BenchmarkStringListStateSet/1000-16 	   37372	     64229 ns/op	     100 B/op	       3 allocs/op
+BenchmarkStringListStateSet/1000-16 	   37267	     63709 ns/op	     100 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/10-16 	 2666953	       902.9 ns/op	    1176 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/10-16 	 2666739	       912.7 ns/op	    1176 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/10-16 	 2656914	       928.9 ns/op	    1176 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/10-16 	 2646903	       905.5 ns/op	    1176 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/10-16 	 2679519	       929.2 ns/op	    1176 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/10-16 	 2544339	       909.4 ns/op	    1176 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/10-16 	 2359593	      1081 ns/op	    1176 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/10-16 	 2652128	       917.6 ns/op	    1176 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/10-16 	 2606523	       910.9 ns/op	    1176 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/10-16 	 2647759	       908.2 ns/op	    1176 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/100-16         	  301140	      8039 ns/op	   10789 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/100-16         	  295191	      8066 ns/op	   10789 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/100-16         	  295390	      8013 ns/op	   10787 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/100-16         	  303123	      8040 ns/op	   10789 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/100-16         	  295032	      8513 ns/op	   10790 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/100-16         	  297726	      8022 ns/op	   10790 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/100-16         	  298401	      8040 ns/op	   10789 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/100-16         	  299326	      8107 ns/op	   10790 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/100-16         	  296839	      8055 ns/op	   10790 B/op	       3 allocs/op
+BenchmarkMarshalChoiceOptions/100-16         	  299414	      8072 ns/op	   10790 B/op	       3 allocs/op
+PASS
+ok  	github.com/tmc/swiftui	246.513s

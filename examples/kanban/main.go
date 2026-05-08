@@ -116,8 +116,10 @@ func main() {
 			swiftui.Text(fmt.Sprintf("Add Card to %s", columnNames[colIdx])).
 				Font(swiftui.FontTitle2).
 				FontWeight(swiftui.WeightBold),
-			swiftui.TextField("Title", titleInput, func() {}),
-			swiftui.TextField("Description", descInput, func() {}),
+			swiftui.TextField("Title", titleInput, func() {}).
+				TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
+			swiftui.TextField("Description", descInput, func() {}).
+				TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
 			swiftui.PickerSegmented("Priority", priorityPick,
 				swiftui.VStack(
 					swiftui.Text("High").AsView().Tag(0),

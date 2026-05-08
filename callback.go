@@ -3,78 +3,87 @@
 package swiftui
 
 import (
-	"sync"
-
 	"github.com/ebitengine/purego"
 )
 
+// Callback dispatch on the Swift->Go boundary is organized as a per-shape
+// lock-free slot table (see callback_slot_table.go). Each shape (no-arg,
+// bool-arg, string-arg, ...) has its own table so the trampoline does a
+// single typed call with no map indirection and no map-lookup cost.
+//
+// Registration takes a lock. Dispatch does not — the slot table is read with
+// a single atomic pointer load. Unregistration nils the slot and pushes the
+// index onto a free list so IDs are reused and the slice does not grow
+// unboundedly across a long-running app.
 var (
-	callbackMu       sync.Mutex
-	callbackMap      = map[uintptr]func(){}
-	boolCallbackMap  = map[uintptr]func(bool){}
-	hoverCallbackMap = map[uintptr]func(bool, float64, float64){}
-	callbackNext     uintptr
+	buttonCallbacks   = newCallbackTable[func()]()
+	boolCallbacks     = newCallbackTable[func(bool)]()
+	stringCallbacks   = newCallbackTable[func(string) bool]()
+	pasteCallbacks    = newCallbackTable[func(PastePayload) bool]()
+	hoverCallbacks    = newCallbackTable[func(bool, float64, float64)]()
+	commandCallbacks  = newCallbackTable[func() int32]()
+	viewBuilders      = newCallbackTable[func(int) View]()
+	floatViewBuilders = newCallbackTable[func(float64) View]()
+	geometryBuilders  = newCallbackTable[func(float64, float64) View]()
 )
 
 func registerCallback(fn func()) uintptr {
 	if fn == nil {
 		return 0
 	}
-	callbackMu.Lock()
-	defer callbackMu.Unlock()
-	callbackNext++
-	callbackMap[callbackNext] = fn
-	return callbackNext
+	return buttonCallbacks.register(fn)
 }
 
 func registerBoolCallback(fn func(bool)) uintptr {
 	if fn == nil {
 		return 0
 	}
-	callbackMu.Lock()
-	defer callbackMu.Unlock()
-	callbackNext++
-	boolCallbackMap[callbackNext] = fn
-	return callbackNext
+	return boolCallbacks.register(fn)
+}
+
+func registerStringCallback(fn func(string) bool) uintptr {
+	if fn == nil {
+		return 0
+	}
+	return stringCallbacks.register(fn)
+}
+
+func registerPasteCallback(fn func(PastePayload) bool) uintptr {
+	if fn == nil {
+		return 0
+	}
+	return pasteCallbacks.register(fn)
 }
 
 func registerHoverCallback(fn func(bool, float64, float64)) uintptr {
 	if fn == nil {
 		return 0
 	}
-	callbackMu.Lock()
-	defer callbackMu.Unlock()
-	callbackNext++
-	hoverCallbackMap[callbackNext] = fn
-	return callbackNext
+	return hoverCallbacks.register(fn)
 }
 
-// unregisterCallback removes a callback from the callback map.
-// Also checks viewBuilder, floatViewBuilder, and geometryBuilder maps since
-// retained tracks all callback types with a single list.
+// unregisterCallback removes the id from every callback shape. A given id is
+// only ever live in exactly one table, but retained handles do not record
+// which shape they registered into, so we clear all of them.
 func unregisterCallback(id uintptr) {
-	callbackMu.Lock()
-	delete(callbackMap, id)
-	delete(boolCallbackMap, id)
-	delete(hoverCallbackMap, id)
-	callbackMu.Unlock()
-	viewBuilderMu.Lock()
-	delete(viewBuilderMap, id)
-	viewBuilderMu.Unlock()
-	floatViewBuilderMu.Lock()
-	delete(floatViewBuilderMap, id)
-	floatViewBuilderMu.Unlock()
-	geometryBuilderMu.Lock()
-	delete(geometryBuilderMap, id)
-	geometryBuilderMu.Unlock()
+	if id == 0 {
+		return
+	}
+	buttonCallbacks.unregister(id)
+	boolCallbacks.unregister(id)
+	stringCallbacks.unregister(id)
+	pasteCallbacks.unregister(id)
+	hoverCallbacks.unregister(id)
+	commandCallbacks.unregister(id)
+	viewBuilders.unregister(id)
+	floatViewBuilders.unregister(id)
+	geometryBuilders.unregister(id)
 }
 
 // buttonCallbackTrampoline is called from Swift when a button is pressed.
+// Hot path: one atomic load, one bounds check, one indirect call.
 func buttonCallbackTrampoline(id uintptr) {
-	callbackMu.Lock()
-	fn := callbackMap[id]
-	callbackMu.Unlock()
-	if fn != nil {
+	if fn := buttonCallbacks.lookup(id); fn != nil {
 		fn()
 	}
 }
@@ -83,49 +92,89 @@ func buttonCallbackTrampoline(id uintptr) {
 var buttonCallbackPtr = purego.NewCallback(buttonCallbackTrampoline)
 
 func boolCallbackTrampoline(id uintptr, value int32) {
-	callbackMu.Lock()
-	fn := boolCallbackMap[id]
-	callbackMu.Unlock()
-	if fn != nil {
+	if fn := boolCallbacks.lookup(id); fn != nil {
 		fn(value != 0)
 	}
 }
 
 var boolCallbackPtr = purego.NewCallback(boolCallbackTrampoline)
 
+func stringCallbackTrampoline(id uintptr, value *byte) int32 {
+	fn := stringCallbacks.lookup(id)
+	if fn != nil && fn(cStringToGoString(value)) {
+		return 1
+	}
+	return 0
+}
+
+var stringCallbackPtr = purego.NewCallback(stringCallbackTrampoline)
+
+func pasteCallbackTrampoline(id uintptr, kind, value *byte) int32 {
+	fn := pasteCallbacks.lookup(id)
+	if fn == nil {
+		return 0
+	}
+	payload := PastePayload{}
+	switch cStringToGoString(kind) {
+	case "text":
+		payload.Text = cStringToGoString(value)
+	case "url":
+		payload.URL = cStringToGoString(value)
+	case "file":
+		payload.FilePath = cStringToGoString(value)
+	}
+	if fn(payload) {
+		return 1
+	}
+	return 0
+}
+
+var pasteCallbackPtr = purego.NewCallback(pasteCallbackTrampoline)
+
 func hoverCallbackTrampoline(id uintptr, inside int32, x, y float64) {
-	callbackMu.Lock()
-	fn := hoverCallbackMap[id]
-	callbackMu.Unlock()
-	if fn != nil {
+	if fn := hoverCallbacks.lookup(id); fn != nil {
 		fn(inside != 0, x, y)
 	}
 }
 
 var hoverCallbackPtr = purego.NewCallback(hoverCallbackTrampoline)
 
-// View builder callbacks: Go functions that return a View given a state value.
-var (
-	viewBuilderMu   sync.Mutex
-	viewBuilderMap  = map[uintptr]func(int) View{}
-	viewBuilderNext uintptr
-)
+func registerCommandCallback(fn func() int32) uintptr {
+	if fn == nil {
+		return 0
+	}
+	return commandCallbacks.register(fn)
+}
 
+// commandCallbackTrampoline is called from Swift for command actions and
+// enabled-check queries. It returns an int32 status (1 = success/enabled,
+// 0 = failure/disabled).
+func commandCallbackTrampoline(id uintptr) int32 {
+	if fn := commandCallbacks.lookup(id); fn != nil {
+		return fn()
+	}
+	return 1 // default: allow / enabled
+}
+
+var commandCallbackPtr = purego.NewCallback(commandCallbackTrampoline)
+
+func cStringToGoString(ptr *byte) string {
+	return gostringFast(ptr)
+}
+
+// registerViewBuilder registers a Go function that returns a View given a
+// state value. Swift invokes the trampoline to rebuild dynamic views.
 func registerViewBuilder(fn func(int) View) uintptr {
-	viewBuilderMu.Lock()
-	defer viewBuilderMu.Unlock()
-	viewBuilderNext++
-	viewBuilderMap[viewBuilderNext] = fn
-	return viewBuilderNext
+	if fn == nil {
+		return 0
+	}
+	return viewBuilders.register(fn)
 }
 
 // viewBuilderCallbackTrampoline is called from Swift to rebuild a dynamic view.
 // It returns a View pointer (uintptr) that Swift takes ownership of.
 func viewBuilderCallbackTrampoline(id uintptr, value int) uintptr {
-	viewBuilderMu.Lock()
-	fn := viewBuilderMap[id]
-	viewBuilderMu.Unlock()
-	if fn != nil {
+	if fn := viewBuilders.lookup(id); fn != nil {
 		return fn(int(value)).ptr
 	}
 	return _SUIEmptyView()
@@ -133,26 +182,17 @@ func viewBuilderCallbackTrampoline(id uintptr, value int) uintptr {
 
 var viewBuilderCallbackPtr = purego.NewCallback(viewBuilderCallbackTrampoline)
 
-// Float view builder callbacks: Go functions that return a View given a float state value.
-var (
-	floatViewBuilderMu   sync.Mutex
-	floatViewBuilderMap  = map[uintptr]func(float64) View{}
-	floatViewBuilderNext uintptr
-)
-
+// registerFloatViewBuilder registers a Go function that returns a View given
+// a float state value.
 func registerFloatViewBuilder(fn func(float64) View) uintptr {
-	floatViewBuilderMu.Lock()
-	defer floatViewBuilderMu.Unlock()
-	floatViewBuilderNext++
-	floatViewBuilderMap[floatViewBuilderNext] = fn
-	return floatViewBuilderNext
+	if fn == nil {
+		return 0
+	}
+	return floatViewBuilders.register(fn)
 }
 
 func viewBuilderCallbackTrampolineFloat(id uintptr, value float64) uintptr {
-	floatViewBuilderMu.Lock()
-	fn := floatViewBuilderMap[id]
-	floatViewBuilderMu.Unlock()
-	if fn != nil {
+	if fn := floatViewBuilders.lookup(id); fn != nil {
 		return fn(value).ptr
 	}
 	return _SUIEmptyView()
@@ -166,27 +206,18 @@ func registerBoolViewBuilder(fn func(bool) View) uintptr {
 	})
 }
 
-// Geometry builder callbacks: Go functions that return a View given dimensions.
-var (
-	geometryBuilderMu   sync.Mutex
-	geometryBuilderMap  = map[uintptr]func(float64, float64) View{}
-	geometryBuilderNext uintptr
-)
-
+// registerGeometryBuilder registers a Go function that returns a View given
+// GeometryProxy dimensions.
 func registerGeometryBuilder(fn func(float64, float64) View) uintptr {
-	geometryBuilderMu.Lock()
-	defer geometryBuilderMu.Unlock()
-	geometryBuilderNext++
-	geometryBuilderMap[geometryBuilderNext] = fn
-	return geometryBuilderNext
+	if fn == nil {
+		return 0
+	}
+	return geometryBuilders.register(fn)
 }
 
 // geometryBuilderTrampoline is called from Swift with the GeometryProxy dimensions.
 func geometryBuilderTrampoline(id uintptr, width, height float64) uintptr {
-	geometryBuilderMu.Lock()
-	fn := geometryBuilderMap[id]
-	geometryBuilderMu.Unlock()
-	if fn != nil {
+	if fn := geometryBuilders.lookup(id); fn != nil {
 		return fn(width, height).ptr
 	}
 	return _SUIEmptyView()
