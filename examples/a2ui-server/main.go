@@ -37,20 +37,20 @@ type settings struct {
 }
 
 type showcaseState struct {
-	Name      string   `json:"name"`
-	Count     string   `json:"count"`
-	Secret    string   `json:"secret"`
-	Notes     string   `json:"notes"`
-	Enabled   bool     `json:"enabled"`
-	Priority  string   `json:"priority"`
-	Tags      []string `json:"tags"`
-	Deadline  string   `json:"deadline"`
-	Intensity int      `json:"intensity"`
-	Status    string   `json:"status"`
-	ImageURL  string   `json:"imageURL"`
-	VideoURL  string   `json:"videoURL"`
-	AudioURL  string   `json:"audioURL"`
-	ContactEmail string `json:"contactEmail"`
+	Name         string   `json:"name"`
+	Count        string   `json:"count"`
+	Secret       string   `json:"secret"`
+	Notes        string   `json:"notes"`
+	Enabled      bool     `json:"enabled"`
+	Priority     string   `json:"priority"`
+	Tags         []string `json:"tags"`
+	Deadline     string   `json:"deadline"`
+	Intensity    int      `json:"intensity"`
+	Status       string   `json:"status"`
+	ImageURL     string   `json:"imageURL"`
+	VideoURL     string   `json:"videoURL"`
+	AudioURL     string   `json:"audioURL"`
+	ContactEmail string   `json:"contactEmail"`
 }
 
 type server struct {
@@ -79,19 +79,19 @@ func newServer(mode string) *server {
 			ShowCompleted: true,
 		},
 		showcase: showcaseState{
-			Name:      "A2UI Showcase",
-			Count:     "7",
-			Secret:    "swordfish",
-			Notes:     "This surface exercises the current macOS renderer coverage.",
-			Enabled:   true,
-			Priority:  "Medium",
-			Tags:      []string{"Renderer", "Variants"},
-			Deadline:  time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339),
-			Intensity: 64,
-			Status:    "Ready to render the full component catalog.",
-			ImageURL:  "https://picsum.photos/320/200",
-			VideoURL:  "file:///System/Library/Desktop%20Pictures/.wallpapers/Tahoe%20Day/Tahoe%20Day.mov",
-			AudioURL:  "file:///System/Library/Sounds/Glass.aiff",
+			Name:         "A2UI Showcase",
+			Count:        "7",
+			Secret:       "swordfish",
+			Notes:        "This surface exercises the current macOS renderer coverage.",
+			Enabled:      true,
+			Priority:     "Medium",
+			Tags:         []string{"Renderer", "Variants"},
+			Deadline:     time.Now().Add(48 * time.Hour).UTC().Format(time.RFC3339),
+			Intensity:    64,
+			Status:       "Ready to render the full component catalog.",
+			ImageURL:     "https://picsum.photos/320/200",
+			VideoURL:     "file:///System/Library/Desktop%20Pictures/.wallpapers/Tahoe%20Day/Tahoe%20Day.mov",
+			AudioURL:     "file:///System/Library/Sounds/Glass.aiff",
 			ContactEmail: "demo@example.com",
 		},
 		clients: make(map[chan a2ui.ServerMessage]struct{}),
@@ -485,6 +485,16 @@ func (s *server) buildShowcaseComponents() []a2ui.Component {
 		imageLiteralFit("image-medium", "https://picsum.photos/180/120", a2ui.ImageVariantMediumFeature, a2ui.ImageFitScaleDown),
 		imageLiteralFit("image-large", "https://picsum.photos/240/180", a2ui.ImageVariantLargeFeature, a2ui.ImageFitNone),
 		imageLiteralFit("image-header", "https://picsum.photos/320/120", a2ui.ImageVariantHeader, a2ui.ImageFitCover),
+		card("progress-card", "progress-card-content"),
+		column("progress-card-content", []string{"progress-card-title", "progress-card-bar", "progress-card-caption"}, 8, a2ui.LayoutAlignStart),
+		text("progress-card-title", "Progress", a2ui.TextVariantH5),
+		a2ui.ProgressBar("progress-card-bar", a2ui.NumberBinding("/showcase/intensity"), 100),
+		text("progress-card-caption", "Bound to the showcase intensity slider.", a2ui.TextVariantCaption),
+		card("spinner-card", "spinner-card-content"),
+		column("spinner-card-content", []string{"spinner-card-title", "spinner-view-media", "spinner-card-caption"}, 8, a2ui.LayoutAlignStart),
+		text("spinner-card-title", "Indeterminate Progress", a2ui.TextVariantH5),
+		a2ui.Spinner("spinner-view-media"),
+		text("spinner-card-caption", "Extension components should resolve as concrete runtime views, not placeholders.", a2ui.TextVariantCaption),
 		text("feedback-title", "Feedback and State", a2ui.TextVariantH3),
 		card("feedback-card", "feedback-card-content"),
 		column("feedback-card-content", []string{"progress-title", "progress-bar", "progress-caption", "spinner-title", "spinner-view"}, 8, a2ui.LayoutAlignStart),
@@ -550,27 +560,27 @@ func (s *server) buildDataModel() map[string]any {
 	if s.mode == "showcase" {
 		return map[string]any{
 			"showcase": map[string]any{
-				"name":      s.showcase.Name,
-				"count":     s.showcase.Count,
-				"secret":    s.showcase.Secret,
-				"notes":     s.showcase.Notes,
-				"enabled":   s.showcase.Enabled,
-				"priority":  s.showcase.Priority,
-				"tags":      s.showcase.Tags,
-				"deadline":  s.showcase.Deadline,
-				"intensity": s.showcase.Intensity,
-				"status":    s.showcase.Status,
-				"budget":    12345.67,
-				"itemCount": float64(3),
+				"name":         s.showcase.Name,
+				"count":        s.showcase.Count,
+				"secret":       s.showcase.Secret,
+				"notes":        s.showcase.Notes,
+				"enabled":      s.showcase.Enabled,
+				"priority":     s.showcase.Priority,
+				"tags":         s.showcase.Tags,
+				"deadline":     s.showcase.Deadline,
+				"intensity":    s.showcase.Intensity,
+				"status":       s.showcase.Status,
+				"budget":       12345.67,
+				"itemCount":    float64(3),
 				"contactEmail": s.showcase.ContactEmail,
 				"templateItems": []any{
 					map[string]any{"text": "Templated renderer coverage", "variant": string(a2ui.TextVariantCaption)},
 					map[string]any{"text": "Templated validation coverage", "variant": string(a2ui.TextVariantCaption), "padding": 6.0},
 					map[string]any{"text": "Templated client action coverage", "variant": string(a2ui.TextVariantCaption)},
 				},
-				"imageURL":  s.showcase.ImageURL,
-				"videoURL":  s.showcase.VideoURL,
-				"audioURL":  s.showcase.AudioURL,
+				"imageURL": s.showcase.ImageURL,
+				"videoURL": s.showcase.VideoURL,
+				"audioURL": s.showcase.AudioURL,
 			},
 		}
 	}

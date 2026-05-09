@@ -5,116 +5,136 @@ import (
 	"testing"
 )
 
-func TestEnvelopeRoundTrip(t *testing.T) {
+func TestServerMessageRoundTrip(t *testing.T) {
 	tests := []struct {
 		name string
-		msg  any
-		typ  string
+		msg  ServerMessage
 	}{
 		{
 			name: "create surface",
-			msg: CreateSurface{
-				SurfaceID: "s1",
-				Title:     "Hello",
-				InitialComponents: []Component{
-					{ID: "c1", Type: ComponentText, Properties: map[string]any{"text": "hi"}},
+			msg: ServerMessage{
+				Version: Version,
+				CreateSurface: &CreateSurface{
+					SurfaceID: "s1",
+					CatalogID: "demo",
+					Theme: &Theme{
+						PrimaryColor: "#007AFF",
+					},
 				},
-				InitialDataModel: map[string]any{"count": float64(0)},
 			},
-			typ: TypeCreateSurface,
 		},
 		{
 			name: "update components",
-			msg: UpdateComponents{
-				SurfaceID: "s1",
-				Components: []Component{
-					{ID: "c1", Type: ComponentButton, Children: []string{"c2"}},
+			msg: ServerMessage{
+				Version: Version,
+				UpdateComponents: &UpdateComponents{
+					SurfaceID: "s1",
+					Components: []Component{
+						{
+							ID: "title",
+							Text: &TextComponent{
+								Text:    StringLiteral("hello"),
+								Variant: TextVariantH3,
+							},
+						},
+						ProgressBar("progress", NumberBinding("/progress"), 100),
+					},
 				},
 			},
-			typ: TypeUpdateComponents,
 		},
 		{
 			name: "update data model",
-			msg: UpdateDataModel{
-				SurfaceID: "s1",
-				Operations: []DataModelOperation{
-					{Op: "set", Path: "/count", Value: float64(1)},
-					{Op: "remove", Path: "/old"},
+			msg: ServerMessage{
+				Version: Version,
+				UpdateDataModel: &UpdateDataModel{
+					SurfaceID: "s1",
+					Path:      "/count",
+					Value:     float64(1),
 				},
 			},
-			typ: TypeUpdateDataModel,
 		},
 		{
 			name: "delete surface",
-			msg:  DeleteSurface{SurfaceID: "s1"},
-			typ:  TypeDeleteSurface,
+			msg: ServerMessage{
+				Version: Version,
+				DeleteSurface: &DeleteSurface{
+					SurfaceID: "s1",
+				},
+			},
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env, err := NewEnvelope(tt.msg)
+			data, err := json.Marshal(tt.msg)
 			if err != nil {
-				t.Fatalf("NewEnvelope: %v", err)
-			}
-			if env.Type != tt.typ {
-				t.Errorf("type = %q, want %q", env.Type, tt.typ)
+				t.Fatalf("Marshal: %v", err)
 			}
 
-			// Marshal and unmarshal the envelope.
-			data, err := json.Marshal(env)
-			if err != nil {
-				t.Fatalf("marshal envelope: %v", err)
-			}
-			var env2 Envelope
-			if err := json.Unmarshal(data, &env2); err != nil {
-				t.Fatalf("unmarshal envelope: %v", err)
-			}
-			if env2.Type != tt.typ {
-				t.Errorf("round-trip type = %q, want %q", env2.Type, tt.typ)
+			var got ServerMessage
+			if err := json.Unmarshal(data, &got); err != nil {
+				t.Fatalf("Unmarshal: %v", err)
 			}
 
-			// Decode payload.
-			decoded, err := env2.DecodePayload()
+			gotJSON, err := json.Marshal(got)
 			if err != nil {
-				t.Fatalf("DecodePayload: %v", err)
+				t.Fatalf("Marshal round-trip: %v", err)
 			}
-
-			// Re-marshal decoded and original, compare JSON.
-			got, _ := json.Marshal(decoded)
-			want, _ := json.Marshal(tt.msg)
-			if string(got) != string(want) {
-				t.Errorf("payload mismatch:\ngot  %s\nwant %s", got, want)
+			if string(gotJSON) != string(data) {
+				t.Fatalf("round-trip mismatch:\ngot  %s\nwant %s", gotJSON, data)
 			}
 		})
 	}
 }
 
 func TestComponentRoundTrip(t *testing.T) {
-	c := Component{
-		ID:       "btn-1",
-		Type:     ComponentButton,
-		Children: []string{"icon-1", "label-1"},
-		Properties: map[string]any{
-			"label":   "Click me",
-			"enabled": true,
-			"count":   float64(42),
+	spacing := 8.0
+	strike := true
+	action := Action{
+		Event: &EventAction{
+			Name: "submit",
+			Context: map[string]DynamicValue{
+				"taskID": ValueNumber(42),
+			},
 		},
 	}
-	data, err := json.Marshal(c)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
+
+	want := Component{
+		ID: "input",
+		TextField: &TextFieldComponent{
+			Label:   StringLiteral("Task"),
+			Variant: TextFieldVariantShortText,
+		},
+		Action:        &action,
+		Spacing:       &spacing,
+		Strikethrough: &strike,
 	}
+	value := StringBinding("/task")
+	want.TextField.Value = &value
+
+	data, err := json.Marshal(want)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+
 	var got Component
 	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatalf("unmarshal: %v", err)
+		t.Fatalf("Unmarshal: %v", err)
 	}
-	if got.ID != c.ID || got.Type != c.Type {
-		t.Errorf("component mismatch: got %+v", got)
+
+	if got.ComponentType() != ComponentTextField {
+		t.Fatalf("ComponentType() = %q, want %q", got.ComponentType(), ComponentTextField)
 	}
-	if len(got.Children) != len(c.Children) {
-		t.Errorf("children len = %d, want %d", len(got.Children), len(c.Children))
+	if got.Action == nil || got.Action.Event == nil || got.Action.Event.Name != "submit" {
+		t.Fatalf("Action = %+v, want submit event", got.Action)
 	}
-	if got.Properties["label"] != "Click me" {
-		t.Errorf("properties[label] = %v, want %q", got.Properties["label"], "Click me")
+	if got.Spacing == nil || *got.Spacing != spacing {
+		t.Fatalf("Spacing = %v, want %v", got.Spacing, spacing)
+	}
+	if got.Strikethrough == nil || *got.Strikethrough != strike {
+		t.Fatalf("Strikethrough = %v, want %v", got.Strikethrough, strike)
+	}
+	if got.TextField == nil || got.TextField.Value == nil || got.TextField.Value.Binding == nil || got.TextField.Value.Binding.Path != "/task" {
+		t.Fatalf("TextField value = %+v, want /task binding", got.TextField)
 	}
 }

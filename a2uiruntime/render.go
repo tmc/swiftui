@@ -64,24 +64,21 @@ func renderResolvedComponent(rt *Runtime, comps map[string]a2ui.Component, dm *a
 		switch comp.TextField.Variant {
 		case a2ui.TextFieldVariantLongText:
 			if usesTextInputPolicy(policy) {
-				view = renderValidatedControl(label, swiftui.TextEditorPolicy(s, policy, onChange).
-					FrameAligned(0, 76, swiftui.HorizontalAlignmentLeading, swiftui.VerticalAlignmentCenter), validState)
+				view = renderValidatedControl(label, styleLongTextEditor(swiftui.TextEditorPolicy(s, policy, onChange)), validState)
 			} else {
-				view = renderLabeledControl(label, swiftui.TextEditorOnChange(s, onChange).
-					FrameAligned(0, 76, swiftui.HorizontalAlignmentLeading, swiftui.VerticalAlignmentCenter))
+				view = renderLabeledControl(label, styleLongTextEditor(swiftui.TextEditorOnChange(s, onChange)))
 			}
 		case a2ui.TextFieldVariantObscured:
 			if usesTextInputPolicy(policy) {
-				view = renderValidatedControl(label, swiftui.SecureFieldPolicy(label, s, policy, onChange, onSubmit), validState)
+				view = renderValidatedControl(label, styleSingleLineTextInput(swiftui.SecureFieldPolicy(label, s, policy, onChange, onSubmit)), validState)
 			} else {
-				view = renderLabeledControl(label, swiftui.SecureFieldCallbacks(label, s, onChange, onSubmit))
+				view = renderLabeledControl(label, styleSingleLineTextInput(swiftui.SecureFieldCallbacks(label, s, onChange, onSubmit)))
 			}
 		default:
 			if usesTextInputPolicy(policy) {
-				view = renderValidatedControl(label, swiftui.TextFieldPolicy(label, s, policy, onChange, onSubmit), validState)
+				view = renderValidatedControl(label, styleSingleLineTextInput(swiftui.TextFieldPolicy(label, s, policy, onChange, onSubmit)), validState)
 			} else {
-				view = renderLabeledControl(label, swiftui.TextFieldCallbacks(label, s, onChange, onSubmit).
-					TextFieldStyle(swiftui.TextFieldStyleRoundedBorder))
+				view = renderLabeledControl(label, styleSingleLineTextInput(swiftui.TextFieldCallbacks(label, s, onChange, onSubmit)))
 			}
 		}
 		setValidationState(validState, validateComponent(rt, dm, comp, binding, s.Get()))
@@ -488,6 +485,19 @@ func renderValidatedControl(label string, control swiftui.View, valid *swiftui.B
 			swiftui.Text("Invalid value").Font(swiftui.FontCaption).ForegroundStyleNamed("secondary"),
 		)
 	})
+}
+
+func styleSingleLineTextInput(control swiftui.View) swiftui.View {
+	return control.TextFieldStyle(swiftui.TextFieldStyleRoundedBorder)
+}
+
+func styleLongTextEditor(control swiftui.View) swiftui.View {
+	return control.
+		Padding(6).
+		FrameAligned(0, 76, swiftui.HorizontalAlignmentLeading, swiftui.VerticalAlignmentCenter).
+		ScrollContentBackgroundHidden().
+		BackgroundRoundedRect(0.14, 0.15, 0.18, 0.98, 10).
+		ClipRoundedRect(10)
 }
 
 func usesTextInputPolicy(policy swiftui.TextInputPolicy) bool {

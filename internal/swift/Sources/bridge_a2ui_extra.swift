@@ -1,6 +1,8 @@
 import AppKit
 import Foundation
+import PhotosUI
 import SwiftUI
+import UniformTypeIdentifiers
 
 @Observable
 final class BridgedStringListState: @unchecked Sendable {
@@ -14,6 +16,14 @@ final class BridgedStringListState: @unchecked Sendable {
 private struct SearchableChoiceOption: Codable, Hashable {
     let label: String
     let value: String
+}
+
+private struct BridgedPhotosPickerSelectionItem: Codable, Hashable {
+    let id: String
+    let filename: String
+    let utType: String
+    let mediaKind: String
+    let order: Int
 }
 
 private func suiStringList(from json: String) -> [String] {
@@ -38,6 +48,65 @@ private func suiChoiceOptions(from json: String) -> [SearchableChoiceOption] {
         return []
     }
     return value
+}
+
+private func suiChoiceOptions(packed ptr: UnsafePointer<UInt8>?, length: Int) -> [SearchableChoiceOption] {
+    suiDecodePackedChoiceOptions(ptr, length).map {
+        SearchableChoiceOption(label: $0.label, value: $0.value)
+    }
+}
+
+private func suiPhotosPickerFilename(item: PhotosPickerItem, fallbackID: String, utType: String) -> String {
+    if let identifier = item.itemIdentifier, !identifier.isEmpty {
+        let value = URL(fileURLWithPath: identifier).lastPathComponent
+        if !value.isEmpty {
+            return value
+        }
+        return identifier
+    }
+    if let ext = UTType(utType)?.preferredFilenameExtension, !ext.isEmpty {
+        return fallbackID + "." + ext
+    }
+    return fallbackID
+}
+
+private func suiPhotosPickerSelectionJSON(_ value: [PhotosPickerItem]) -> String {
+    let normalized = value.enumerated().map { index, item in
+        let utType = item.supportedContentTypes.first?.identifier ?? ""
+        let id = item.itemIdentifier ?? "photo-\(index)"
+        let mediaKind: String
+        if item.supportedContentTypes.first?.conforms(to: .image) == true {
+            mediaKind = "image"
+        } else if item.supportedContentTypes.first?.conforms(to: .movie) == true ||
+                    item.supportedContentTypes.first?.conforms(to: .audiovisualContent) == true {
+            mediaKind = "video"
+        } else {
+            mediaKind = ""
+        }
+        return BridgedPhotosPickerSelectionItem(
+            id: id,
+            filename: suiPhotosPickerFilename(item: item, fallbackID: id, utType: utType),
+            utType: utType,
+            mediaKind: mediaKind,
+            order: index
+        )
+    }
+    guard let data = try? JSONEncoder().encode(normalized),
+          let string = String(data: data, encoding: .utf8) else {
+        return "[]"
+    }
+    return string
+}
+
+private func suiPhotosPickerFilter(_ matching: Int32) -> PHPickerFilter? {
+    switch matching {
+    case 1:
+        return .images
+    case 2:
+        return .videos
+    default:
+        return nil
+    }
 }
 
 private func suiAlignment(_ horizontal: Int32, _ vertical: Int32) -> Alignment {
@@ -81,22 +150,63 @@ private func suiAlignment(_ horizontal: Int32, _ vertical: Int32) -> Alignment {
     }
 }
 
-private func suiRegexMatches(_ pattern: String, value: String) -> Bool {
-    if pattern.isEmpty {
-        return true
+@MainActor
+enum SUIRegexMatcher {
+    private enum Entry {
+        case invalid
+        case regex(NSRegularExpression)
     }
-    guard let regex = try? NSRegularExpression(pattern: pattern) else {
-        return true
+
+    private static var cache: [String: Entry] = [:]
+
+    static func matches(_ pattern: String, value: String) -> Bool {
+        if pattern.isEmpty {
+            return true
+        }
+        let entry: Entry
+        if let cached = cache[pattern] {
+            entry = cached
+        } else if let regex = try? NSRegularExpression(pattern: pattern) {
+            let compiled = Entry.regex(regex)
+            cache[pattern] = compiled
+            entry = compiled
+        } else {
+            cache[pattern] = .invalid
+            entry = .invalid
+        }
+        guard case let .regex(regex) = entry else {
+            return true
+        }
+        let range = NSRange(location: 0, length: value.utf16.count)
+        guard let match = regex.firstMatch(in: value, options: [], range: range) else {
+            return false
+        }
+        return NSEqualRanges(match.range, range)
     }
-    let range = NSRange(value.startIndex..<value.endIndex, in: value)
-    guard let match = regex.firstMatch(in: value, options: [], range: range) else {
-        return false
+
+    static func resetForTests() {
+        cache.removeAll()
     }
-    return match.range.location == 0 && match.range.length == range.length
+
+    static var cachedPatternCount: Int {
+        cache.count
+    }
 }
 
+@MainActor
+private func suiRegexMatches(_ pattern: String, value: String) -> Bool {
+    SUIRegexMatcher.matches(pattern, value: value)
+}
+
+@MainActor
 private func suiSetValidState(_ validState: BridgedBoolState?, value: String, pattern: String) {
-    validState?.value = suiRegexMatches(pattern, value: value)
+    guard let validState else {
+        return
+    }
+    let valid = suiRegexMatches(pattern, value: value)
+    if validState.value != valid {
+        validState.value = valid
+    }
 }
 
 @_cdecl("SUIStateCreateStringList")
@@ -115,6 +225,40 @@ public func SUIStateGetStringListJSON(_ ref: UnsafeMutableRawPointer) -> UnsafeM
 public func SUIStateSetStringListJSON(_ ref: UnsafeMutableRawPointer, _ jsonPtr: UnsafePointer<CChar>) {
     let state = Unmanaged<BridgedStringListState>.fromOpaque(ref).takeUnretainedValue()
     state.value = suiStringList(from: String(cString: jsonPtr))
+}
+
+// Packed-wire variants (P4). These replace the JSON entry points on the hot
+// path: Go encodes the slice into a length-prefixed buffer (see
+// wire_packed.go) and passes pointer+length rather than a NUL-terminated JSON
+// blob. JSON entry points above remain for debug and persistence.
+@_cdecl("SUIStateCreateStringListPacked")
+public func SUIStateCreateStringListPacked(
+    _ ptr: UnsafePointer<UInt8>?,
+    _ length: Int32
+) -> UnsafeMutableRawPointer {
+    let values = suiDecodePackedStringSlice(ptr, Int(length))
+    return Unmanaged.passRetained(BridgedStringListState(values)).toOpaque()
+}
+
+@_cdecl("SUIStateGetStringListPacked")
+public func SUIStateGetStringListPacked(
+    _ ref: UnsafeMutableRawPointer,
+    _ outLen: UnsafeMutablePointer<Int32>?
+) -> UnsafeMutablePointer<UInt8>? {
+    let state = Unmanaged<BridgedStringListState>.fromOpaque(ref).takeUnretainedValue()
+    let (buf, total) = suiEncodePackedStringSlice(state.value)
+    outLen?.pointee = Int32(total)
+    return buf
+}
+
+@_cdecl("SUIStateSetStringListPacked")
+public func SUIStateSetStringListPacked(
+    _ ref: UnsafeMutableRawPointer,
+    _ ptr: UnsafePointer<UInt8>?,
+    _ length: Int32
+) {
+    let state = Unmanaged<BridgedStringListState>.fromOpaque(ref).takeUnretainedValue()
+    state.value = suiDecodePackedStringSlice(ptr, Int(length))
 }
 
 @MainActor
@@ -138,6 +282,96 @@ private final class RemoteImageModel: ObservableObject {
             }
         }.resume()
     }
+}
+
+@MainActor
+private struct BridgedPhotosPickerView: View {
+    let label: String
+    let matching: Int32
+    let maxSelectionCount: Int32
+    let callbackID: UInt
+
+    @State private var selection: [PhotosPickerItem] = []
+
+    var body: some View {
+        PhotosPicker(
+            selection: $selection,
+            maxSelectionCount: maxSelectionCount > 0 ? Int(maxSelectionCount) : nil,
+            matching: suiPhotosPickerFilter(matching)
+        ) {
+            Label(label, systemImage: "photo.on.rectangle")
+        }
+        .onAppear {
+            pushSelection(selection)
+        }
+        .onChange(of: selection) { _, newValue in
+            pushSelection(newValue)
+        }
+    }
+
+    private func pushSelection(_ items: [PhotosPickerItem]) {
+        guard callbackID != 0 else {
+            return
+        }
+        let payload = suiPhotosPickerSelectionJSON(items)
+        payload.withCString { ptr in
+            _ = _SUIStringCallback?(callbackID, ptr)
+        }
+    }
+}
+
+@MainActor
+private struct BridgedOpenPanelButton: View {
+    let label: String
+    let callbackID: UInt
+
+    var body: some View {
+        Button(label) {
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = true
+            panel.canChooseDirectories = false
+            panel.allowsMultipleSelection = false
+            panel.title = label.isEmpty ? "Open File" : label
+            guard panel.runModal() == .OK, let url = panel.url else {
+                return
+            }
+            guard callbackID != 0 else {
+                return
+            }
+            url.path.withCString { ptr in
+                _ = _SUIStringCallback?(callbackID, ptr)
+            }
+        }
+    }
+}
+
+@_cdecl("SUIPhotosPicker")
+@MainActor
+public func SUIPhotosPicker(
+    _ labelPtr: UnsafePointer<CChar>,
+    _ matching: Int32,
+    _ maxSelectionCount: Int32,
+    _ callbackID: UInt
+) -> UnsafeMutableRawPointer {
+    let label = String(cString: labelPtr)
+    let view = AnyView(BridgedPhotosPickerView(
+        label: label,
+        matching: matching,
+        maxSelectionCount: maxSelectionCount,
+        callbackID: callbackID
+    ))
+    return retainView(view)
+}
+
+@_cdecl("SUIOpenPanel")
+@MainActor
+public func SUIOpenPanel(
+    _ labelPtr: UnsafePointer<CChar>,
+    _ callbackID: UInt
+) -> UnsafeMutableRawPointer {
+    let label = String(cString: labelPtr)
+    let view = AnyView(BridgedOpenPanelButton(label: label, callbackID: callbackID))
+    return retainView(view)
 }
 
 private struct ScaleDownImageView: View {
@@ -231,7 +465,7 @@ public func SUIDatePickerBounded(
     let state = Unmanaged<BridgedDateState>.fromOpaque(stateRef).takeUnretainedValue()
     let minDate = hasMin != 0 ? Date(timeIntervalSince1970: minValue) : nil
     let maxDate = hasMax != 0 ? Date(timeIntervalSince1970: maxValue) : nil
-    let view = AnyView(BridgedBoundedDatePicker(label: label, state: state, minDate: minDate, maxDate: maxDate, callbackID: callbackID))
+    let view = AnyView(BridgedBoundedDatePicker(label: label, state: state, minDate: minDate, maxDate: maxDate, mode: 2, callbackID: callbackID))
     return retainView(view)
 }
 
@@ -248,7 +482,7 @@ private struct BridgedBoundedDatePicker: View {
         let binding = Binding(
             get: { state.value },
             set: { newValue in
-                state.value = newValue
+                state.setAndBump(newValue)
                 _SUIButtonCallback?(callbackID)
             }
         )
@@ -278,7 +512,31 @@ private struct BridgedBoundedDatePicker: View {
     }
 
     @ViewBuilder
-    private func picker<R>(_ binding: Binding<Date>, in range: R) -> some View where R: RangeExpression, R.Bound == Date {
+    private func picker(_ binding: Binding<Date>, in range: ClosedRange<Date>) -> some View {
+        switch mode {
+        case 0:
+            DatePicker(label, selection: binding, in: range, displayedComponents: [.date])
+        case 1:
+            DatePicker(label, selection: binding, in: range, displayedComponents: [.hourAndMinute])
+        default:
+            DatePicker(label, selection: binding, in: range, displayedComponents: [.date, .hourAndMinute])
+        }
+    }
+
+    @ViewBuilder
+    private func picker(_ binding: Binding<Date>, in range: PartialRangeFrom<Date>) -> some View {
+        switch mode {
+        case 0:
+            DatePicker(label, selection: binding, in: range, displayedComponents: [.date])
+        case 1:
+            DatePicker(label, selection: binding, in: range, displayedComponents: [.hourAndMinute])
+        default:
+            DatePicker(label, selection: binding, in: range, displayedComponents: [.date, .hourAndMinute])
+        }
+    }
+
+    @ViewBuilder
+    private func picker(_ binding: Binding<Date>, in range: PartialRangeThrough<Date>) -> some View {
         switch mode {
         case 0:
             DatePicker(label, selection: binding, in: range, displayedComponents: [.date])
@@ -359,7 +617,7 @@ private struct BridgedPolicyTextField: View {
                     return
                 }
                 if state.value != newValue {
-                    state.value = newValue
+                    state.setAndBump(newValue)
                 }
                 suiSetValidState(validState, value: newValue, pattern: validationPattern)
                 if onChangeID != 0 {
@@ -376,7 +634,7 @@ private struct BridgedPolicyTextField: View {
             }
             .onSubmit {
                 if state.value != draft {
-                    state.value = draft
+                    state.setAndBump(draft)
                 }
                 suiSetValidState(validState, value: draft, pattern: validationPattern)
                 if onSubmitID != 0 {
@@ -435,7 +693,7 @@ private struct BridgedPolicySecureField: View {
                     return
                 }
                 if state.value != newValue {
-                    state.value = newValue
+                    state.setAndBump(newValue)
                 }
                 suiSetValidState(validState, value: newValue, pattern: validationPattern)
                 if onChangeID != 0 {
@@ -452,7 +710,7 @@ private struct BridgedPolicySecureField: View {
             }
             .onSubmit {
                 if state.value != draft {
-                    state.value = draft
+                    state.setAndBump(draft)
                 }
                 suiSetValidState(validState, value: draft, pattern: validationPattern)
                 if onSubmitID != 0 {
@@ -505,7 +763,7 @@ private struct BridgedPolicyTextEditor: View {
                     return
                 }
                 if state.value != newValue {
-                    state.value = newValue
+                    state.setAndBump(newValue)
                 }
                 suiSetValidState(validState, value: newValue, pattern: validationPattern)
                 if onChangeID != 0 {
@@ -849,6 +1107,14 @@ public func SUISearchablePicker(
     return retainView(view)
 }
 
+@_cdecl("SUIAccessibilityIdentifier")
+public func SUIAccessibilityIdentifier(_ viewRef: UnsafeMutableRawPointer, _ identifier: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = String(cString: identifier)
+    let view = AnyView(base.accessibilityIdentifier(id))
+    return retainDerivedView(from: viewRef, view)
+}
+
 @_cdecl("SUISearchableMultiPicker")
 @MainActor
 public func SUISearchableMultiPicker(
@@ -864,6 +1130,52 @@ public func SUISearchableMultiPicker(
             prompt: String(cString: promptPtr),
             selection: Unmanaged<BridgedStringListState>.fromOpaque(selectionRef).takeUnretainedValue(),
             options: suiChoiceOptions(from: String(cString: optionsPtr)),
+            callbackID: callbackID
+        )
+    )
+    return retainView(view)
+}
+
+// Packed-wire picker entry points (P4). Options are encoded as
+// [count: UInt32] [ [label_len: UInt32] [label] [value_len: UInt32] [value] ]*
+@_cdecl("SUISearchablePickerPacked")
+@MainActor
+public func SUISearchablePickerPacked(
+    _ labelPtr: UnsafePointer<CChar>,
+    _ promptPtr: UnsafePointer<CChar>,
+    _ selectionRef: UnsafeMutableRawPointer,
+    _ optionsPtr: UnsafePointer<UInt8>?,
+    _ optionsLen: Int32,
+    _ callbackID: UInt
+) -> UnsafeMutableRawPointer {
+    let view = AnyView(
+        BridgedSearchablePickerView(
+            label: String(cString: labelPtr),
+            prompt: String(cString: promptPtr),
+            selection: Unmanaged<BridgedStringState>.fromOpaque(selectionRef).takeUnretainedValue(),
+            options: suiChoiceOptions(packed: optionsPtr, length: Int(optionsLen)),
+            callbackID: callbackID
+        )
+    )
+    return retainView(view)
+}
+
+@_cdecl("SUISearchableMultiPickerPacked")
+@MainActor
+public func SUISearchableMultiPickerPacked(
+    _ labelPtr: UnsafePointer<CChar>,
+    _ promptPtr: UnsafePointer<CChar>,
+    _ selectionRef: UnsafeMutableRawPointer,
+    _ optionsPtr: UnsafePointer<UInt8>?,
+    _ optionsLen: Int32,
+    _ callbackID: UInt
+) -> UnsafeMutableRawPointer {
+    let view = AnyView(
+        BridgedSearchableMultiPickerView(
+            label: String(cString: labelPtr),
+            prompt: String(cString: promptPtr),
+            selection: Unmanaged<BridgedStringListState>.fromOpaque(selectionRef).takeUnretainedValue(),
+            options: suiChoiceOptions(packed: optionsPtr, length: Int(optionsLen)),
             callbackID: callbackID
         )
     )

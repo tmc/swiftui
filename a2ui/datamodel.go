@@ -37,7 +37,7 @@ func (dm *DataModel) Get(pointer string) (any, error) {
 
 // Set sets the value at the given JSON Pointer path, creating intermediate maps as needed.
 func (dm *DataModel) Set(pointer string, value any) error {
-	if pointer == "" {
+	if pointer == "" || pointer == "/" {
 		m, ok := value.(map[string]any)
 		if !ok {
 			return fmt.Errorf("set root: value must be map[string]any")

@@ -154,7 +154,7 @@ func main() {
 
 	swiftui.Run(swiftui.AppConfig{
 		Title:  "A2UI Renderer",
-		Width:  700,
-		Height: 600,
+		Width:  980,
+		Height: 820,
 	}, rootView)
 }
