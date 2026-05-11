@@ -63,12 +63,12 @@ jobs:
 
             echo "building $product ($dylib) in $swift_dir"
             rm -rf "$arm_scratch" "$x86_scratch"
-            swift build -c release --quiet --product "$product" --triple arm64-apple-macosx --scratch-path "$arm_scratch" --package-path "$swift_dir"
-            swift build -c release --quiet --product "$product" --triple x86_64-apple-macosx --scratch-path "$x86_scratch" --package-path "$swift_dir"
+            swift build -c release --quiet --product "$product" --triple arm64-apple-macosx15.0 --scratch-path "$arm_scratch" --package-path "$swift_dir"
+            swift build -c release --quiet --product "$product" --triple x86_64-apple-macosx15.0 --scratch-path "$x86_scratch" --package-path "$swift_dir"
             mkdir -p "$out_dir"
             lipo -create -output "$out_dylib" \
-              "$arm_scratch/arm64-apple-macosx/release/$dylib" \
-              "$x86_scratch/x86_64-apple-macosx/release/$dylib"
+              "$arm_scratch/arm64-apple-macosx15.0/release/$dylib" \
+              "$x86_scratch/x86_64-apple-macosx15.0/release/$dylib"
             lipo -info "$out_dylib"
           done
 
