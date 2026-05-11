@@ -69,7 +69,13 @@ jobs:
             lipo -create -output "$out_dylib" \
               "$arm_scratch/arm64-apple-macosx/release/$dylib" \
               "$x86_scratch/x86_64-apple-macosx/release/$dylib"
+            sdk_version=$(xcrun --show-sdk-version --sdk macosx)
+            fixed_dylib="$out_dylib.fixed"
+            vtool -set-build-version macos 15.0 "$sdk_version" -replace -output "$fixed_dylib" "$out_dylib"
+            mv "$fixed_dylib" "$out_dylib"
+            codesign --force --sign - "$out_dylib"
             lipo -info "$out_dylib"
+            vtool -show-build "$out_dylib"
           done
 
       - name: Collect artifacts
