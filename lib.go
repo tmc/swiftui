@@ -382,9 +382,10 @@ func init() {
 	//  1. explicit env override
 	//  2. embedded payload cache
 	//  3. existing build outputs
-	//  4. local rebuild into secure scratch cache
+	//  4. local rebuild into secure scratch cache when explicitly enabled
 	//  5. compatibility fallback paths
 	var lastErr error
+	var embeddedErr error
 
 	if path := os.Getenv("LIBSWIFTUI_BRIDGE_PATH"); path != "" {
 		var err error
@@ -399,6 +400,7 @@ func init() {
 		if handle, err := loadEmbeddedBridge(); err == nil {
 			libHandle = handle
 		} else {
+			embeddedErr = err
 			lastErr = err
 		}
 	}
@@ -414,8 +416,9 @@ func init() {
 		}
 	}
 
-	// Auto-build from vendored Swift source if needed.
-	if libHandle == 0 {
+	// Auto-build from vendored Swift source only when requested. Published
+	// modules are expected to run from embedded dylibs on consumer machines.
+	if libHandle == 0 && os.Getenv("SWIFTUI_ENABLE_SWIFT_BUILD") == "1" {
 		if path, err := buildSwiftBridge(); err == nil {
 			libHandle, err = purego.Dlopen(path, purego.RTLD_LAZY|purego.RTLD_GLOBAL)
 			if err != nil {
@@ -442,7 +445,9 @@ func init() {
 	}
 
 	if libHandle == 0 {
-		if _, err := exec.LookPath("swift"); err != nil {
+		if embeddedErr != nil {
+			loadErr = fmt.Errorf("swiftui: failed to load embedded bridge dylib: %w", embeddedErr)
+		} else if _, err := exec.LookPath("swift"); err != nil {
 			loadErr = fmt.Errorf("swiftui: swift toolchain not found; install Xcode or Command Line Tools")
 		} else if lastErr != nil {
 			loadErr = fmt.Errorf("swiftui: failed to load bridge dylib: %w", lastErr)

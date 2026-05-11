@@ -328,13 +328,20 @@ public func SUIGauge(_ value: Double, _ labelPtr: UnsafePointer<CChar>) -> Unsaf
 @_cdecl("SUIWebPageCreate")
 @MainActor
 public func SUIWebPageCreate() -> UnsafeMutableRawPointer {
-    let page = WebPage()
-    return Unmanaged.passRetained(page).toOpaque()
+    if #available(macOS 26.0, *) {
+        let page = WebPage()
+        return Unmanaged.passRetained(page).toOpaque()
+    }
+    let view = AnyView(EmptyView())
+    return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
 @_cdecl("SUIWebPageLoadURL")
 @MainActor
 public func SUIWebPageLoadURL(_ pageRef: UnsafeMutableRawPointer, _ urlPtr: UnsafePointer<CChar>) {
+    guard #available(macOS 26.0, *) else {
+        return
+    }
     let page = Unmanaged<WebPage>.fromOpaque(pageRef).takeUnretainedValue()
     let urlString = String(cString: urlPtr)
     guard let url = URL(string: urlString) else {
@@ -346,6 +353,9 @@ public func SUIWebPageLoadURL(_ pageRef: UnsafeMutableRawPointer, _ urlPtr: Unsa
 @_cdecl("SUIWebPageReload")
 @MainActor
 public func SUIWebPageReload(_ pageRef: UnsafeMutableRawPointer) {
+    guard #available(macOS 26.0, *) else {
+        return
+    }
     let page = Unmanaged<WebPage>.fromOpaque(pageRef).takeUnretainedValue()
     page.reload()
 }
@@ -353,8 +363,13 @@ public func SUIWebPageReload(_ pageRef: UnsafeMutableRawPointer) {
 @_cdecl("SUIWebViewPage")
 @MainActor
 public func SUIWebViewPage(_ pageRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
-    let page = Unmanaged<WebPage>.fromOpaque(pageRef).takeUnretainedValue()
-    let view = AnyView(WebView(page))
+    let view: AnyView
+    if #available(macOS 26.0, *) {
+        let page = Unmanaged<WebPage>.fromOpaque(pageRef).takeUnretainedValue()
+        view = AnyView(WebView(page))
+    } else {
+        view = AnyView(EmptyView())
+    }
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 

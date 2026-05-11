@@ -750,13 +750,18 @@ public func SUIViewListRowBackground(_ viewRef: UnsafeMutableRawPointer, _ bgRef
 @MainActor
 public func SUIViewWebViewBackForwardNavigationGestures(_ viewRef: UnsafeMutableRawPointer, _ behavior: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let mode: WebView.BackForwardNavigationGesturesBehavior
-    switch behavior {
-    case 1: mode = .enabled
-    case 2: mode = .disabled
-    default: mode = .automatic
+    let view: AnyView
+    if #available(macOS 26.0, *) {
+        let mode: WebView.BackForwardNavigationGesturesBehavior
+        switch behavior {
+        case 1: mode = .enabled
+        case 2: mode = .disabled
+        default: mode = .automatic
+        }
+        view = AnyView(base.webViewBackForwardNavigationGestures(mode))
+    } else {
+        view = base
     }
-    let view = AnyView(base.webViewBackForwardNavigationGestures(mode))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -764,13 +769,18 @@ public func SUIViewWebViewBackForwardNavigationGestures(_ viewRef: UnsafeMutable
 @MainActor
 public func SUIViewWebViewContentBackground(_ viewRef: UnsafeMutableRawPointer, _ visibility: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let mode: Visibility
-    switch visibility {
-    case 1: mode = .visible
-    case 2: mode = .hidden
-    default: mode = .automatic
+    let view: AnyView
+    if #available(macOS 26.0, *) {
+        let mode: Visibility
+        switch visibility {
+        case 1: mode = .visible
+        case 2: mode = .hidden
+        default: mode = .automatic
+        }
+        view = AnyView(base.webViewContentBackground(mode))
+    } else {
+        view = base
     }
-    let view = AnyView(base.webViewContentBackground(mode))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -778,13 +788,18 @@ public func SUIViewWebViewContentBackground(_ viewRef: UnsafeMutableRawPointer, 
 @MainActor
 public func SUIViewWebViewElementFullscreenBehavior(_ viewRef: UnsafeMutableRawPointer, _ behavior: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let mode: WebView.ElementFullscreenBehavior
-    switch behavior {
-    case 1: mode = .enabled
-    case 2: mode = .disabled
-    default: mode = .automatic
+    let view: AnyView
+    if #available(macOS 26.0, *) {
+        let mode: WebView.ElementFullscreenBehavior
+        switch behavior {
+        case 1: mode = .enabled
+        case 2: mode = .disabled
+        default: mode = .automatic
+        }
+        view = AnyView(base.webViewElementFullscreenBehavior(mode))
+    } else {
+        view = base
     }
-    let view = AnyView(base.webViewElementFullscreenBehavior(mode))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -792,13 +807,18 @@ public func SUIViewWebViewElementFullscreenBehavior(_ viewRef: UnsafeMutableRawP
 @MainActor
 public func SUIViewWebViewLinkPreviews(_ viewRef: UnsafeMutableRawPointer, _ behavior: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let mode: WebView.LinkPreviewBehavior
-    switch behavior {
-    case 1: mode = .enabled
-    case 2: mode = .disabled
-    default: mode = .automatic
+    let view: AnyView
+    if #available(macOS 26.0, *) {
+        let mode: WebView.LinkPreviewBehavior
+        switch behavior {
+        case 1: mode = .enabled
+        case 2: mode = .disabled
+        default: mode = .automatic
+        }
+        view = AnyView(base.webViewLinkPreviews(mode))
+    } else {
+        view = base
     }
-    let view = AnyView(base.webViewLinkPreviews(mode))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -806,13 +826,18 @@ public func SUIViewWebViewLinkPreviews(_ viewRef: UnsafeMutableRawPointer, _ beh
 @MainActor
 public func SUIViewWebViewMagnificationGestures(_ viewRef: UnsafeMutableRawPointer, _ behavior: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let mode: WebView.MagnificationGesturesBehavior
-    switch behavior {
-    case 1: mode = .enabled
-    case 2: mode = .disabled
-    default: mode = .automatic
+    let view: AnyView
+    if #available(macOS 26.0, *) {
+        let mode: WebView.MagnificationGesturesBehavior
+        switch behavior {
+        case 1: mode = .enabled
+        case 2: mode = .disabled
+        default: mode = .automatic
+        }
+        view = AnyView(base.webViewMagnificationGestures(mode))
+    } else {
+        view = base
     }
-    let view = AnyView(base.webViewMagnificationGestures(mode))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -820,8 +845,13 @@ public func SUIViewWebViewMagnificationGestures(_ viewRef: UnsafeMutableRawPoint
 @MainActor
 public func SUIViewWebViewTextSelection(_ viewRef: UnsafeMutableRawPointer, _ enabled: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let mode: TextSelectability = enabled != 0 ? .enabled : .disabled
-    let view = AnyView(base.webViewTextSelection(mode))
+    let view: AnyView
+    if #available(macOS 26.0, *) {
+        let mode: TextSelectability = enabled != 0 ? .enabled : .disabled
+        view = AnyView(base.webViewTextSelection(mode))
+    } else {
+        view = base
+    }
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
