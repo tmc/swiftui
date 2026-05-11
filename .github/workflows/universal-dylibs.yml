@@ -138,7 +138,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
-          git add '**/internal/embeddedbridge/*.dylib' '**/internal/embeddedbridge/payload.go'
+          git add 'internal/embeddedbridge/*.dylib' 'internal/embeddedbridge/payload.go' '**/internal/embeddedbridge/*.dylib' '**/internal/embeddedbridge/payload.go'
           if git diff --cached --quiet; then
             echo "no dylib changes to commit"
           else
