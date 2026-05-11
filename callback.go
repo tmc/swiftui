@@ -3,6 +3,7 @@
 package swiftui
 
 import (
+	"runtime"
 	"sync"
 
 	"github.com/ebitengine/purego"
@@ -68,6 +69,13 @@ func registerViewBuilder(fn func(int) View) uintptr {
 	return viewBuilderNext
 }
 
+func transferView(v View) uintptr {
+	if v.retained != nil {
+		runtime.SetFinalizer(v.retained, nil)
+	}
+	return v.ptr
+}
+
 // viewBuilderCallbackTrampoline is called from Swift to rebuild a dynamic view.
 // It returns a View pointer (uintptr) that Swift takes ownership of.
 func viewBuilderCallbackTrampoline(id uintptr, value int) uintptr {
@@ -75,7 +83,7 @@ func viewBuilderCallbackTrampoline(id uintptr, value int) uintptr {
 	fn := viewBuilderMap[id]
 	viewBuilderMu.Unlock()
 	if fn != nil {
-		return fn(int(value)).ptr
+		return transferView(fn(int(value)))
 	}
 	return _SUIEmptyView()
 }
@@ -102,7 +110,7 @@ func viewBuilderCallbackTrampolineFloat(id uintptr, value float64) uintptr {
 	fn := floatViewBuilderMap[id]
 	floatViewBuilderMu.Unlock()
 	if fn != nil {
-		return fn(value).ptr
+		return transferView(fn(value))
 	}
 	return _SUIEmptyView()
 }
@@ -136,7 +144,7 @@ func geometryBuilderTrampoline(id uintptr, width, height float64) uintptr {
 	fn := geometryBuilderMap[id]
 	geometryBuilderMu.Unlock()
 	if fn != nil {
-		return fn(width, height).ptr
+		return transferView(fn(width, height))
 	}
 	return _SUIEmptyView()
 }

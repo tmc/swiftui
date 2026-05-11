@@ -10,7 +10,15 @@ final class Box<T>: @unchecked Sendable {
 
 @_cdecl("SUIRelease")
 public func SUIRelease(_ ref: UnsafeMutableRawPointer) {
-    Unmanaged<AnyObject>.fromOpaque(ref).release()
+    if Thread.isMainThread {
+        Unmanaged<AnyObject>.fromOpaque(ref).release()
+        return
+    }
+    let raw = UInt(bitPattern: ref)
+    DispatchQueue.main.async {
+        let ptr = UnsafeMutableRawPointer(bitPattern: raw)!
+        Unmanaged<AnyObject>.fromOpaque(ptr).release()
+    }
 }
 
 @_cdecl("SUIFreeString")
