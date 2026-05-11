@@ -34,9 +34,6 @@ jobs:
           pkgs=()
           while IFS= read -r file; do
             pkg=$(dirname "$file")
-            if [ "$pkg" = "./workoutkit" ]; then
-              continue
-            fi
             pkgs+=("$pkg")
           done < <(find . -mindepth 1 -maxdepth 2 -name generate.go -print | sort)
           for pkg in "${pkgs[@]}"; do
