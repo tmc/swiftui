@@ -67,8 +67,8 @@ jobs:
             swift build -c release --quiet --product "$product" --triple x86_64-apple-macosx15.0 --scratch-path "$x86_scratch" --package-path "$swift_dir"
             mkdir -p "$out_dir"
             lipo -create -output "$out_dylib" \
-              "$arm_scratch/arm64-apple-macosx15.0/release/$dylib" \
-              "$x86_scratch/x86_64-apple-macosx15.0/release/$dylib"
+              "$arm_scratch/arm64-apple-macosx/release/$dylib" \
+              "$x86_scratch/x86_64-apple-macosx/release/$dylib"
             lipo -info "$out_dylib"
           done
 
