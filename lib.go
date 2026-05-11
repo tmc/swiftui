@@ -109,7 +109,6 @@ func releaseRetainedCore(ptr uintptr, callbackIDs []uintptr) uintptr {
 	return 0
 }
 
-
 // swiftBridgeDir returns the path to the vendored Swift bridge source directory.
 func swiftBridgeDir() string {
 	_, file, _, _ := runtime.Caller(0)
@@ -323,6 +322,7 @@ var (
 	_SUIFloatProgressView                   func(uintptr, float64) uintptr
 	_SUINamespaceCreate                     func() uintptr
 	_SUIGlassEffectContainer                func(uintptr, float64) uintptr
+	_SUIKeyboardCapture                     func(uintptr) uintptr
 
 	// Modifiers.
 	_SUIViewPadding                              func(uintptr, float64) uintptr
@@ -683,6 +683,7 @@ func init() {
 	tryRegisterLibFunc(&_SUIFloatProgressView, libHandle, "SUIFloatProgressView")
 	tryRegisterLibFunc(&_SUINamespaceCreate, libHandle, "SUINamespaceCreate")
 	tryRegisterLibFunc(&_SUIGlassEffectContainer, libHandle, "SUIGlassEffectContainer")
+	tryRegisterLibFunc(&_SUIKeyboardCapture, libHandle, "SUIKeyboardCapture")
 
 	// Modifiers.
 	tryRegisterLibFunc(&_SUIViewPadding, libHandle, "SUIViewPadding")
@@ -1700,6 +1701,9 @@ func setUnavailableStubs() {
 	}
 	if _SUIGlassEffectContainer == nil {
 		_SUIGlassEffectContainer = func(uintptr, float64) uintptr { stub("SUIGlassEffectContainer"); return 0 }
+	}
+	if _SUIKeyboardCapture == nil {
+		_SUIKeyboardCapture = func(uintptr) uintptr { stub("SUIKeyboardCapture"); return 0 }
 	}
 	if _SUIViewFocusSection == nil {
 		_SUIViewFocusSection = func(uintptr) uintptr { stub("SUIViewFocusSection"); return 0 }
