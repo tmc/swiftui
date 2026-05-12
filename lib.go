@@ -52,9 +52,6 @@ func (r *retained) release() {
 		return
 	}
 	r.once.Do(func() {
-		for _, id := range r.callbackIDs {
-			unregisterCallback(id)
-		}
 		r.callbackIDs = nil
 		if r.ptr == 0 || libHandle == 0 || _SUIRelease == nil {
 			return

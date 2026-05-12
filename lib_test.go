@@ -27,7 +27,7 @@ func TestRetainedReleaseIsIdempotent(t *testing.T) {
 	callbackMu.Lock()
 	_, ok := callbackMap[id]
 	callbackMu.Unlock()
-	if ok {
-		t.Fatalf("callback %d still registered after release", id)
+	if !ok {
+		t.Fatalf("callback %d unregistered while Swift may still reference it", id)
 	}
 }
