@@ -271,3 +271,837 @@ public func SUIPlaySystemSound(_ name: UnsafePointer<CChar>) {
         NSSound(named: NSSound.Name(soundName))?.play()
     }
 }
+
+nonisolated(unsafe) var _sceneRunnerDelegate: SUISceneRunnerDelegate?
+nonisolated(unsafe) var _sceneWindows: [String: NSWindow] = [:]
+nonisolated(unsafe) var _sceneWindowSpecs: [String: SUIScenePlanScene] = [:]
+nonisolated(unsafe) var _sceneWindowViews: [String: AnyView] = [:]
+nonisolated(unsafe) var _sceneSettingsID: String?
+nonisolated(unsafe) var _sceneFocusedWindowID: String?
+
+struct SUIScenePlanPayload: Decodable {
+    let scenes: [SUIScenePlanScene]
+    let commands: [SUICommandGroup]?
+    let lifecycle: SUILifecycleCallbacks?
+}
+
+struct SUICommandGroup: Decodable {
+    let title: String
+    let items: [SUICommandItem]
+}
+
+struct SUICommandItem: Decodable {
+    let kind: String?
+    let title: String?
+    let shortcutKey: String?
+    let shortcutModifiers: UInt64?
+    let systemAction: String?
+    let actionCallbackID: UInt64?
+    let enabledCallbackID: UInt64?
+    let children: [SUICommandItem]?
+}
+
+struct SUILifecycleCallbacks: Decodable {
+    let didFinishLaunchingCallbackID: UInt64?
+    let didBecomeActiveCallbackID: UInt64?
+    let didResignActiveCallbackID: UInt64?
+    let shouldTerminateCallbackID: UInt64?
+    let willTerminateCallbackID: UInt64?
+}
+
+struct SUIScenePlanScene: Decodable {
+    let kind: String
+    let id: String?
+    let title: String?
+    let width: Double?
+    let height: Double?
+    let label: String?
+    let systemImage: String?
+    let openOnLaunch: Bool?
+    let multipleInstances: Bool?
+    let restoreVisibility: Bool?
+    let actionCallbackID: UInt64?
+    let viewIndex: Int
+}
+
+class SUISceneRunnerDelegate: NSObject, NSApplicationDelegate {
+    var terminateAfterLastWindowClosedValue = true
+    var didFinishLaunchingCallbackID: UInt64 = 0
+    var didBecomeActiveCallbackID: UInt64 = 0
+    var didResignActiveCallbackID: UInt64 = 0
+    var shouldTerminateCallbackID: UInt64 = 0
+    var willTerminateCallbackID: UInt64 = 0
+
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return terminateAfterLastWindowClosedValue
+    }
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        guard didFinishLaunchingCallbackID != 0 else { return }
+        _SUIButtonCallback?(UInt(didFinishLaunchingCallbackID))
+    }
+
+    func applicationDidBecomeActive(_ notification: Notification) {
+        if didBecomeActiveCallbackID != 0 {
+            _SUIButtonCallback?(UInt(didBecomeActiveCallbackID))
+        }
+        SUIInvalidateCommandMenus()
+    }
+
+    func applicationWillResignActive(_ notification: Notification) {
+        if didResignActiveCallbackID != 0 {
+            _SUIButtonCallback?(UInt(didResignActiveCallbackID))
+        }
+        SUIInvalidateCommandMenus()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        guard willTerminateCallbackID != 0 else { return }
+        _SUIButtonCallback?(UInt(willTerminateCallbackID))
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard shouldTerminateCallbackID != 0, let fn = _SUICommandCallback else {
+            return .terminateNow
+        }
+        let result = fn(UInt(shouldTerminateCallbackID))
+        return result != 0 ? .terminateNow : .terminateCancel
+    }
+
+    @MainActor @objc func togglePopover(_ sender: AnyObject?) {
+        guard let popover = _popover, let button = _statusItem?.button else { return }
+        if popover.isShown {
+            popover.performClose(sender)
+        } else {
+            // Activate the app before showing so the popover's window can
+            // become key; otherwise (accessory activation policy + transient
+            // popover) the window never becomes key and SwiftUI swallows the
+            // Button mouse-up, so taps render but never fire into Go.
+            NSApp.activate(ignoringOtherApps: true)
+            // .minY anchors the popover below the status-bar button, which is
+            // correct for the top menu bar.
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
+        }
+    }
+
+    @MainActor func openPopoverOnLaunch() {
+        guard let popover = _popover, let button = _statusItem?.button else { return }
+        if !popover.isShown {
+            NSApp.activate(ignoringOtherApps: true)
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
+        }
+    }
+
+    @MainActor @objc func openSettings(_ sender: AnyObject?) {
+        guard let sceneID = _sceneSettingsID else { return }
+        _ = SUIRevealSceneWindow(sceneID)
+    }
+}
+
+final class SUISceneWindowDelegate: NSObject, NSWindowDelegate {
+    let sceneID: String
+
+    init(sceneID: String) {
+        self.sceneID = sceneID
+    }
+
+    func windowDidMove(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        window.saveFrame(usingName: sceneID)
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        window.saveFrame(usingName: sceneID)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let window = notification.object as? NSWindow else { return }
+        window.saveFrame(usingName: sceneID)
+        if _sceneFocusedWindowID == sceneID {
+            _sceneFocusedWindowID = nil
+        }
+        if let scene = _sceneWindowSpecs[sceneID] {
+            if suiSceneShouldRestoreVisibility(scene) {
+                UserDefaults.standard.set(false, forKey: suiSceneVisibleKey(sceneID))
+            } else {
+                UserDefaults.standard.removeObject(forKey: suiSceneVisibleKey(sceneID))
+            }
+            SUIInvokeSceneActionCallback(scene.actionCallbackID, "unavailable")
+            SUIInvalidateCommandMenus()
+        }
+    }
+
+    func windowDidBecomeKey(_ notification: Notification) {
+        _sceneFocusedWindowID = sceneID
+        guard let scene = _sceneWindowSpecs[sceneID] else { return }
+        SUIInvokeSceneActionCallback(scene.actionCallbackID, "focused")
+        SUIInvalidateCommandMenus()
+    }
+
+    func windowDidResignKey(_ notification: Notification) {
+        if _sceneFocusedWindowID == sceneID {
+            _sceneFocusedWindowID = nil
+        }
+        guard let scene = _sceneWindowSpecs[sceneID] else { return }
+        SUIInvokeSceneActionCallback(scene.actionCallbackID, "blurred")
+        SUIInvalidateCommandMenus()
+    }
+}
+
+nonisolated(unsafe) var _sceneWindowDelegates: [String: SUISceneWindowDelegate] = [:]
+
+@MainActor
+private func SUIInvokeSceneActionCallback(_ callbackID: UInt64?, _ event: String) {
+    guard let callbackID, callbackID != 0, let fn = _SUIStringCallback else { return }
+    event.withCString { cstr in
+        _ = fn(UInt(callbackID), cstr)
+    }
+}
+
+struct SUISceneActionBridgeView: View {
+    let callbackID: UInt64?
+    let content: AnyView
+
+    var body: some View {
+        content
+            .onAppear {
+                SUIInvokeSceneActionCallback(callbackID, "available:window,document,refresh,immersive")
+            }
+            .onDisappear {
+                SUIInvokeSceneActionCallback(callbackID, "unavailable")
+            }
+    }
+}
+
+// The current scene runner is intentionally AppKit-owned. This bridge view only
+// signals scene availability into Go so borrowed SceneActions can bind and
+// unbind with window lifecycle. It does not claim full SwiftUI App/Scene
+// environment parity. The current callback payload advertises only the
+// runner-backed capabilities that are actually available today:
+// window, document, refresh, and bounded immersive preview.
+
+@MainActor
+private func suiSceneShouldRestoreVisibility(_ scene: SUIScenePlanScene) -> Bool {
+    if let restoreVisibility = scene.restoreVisibility {
+        return restoreVisibility
+    }
+    return scene.kind != "settings"
+}
+
+@MainActor
+private func suiSceneVisibleKey(_ id: String) -> String {
+    "swiftui.scene.visible." + id
+}
+
+@MainActor
+private func suiSceneShouldOpenOnLaunch(_ scene: SUIScenePlanScene) -> Bool {
+    let defaultOpenOnLaunch = scene.kind == "settings" ? false : true
+    if scene.openOnLaunch ?? defaultOpenOnLaunch {
+        return true
+    }
+    if !suiSceneShouldRestoreVisibility(scene) {
+        return scene.openOnLaunch ?? defaultOpenOnLaunch
+    }
+    guard let id = scene.id else { return scene.openOnLaunch ?? defaultOpenOnLaunch }
+    if UserDefaults.standard.object(forKey: suiSceneVisibleKey(id)) != nil {
+        return UserDefaults.standard.bool(forKey: suiSceneVisibleKey(id))
+    }
+    return scene.openOnLaunch ?? defaultOpenOnLaunch
+}
+
+@MainActor
+private func SUIInstallAppMenu(_ delegate: SUISceneRunnerDelegate, includeSettings: Bool, includeWindowMenu: Bool) {
+    SUIInstallDefaultMenus(
+        includeSettings: includeSettings,
+        settingsTarget: delegate,
+        settingsAction: #selector(SUISceneRunnerDelegate.openSettings(_:)),
+        includeWindowMenu: includeWindowMenu
+    )
+}
+
+// Compatibility wrapper for menu-bar-only surfaces that only need the app menu.
+@MainActor
+private func SUIInstallQuitMenu() {
+    SUIInstallDefaultMenus(
+        includeSettings: false,
+        settingsTarget: nil,
+        settingsAction: nil,
+        includeWindowMenu: false
+    )
+}
+
+// MARK: - Command coordinator
+
+nonisolated(unsafe) var _commandCoordinator: SUICommandCoordinator?
+
+class SUICommandCoordinator: NSObject, NSMenuDelegate {
+    private var actionCallbacks: [Int: UInt64] = [:]
+    private var enabledCallbacks: [Int: UInt64] = [:]
+
+    func registerActionItem(_ item: NSMenuItem, actionCallbackID: UInt64, enabledCallbackID: UInt64) {
+        let tag = Int(actionCallbackID)
+        item.tag = tag
+        item.target = self
+        item.action = #selector(handleAction(_:))
+        actionCallbacks[tag] = actionCallbackID
+        registerEnabledItem(item, enabledCallbackID: enabledCallbackID)
+    }
+
+    func registerEnabledItem(_ item: NSMenuItem, enabledCallbackID: UInt64) {
+        guard enabledCallbackID != 0 else { return }
+        if item.tag == 0 {
+            item.tag = Int(enabledCallbackID)
+        }
+        enabledCallbacks[item.tag] = enabledCallbackID
+    }
+
+    @objc func handleAction(_ sender: NSMenuItem) {
+        guard let cbID = actionCallbacks[sender.tag], cbID != 0 else { return }
+        _ = _SUICommandCallback?(UInt(cbID))
+    }
+
+    @objc func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        guard let cbID = enabledCallbacks[item.tag], cbID != 0, let fn = _SUICommandCallback else {
+            return true
+        }
+        return fn(UInt(cbID)) != 0
+    }
+
+    func menuNeedsUpdate(_ menu: NSMenu) {
+        for item in menu.items {
+            if let cbID = enabledCallbacks[item.tag], cbID != 0, let fn = _SUICommandCallback {
+                item.isEnabled = fn(UInt(cbID)) != 0
+            }
+        }
+    }
+
+    @MainActor @objc func closeKeyWindow(_ sender: AnyObject?) {
+        suiCurrentCommandWindow()?.performClose(sender)
+    }
+
+    @MainActor @objc func minimizeKeyWindow(_ sender: AnyObject?) {
+        suiCurrentCommandWindow()?.performMiniaturize(sender)
+    }
+
+    @MainActor @objc func zoomKeyWindow(_ sender: AnyObject?) {
+        suiCurrentCommandWindow()?.performZoom(sender)
+    }
+
+    @MainActor @objc func bringAllToFront(_ sender: AnyObject?) {
+        NSApp.arrangeInFront(sender)
+    }
+}
+
+@MainActor
+private func suiCurrentCommandWindow() -> NSWindow? {
+    if let sceneID = _sceneFocusedWindowID, let focused = _sceneWindows[sceneID] {
+        return focused
+    }
+    if let key = NSApp.keyWindow {
+        return key
+    }
+    if let main = NSApp.mainWindow {
+        return main
+    }
+    if let visible = _sceneWindows.values.first(where: { $0.isVisible }) {
+        return visible
+    }
+    return NSApp.windows.first(where: { $0.isVisible })
+}
+
+@MainActor
+private func suiTopLevelMenu(title: String, submenu: NSMenu) -> NSMenuItem {
+    let item = NSMenuItem()
+    submenu.title = title
+    item.submenu = submenu
+    return item
+}
+
+@MainActor
+private func suiBuildAppMenuItem(appName: String, includeSettings: Bool, settingsTarget: AnyObject?, settingsAction: Selector?) -> NSMenuItem {
+    let appMenu = NSMenu(title: appName)
+    if includeSettings, let settingsAction {
+        let settingsItem = NSMenuItem(title: "Settings…", action: settingsAction, keyEquivalent: ",")
+        settingsItem.target = settingsTarget
+        appMenu.addItem(settingsItem)
+        appMenu.addItem(.separator())
+    }
+    let quitItem = NSMenuItem(title: "Quit " + appName, action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+    appMenu.addItem(quitItem)
+    return suiTopLevelMenu(title: appName, submenu: appMenu)
+}
+
+@MainActor
+private func suiBuildDefaultEditMenuItem() -> NSMenuItem {
+    let editMenu = NSMenu(title: "Edit")
+
+    let undoItem = NSMenuItem(title: "Undo", action: #selector(UndoManager.undo), keyEquivalent: "z")
+    undoItem.target = nil
+    editMenu.addItem(undoItem)
+
+    let redoItem = NSMenuItem(title: "Redo", action: #selector(UndoManager.redo), keyEquivalent: "z")
+    redoItem.target = nil
+    redoItem.keyEquivalentModifierMask = [.command, .shift]
+    editMenu.addItem(redoItem)
+
+    editMenu.addItem(.separator())
+
+    let cutItem = NSMenuItem(title: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+    cutItem.target = nil
+    editMenu.addItem(cutItem)
+
+    let copyItem = NSMenuItem(title: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+    copyItem.target = nil
+    editMenu.addItem(copyItem)
+
+    let pasteItem = NSMenuItem(title: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+    pasteItem.target = nil
+    editMenu.addItem(pasteItem)
+
+    let selectAllItem = NSMenuItem(title: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+    selectAllItem.target = nil
+    editMenu.addItem(selectAllItem)
+
+    return suiTopLevelMenu(title: "Edit", submenu: editMenu)
+}
+
+@MainActor
+private func suiBuildDefaultWindowMenuItem(coordinator: SUICommandCoordinator?) -> NSMenuItem {
+    let windowMenu = NSMenu(title: "Window")
+
+    let minimizeItem = NSMenuItem(title: "Minimize", action: nil, keyEquivalent: "m")
+    if let coordinator {
+        minimizeItem.target = coordinator
+        minimizeItem.action = #selector(SUICommandCoordinator.minimizeKeyWindow(_:))
+    } else {
+        minimizeItem.target = nil
+        minimizeItem.action = #selector(NSWindow.performMiniaturize(_:))
+    }
+    windowMenu.addItem(minimizeItem)
+
+    let zoomItem = NSMenuItem(title: "Zoom", action: nil, keyEquivalent: "")
+    if let coordinator {
+        zoomItem.target = coordinator
+        zoomItem.action = #selector(SUICommandCoordinator.zoomKeyWindow(_:))
+    } else {
+        zoomItem.target = nil
+        zoomItem.action = #selector(NSWindow.performZoom(_:))
+    }
+    windowMenu.addItem(zoomItem)
+
+    windowMenu.addItem(.separator())
+
+    let bringAllItem = NSMenuItem(title: "Bring All to Front", action: nil, keyEquivalent: "")
+    if let coordinator {
+        bringAllItem.target = coordinator
+        bringAllItem.action = #selector(SUICommandCoordinator.bringAllToFront(_:))
+    } else {
+        bringAllItem.target = nil
+        bringAllItem.action = #selector(NSApplication.arrangeInFront(_:))
+    }
+    windowMenu.addItem(bringAllItem)
+
+    NSApp.windowsMenu = windowMenu
+    return suiTopLevelMenu(title: "Window", submenu: windowMenu)
+}
+
+private func suiHasTopLevelMenu(_ mainMenu: NSMenu, title: String) -> Bool {
+    mainMenu.items.contains {
+        $0.submenu?.title.compare(title, options: [.caseInsensitive, .diacriticInsensitive]) == .orderedSame
+    }
+}
+
+@MainActor
+private func suiAppendDefaultSystemMenus(_ mainMenu: NSMenu, coordinator: SUICommandCoordinator?, includeWindowMenu: Bool) {
+    if !suiHasTopLevelMenu(mainMenu, title: "Edit") {
+        mainMenu.addItem(suiBuildDefaultEditMenuItem())
+    }
+    if includeWindowMenu && !suiHasTopLevelMenu(mainMenu, title: "Window") {
+        mainMenu.addItem(suiBuildDefaultWindowMenuItem(coordinator: coordinator))
+    }
+}
+
+@MainActor
+func SUIInstallDefaultMenus(includeSettings: Bool, settingsTarget: AnyObject?, settingsAction: Selector?, includeWindowMenu: Bool) {
+    let appName = ProcessInfo.processInfo.processName
+    let mainMenu = NSMenu(title: appName)
+    mainMenu.addItem(suiBuildAppMenuItem(
+        appName: appName,
+        includeSettings: includeSettings,
+        settingsTarget: settingsTarget,
+        settingsAction: settingsAction
+    ))
+    suiAppendDefaultSystemMenus(mainMenu, coordinator: nil, includeWindowMenu: includeWindowMenu)
+    NSApp.mainMenu = mainMenu
+}
+
+@MainActor
+private func suiSystemSelector(_ action: String) -> Selector? {
+    switch action {
+    case "undo":
+        return #selector(UndoManager.undo)
+    case "redo":
+        return #selector(UndoManager.redo)
+    case "cut":
+        return #selector(NSText.cut(_:))
+    case "copy":
+        return #selector(NSText.copy(_:))
+    case "paste":
+        return #selector(NSText.paste(_:))
+    case "selectAll":
+        return #selector(NSText.selectAll(_:))
+    default:
+        return nil
+    }
+}
+
+@MainActor
+private func suiBindSystemAction(_ item: NSMenuItem, action: String, coordinator: SUICommandCoordinator) {
+    switch action {
+    case "closeWindow":
+        item.target = coordinator
+        item.action = #selector(SUICommandCoordinator.closeKeyWindow(_:))
+    case "minimizeWindow":
+        item.target = coordinator
+        item.action = #selector(SUICommandCoordinator.minimizeKeyWindow(_:))
+    case "zoomWindow":
+        item.target = coordinator
+        item.action = #selector(SUICommandCoordinator.zoomKeyWindow(_:))
+    case "bringAllToFront":
+        item.target = coordinator
+        item.action = #selector(SUICommandCoordinator.bringAllToFront(_:))
+    default:
+        guard let selector = suiSystemSelector(action) else { return }
+        item.action = selector
+        item.target = nil
+    }
+}
+
+// MARK: - Menu building
+
+@MainActor
+private func SUIBuildMenuItems(_ items: [SUICommandItem], coordinator: SUICommandCoordinator) -> [NSMenuItem] {
+    var result: [NSMenuItem] = []
+    for item in items {
+        if item.kind == "separator" || (item.title ?? "").isEmpty {
+            result.append(.separator())
+            continue
+        }
+        let title = item.title ?? ""
+        let menuItem = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+
+        if let children = item.children, !children.isEmpty {
+            let submenu = NSMenu(title: title)
+            submenu.delegate = coordinator
+            for child in SUIBuildMenuItems(children, coordinator: coordinator) {
+                submenu.addItem(child)
+            }
+            menuItem.submenu = submenu
+        } else if let actionID = item.actionCallbackID, actionID != 0 {
+            coordinator.registerActionItem(
+                menuItem,
+                actionCallbackID: actionID,
+                enabledCallbackID: item.enabledCallbackID ?? 0
+            )
+        } else if let systemAction = item.systemAction, !systemAction.isEmpty {
+            suiBindSystemAction(menuItem, action: systemAction, coordinator: coordinator)
+            coordinator.registerEnabledItem(menuItem, enabledCallbackID: item.enabledCallbackID ?? 0)
+        } else if let enabledCallbackID = item.enabledCallbackID, enabledCallbackID != 0 {
+            coordinator.registerEnabledItem(menuItem, enabledCallbackID: enabledCallbackID)
+        }
+
+        if let key = item.shortcutKey, !key.isEmpty {
+            menuItem.keyEquivalent = key
+            let rawMods = item.shortcutModifiers ?? 0
+            if rawMods != 0 {
+                menuItem.keyEquivalentModifierMask = NSEvent.ModifierFlags(rawValue: UInt(rawMods))
+            } else {
+                menuItem.keyEquivalentModifierMask = .command
+            }
+        }
+
+        result.append(menuItem)
+    }
+    return result
+}
+
+@MainActor
+func SUIInstallCommandMenus(_ delegate: SUISceneRunnerDelegate, includeSettings: Bool, commands: [SUICommandGroup], includeWindowMenu: Bool) {
+    let coordinator = SUICommandCoordinator()
+    _commandCoordinator = coordinator
+
+    let appName = ProcessInfo.processInfo.processName
+    let mainMenu = NSMenu(title: appName)
+
+    mainMenu.addItem(suiBuildAppMenuItem(
+        appName: appName,
+        includeSettings: includeSettings,
+        settingsTarget: delegate,
+        settingsAction: #selector(SUISceneRunnerDelegate.openSettings(_:))
+    ))
+
+    // Command menus from the scene plan.
+    for group in commands {
+        let headerItem = NSMenuItem()
+        let submenu = NSMenu(title: group.title)
+        submenu.delegate = coordinator
+        for child in SUIBuildMenuItems(group.items, coordinator: coordinator) {
+            submenu.addItem(child)
+        }
+        headerItem.submenu = submenu
+        mainMenu.addItem(headerItem)
+    }
+
+    suiAppendDefaultSystemMenus(mainMenu, coordinator: coordinator, includeWindowMenu: includeWindowMenu)
+    NSApp.mainMenu = mainMenu
+    SUIInvalidateCommandMenus()
+}
+
+// MARK: - Menu item update
+
+@_cdecl("SUIUpdateMenuItemEnabled")
+@MainActor
+public func SUIUpdateMenuItemEnabled(_ tag: Int32, _ enabled: Int32) {
+    guard let menu = NSApp.mainMenu else { return }
+    guard let item = menu.item(withTag: Int(tag)) ?? suiFindMenuItem(in: menu, tag: Int(tag)) else { return }
+    item.isEnabled = enabled != 0
+}
+
+@MainActor
+private func suiFindMenuItem(in menu: NSMenu, tag: Int) -> NSMenuItem? {
+    for item in menu.items {
+        if item.tag == tag { return item }
+        if let sub = item.submenu, let found = suiFindMenuItem(in: sub, tag: tag) {
+            return found
+        }
+    }
+    return nil
+}
+
+@MainActor
+func SUIInvalidateCommandMenus() {
+    guard let menu = NSApp.mainMenu else { return }
+    suiRefreshMenu(menu)
+}
+
+@MainActor
+private func suiRefreshMenu(_ menu: NSMenu) {
+    menu.update()
+    for item in menu.items {
+        if let submenu = item.submenu {
+            suiRefreshMenu(submenu)
+        }
+    }
+}
+
+@MainActor
+private func SUIRevealSceneWindow(_ sceneID: String) -> Bool {
+    guard let scene = _sceneWindowSpecs[sceneID], let view = _sceneWindowViews[sceneID] else {
+        return false
+    }
+    SUIInstallSceneWindow(scene, view, reveal: true)
+    return true
+}
+
+@MainActor
+private func SUIInstallSceneWindow(_ scene: SUIScenePlanScene, _ view: AnyView, reveal: Bool) {
+    guard let id = scene.id else { return }
+    let isSettings = scene.kind == "settings"
+    let width = scene.width ?? 720
+    let height = scene.height ?? 480
+    let title = scene.title ?? id
+    let bridged = AnyView(SUISceneActionBridgeView(callbackID: scene.actionCallbackID, content: view))
+    let sized = AnyView(bridged.frame(minWidth: width, minHeight: height))
+
+	if let window = _sceneWindows[id] {
+		if let hc = window.contentViewController as? NSHostingController<AnyView> {
+			hc.rootView = sized
+		} else {
+			let hc = NSHostingController(rootView: sized)
+            hc.sizingOptions = []
+            window.contentViewController = hc
+        }
+        window.title = title
+        window.setContentSize(NSSize(width: width, height: height))
+		if reveal {
+			if suiSceneShouldRestoreVisibility(scene) {
+				UserDefaults.standard.set(true, forKey: suiSceneVisibleKey(id))
+			} else {
+				UserDefaults.standard.removeObject(forKey: suiSceneVisibleKey(id))
+			}
+			_sceneFocusedWindowID = id
+			window.makeKeyAndOrderFront(nil)
+			NSApp.activate()
+		} else {
+			if suiSceneShouldRestoreVisibility(scene) {
+				UserDefaults.standard.set(false, forKey: suiSceneVisibleKey(id))
+			} else {
+				UserDefaults.standard.removeObject(forKey: suiSceneVisibleKey(id))
+			}
+			if _sceneFocusedWindowID == id {
+				_sceneFocusedWindowID = nil
+			}
+			window.orderOut(nil)
+		}
+		return
+	}
+
+    let hc = NSHostingController(rootView: sized)
+    hc.sizingOptions = []
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+        styleMask: isSettings ? [.titled, .closable, .miniaturizable] : [.titled, .closable, .resizable, .miniaturizable],
+        backing: .buffered, defer: false
+    )
+    window.identifier = NSUserInterfaceItemIdentifier(id)
+    window.isReleasedWhenClosed = false
+    window.title = title
+    window.contentViewController = hc
+    window.setContentSize(NSSize(width: width, height: height))
+    window.minSize = NSSize(width: 300, height: 200)
+    let delegate = SUISceneWindowDelegate(sceneID: id)
+    _sceneWindowDelegates[id] = delegate
+    window.delegate = delegate
+    if !window.setFrameUsingName(id) {
+        window.center()
+    }
+	_sceneWindows[id] = window
+	if reveal {
+		if suiSceneShouldRestoreVisibility(scene) {
+			UserDefaults.standard.set(true, forKey: suiSceneVisibleKey(id))
+		} else {
+			UserDefaults.standard.removeObject(forKey: suiSceneVisibleKey(id))
+		}
+		_sceneFocusedWindowID = id
+		window.makeKeyAndOrderFront(nil)
+		NSApp.activate()
+	} else {
+		if suiSceneShouldRestoreVisibility(scene) {
+			UserDefaults.standard.set(false, forKey: suiSceneVisibleKey(id))
+		} else {
+			UserDefaults.standard.removeObject(forKey: suiSceneVisibleKey(id))
+		}
+		if _sceneFocusedWindowID == id {
+			_sceneFocusedWindowID = nil
+		}
+		window.orderOut(nil)
+	}
+}
+
+@MainActor
+private func SUIConfigureSceneMenuBar(_ scene: SUIScenePlanScene, _ view: AnyView, _ delegate: SUISceneRunnerDelegate) {
+    let labelStr = scene.label ?? "App"
+    let imageStr = scene.systemImage ?? "square.grid.2x2"
+    let width = scene.width ?? 320
+    let height = scene.height ?? 220
+
+    let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    if let img = NSImage(systemSymbolName: imageStr, accessibilityDescription: labelStr) {
+        item.button?.image = img
+    }
+    item.button?.title = " " + labelStr
+    item.button?.target = delegate
+    item.button?.action = #selector(SUISceneRunnerDelegate.togglePopover(_:))
+    _statusItem = item
+
+    let popover = NSPopover()
+    popover.contentSize = NSSize(width: width, height: height)
+    popover.behavior = .transient
+    let hc = NSHostingController(rootView: AnyView(view.frame(minWidth: width, minHeight: height)))
+    popover.contentViewController = hc
+    _popover = popover
+
+    if scene.openOnLaunch ?? false {
+        DispatchQueue.main.async {
+            delegate.openPopoverOnLaunch()
+        }
+    }
+}
+
+// suiOnMainSync is defined in suiBridgeAppTmpl (the default surface) so a
+// default regen is self-contained; the converged surface reuses that
+// definition rather than redeclaring it here.
+
+@_cdecl("SUIRunScenePlan")
+@MainActor
+public func SUIRunScenePlan(_ planJSON: UnsafePointer<CChar>,
+                            _ viewRefs: UnsafePointer<UnsafeMutableRawPointer>?,
+                            _ viewCount: Int32) {
+    suiOnMainSync {
+        let data = Data(String(cString: planJSON).utf8)
+        guard let plan = try? JSONDecoder().decode(SUIScenePlanPayload.self, from: data) else {
+            return
+        }
+        let refs = viewRefs.map { Array(UnsafeBufferPointer(start: $0, count: Int(viewCount))) } ?? []
+        let views = refs.map { ref in
+            Unmanaged<Box<AnyView>>.fromOpaque(ref).takeUnretainedValue().value
+        }
+
+        _sceneWindows = [:]
+        _sceneWindowSpecs = [:]
+        _sceneWindowViews = [:]
+        _sceneSettingsID = nil
+        _sceneFocusedWindowID = nil
+
+        let app = NSApplication.shared
+        let hasWindow = plan.scenes.contains { $0.kind == "window" || $0.kind == "document" || $0.kind == "settings" }
+        let hasMenuBar = plan.scenes.contains { $0.kind == "menuBar" }
+        let hasSettings = plan.scenes.contains { $0.kind == "settings" }
+        app.setActivationPolicy(hasWindow ? .regular : .accessory)
+
+        let delegate = SUISceneRunnerDelegate()
+        delegate.terminateAfterLastWindowClosedValue = !hasMenuBar
+        if let lc = plan.lifecycle {
+            delegate.didFinishLaunchingCallbackID = lc.didFinishLaunchingCallbackID ?? 0
+            delegate.didBecomeActiveCallbackID = lc.didBecomeActiveCallbackID ?? 0
+            delegate.didResignActiveCallbackID = lc.didResignActiveCallbackID ?? 0
+            delegate.shouldTerminateCallbackID = lc.shouldTerminateCallbackID ?? 0
+            delegate.willTerminateCallbackID = lc.willTerminateCallbackID ?? 0
+        }
+        _sceneRunnerDelegate = delegate
+        app.delegate = delegate
+        _sceneSettingsID = plan.scenes.first(where: { $0.kind == "settings" })?.id
+        let commands = plan.commands ?? []
+        if commands.isEmpty {
+            if hasWindow {
+                SUIInstallAppMenu(delegate, includeSettings: hasSettings, includeWindowMenu: hasWindow)
+            }
+        } else {
+            SUIInstallCommandMenus(delegate, includeSettings: hasSettings, commands: commands, includeWindowMenu: hasWindow)
+        }
+
+        for scene in plan.scenes {
+            guard scene.viewIndex >= 0 && scene.viewIndex < views.count else { continue }
+            let view = views[scene.viewIndex]
+            switch scene.kind {
+            case "window", "document", "settings":
+                if let id = scene.id {
+                    _sceneWindowSpecs[id] = scene
+                    _sceneWindowViews[id] = view
+                }
+                if suiSceneShouldOpenOnLaunch(scene) {
+                    SUIInstallSceneWindow(scene, view, reveal: true)
+                }
+            case "menuBar":
+                SUIConfigureSceneMenuBar(scene, view, delegate)
+            default:
+                continue
+            }
+        }
+
+        app.activate()
+        app.run()
+    }
+}
+
+@_cdecl("SUIOpenSceneWindow")
+@MainActor
+public func SUIOpenSceneWindow(_ id: UnsafePointer<CChar>) -> Int32 {
+    suiOnMainSync {
+        let sceneID = String(cString: id)
+        return SUIRevealSceneWindow(sceneID) ? 1 : 0
+    }
+}

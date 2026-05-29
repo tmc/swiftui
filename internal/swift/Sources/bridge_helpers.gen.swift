@@ -283,3 +283,10 @@ struct SUIModifierReader {
         return Double(bitPattern: bits)
     }
 }
+
+nonisolated(unsafe) var _SUICommandCallback: (@convention(c) (UInt) -> Int32)?
+
+@_cdecl("SUIRegisterCommandCallback")
+public func SUIRegisterCommandCallback(_ fn: @convention(c) (UInt) -> Int32) {
+    _SUICommandCallback = fn
+}
