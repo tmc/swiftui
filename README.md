@@ -33,11 +33,11 @@ import (
 func init() { runtime.LockOSThread() }
 
 func main() {
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Hello World",
 		Width:  400,
 		Height: 300,
-	}, swiftui.Text("Hello from Go!").Padding(20).AsView()); err != nil {
+	}, swiftui.Text("Hello from Go!").Padding(20).AsView())); err != nil {
 		log.Fatal(err)
 	}
 }
