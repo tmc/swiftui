@@ -35,10 +35,10 @@ type WindowConfig struct {
 	Width  float64
 	Height float64
 	Root   View // The window's root view.
-	// ID identifies the window for OpenWindow. It is required for the
-	// multi-window scene runner (apps with more than one window or a Settings
-	// scene) and ignored by the single-window runner. If empty in a scene-runner
-	// app, Title is used as the identifier.
+	// ID identifies the window for OpenWindow. In a scene-runner app (more than
+	// one window, or a Settings scene) it must be non-empty and unique; an empty
+	// or duplicate ID makes Run return ErrWindowID. It is ignored by the
+	// single-window runner. Identity is never derived from the mutable Title.
 	ID string
 }
 
@@ -250,7 +250,7 @@ func runAppSimple(app App) error {
 // runner. It builds a scene-plan document indexing each scene's view into an
 // ordered view-pointer slice, then drives _SUIRunScenePlan.
 func runApp(app App) error {
-	plan := scenePlan{}
+	plan := scenePlan{Policy: int32(app.Policy)}
 	views := make([]View, 0, len(app.Windows)+2)
 	addView := func(v View) int {
 		idx := len(views)
@@ -258,7 +258,7 @@ func runApp(app App) error {
 		return idx
 	}
 
-	for i, win := range app.Windows {
+	for _, win := range app.Windows {
 		openOnLaunch := true
 		plan.Scenes = append(plan.Scenes, scenePlanScene{
 			Kind:         "window",
@@ -269,7 +269,6 @@ func runApp(app App) error {
 			OpenOnLaunch: &openOnLaunch,
 			ViewIndex:    addView(win.Root),
 		})
-		_ = i
 	}
 
 	if app.Settings != nil {
@@ -315,9 +314,15 @@ func runApp(app App) error {
 }
 
 // scenePlan is the wire document decoded by the Swift SUIRunScenePlan bridge.
-// Its field tags must match the SUIScenePlanPayload Decodable struct.
+// It carries the scenes the Go API exposes and the activation policy. The Swift
+// SUIScenePlanPayload struct also declares commands and lifecycle fields, which
+// this layer intentionally omits; both are optional on the wire.
 type scenePlan struct {
 	Scenes []scenePlanScene `json:"scenes"`
+	// Policy mirrors App.Policy (ActivationPolicy as int32); 0 keeps the
+	// runner's auto default. Threaded so an explicit policy is honored on the
+	// scene path exactly as on the single-window path.
+	Policy int32 `json:"policy,omitempty"`
 }
 
 // scenePlanScene mirrors the Swift SUIScenePlanScene Decodable struct. Optional
@@ -364,6 +369,11 @@ func RunWithMenuBar(winConfig WindowConfig, content View, menuConfig MenuBarConf
 // registration, persistent recent-document restoration, last-path restoration,
 // explicit recent-document command menus, and wires scene availability into
 // borrowed SceneActions through the bridge callback path.
+//
+// Most of these are runner-internal capabilities with no corresponding Go API
+// yet: the exposed surface is the windows, menu bar, and Settings scene of an
+// App, plus OpenWindow. Custom command menus, document close/lifecycle
+// callbacks, and recent-document commands are not yet driveable from Go.
 func runScenePlan(planJSON string, views []uintptr) {
 	var head *uintptr
 	if len(views) > 0 {
@@ -373,8 +383,8 @@ func runScenePlan(planJSON string, views []uintptr) {
 		_SUIRunScenePlan(plan, head, int32(len(views)))
 	})
 	// _SUIRunScenePlan blocks for the lifetime of the app and retains the views
-	// by raw pointer; keep the backing array reachable so the GC cannot move or
-	// free it while the bridge still reads through head.
+	// by raw pointer; keep the backing array reachable so the GC cannot free it
+	// while the bridge still reads through head.
 	runtime.KeepAlive(views)
 }
 
@@ -383,10 +393,11 @@ func runScenePlan(planJSON string, views []uintptr) {
 // passed to Run; it does not create new windows.
 //
 // OpenWindow must be called on the AppKit main thread after Run has started the
-// event loop, typically from a view callback. It returns ErrAppNotRunning before
-// Run, ErrNoWindow when no configured window has the given id, or nil once the
-// window is opened or focused. The runner is AppKit-backed today rather than
-// direct SwiftUI OpenWindowAction parity.
+// event loop, typically from a view callback. It returns the bridge load error
+// if the dylib failed to load (the same non-nil error Run would return),
+// ErrAppNotRunning before Run, ErrNoWindow when no configured window has the
+// given id, or nil once the window is opened or focused. The runner is
+// AppKit-backed today rather than direct SwiftUI OpenWindowAction parity.
 func OpenWindow(id string) error {
 	if loadErr != nil {
 		return loadErr

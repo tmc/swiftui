@@ -112,6 +112,21 @@ func suiBuildStatusItem(delegate: SUIMenuBarAppDelegate, label: String, systemIm
     }
 }
 
+// suiResolveActivationPolicy maps the Go-side ActivationPolicy int32 to an
+// NSApplication.ActivationPolicy. 0 (PolicyDefault) is auto: a window implies
+// .regular, a menu-bar-only app implies .accessory. This single resolver is
+// shared by SUIRunApp and the scene runner so an explicit App.Policy is applied
+// identically on both the single-window and multi-window paths.
+@MainActor
+func suiResolveActivationPolicy(_ policy: Int32, hasWindow: Bool) -> NSApplication.ActivationPolicy {
+    switch policy {
+    case 1: return .regular
+    case 2: return .accessory
+    case 3: return .prohibited
+    default: return hasWindow ? .regular : .accessory
+    }
+}
+
 // SUIRunApp is the unified application runner. It presents an optional window
 // (rootView != nil), an optional menu bar item (hasMenuBar != 0; with an
 // optional popover when menuContent != nil), under an activation policy
@@ -136,16 +151,7 @@ public func SUIRunApp(_ policy: Int32,
         let hasWindow = rootView != nil
         let wantsMenuBar = hasMenuBar != 0
 
-        // Resolve the activation policy. 0 = auto: a window implies .regular, a
-        // menu-bar-only app implies .accessory.
-        let resolved: NSApplication.ActivationPolicy
-        switch policy {
-        case 1: resolved = .regular
-        case 2: resolved = .accessory
-        case 3: resolved = .prohibited
-        default: resolved = hasWindow ? .regular : .accessory
-        }
-        app.setActivationPolicy(resolved)
+        app.setActivationPolicy(suiResolveActivationPolicy(policy, hasWindow: hasWindow))
 
         // A menu-bar app must keep running after its (absent) windows close; a
         // windowed app should terminate with its last window. Pick the delegate
@@ -283,6 +289,9 @@ struct SUIScenePlanPayload: Decodable {
     let scenes: [SUIScenePlanScene]
     let commands: [SUICommandGroup]?
     let lifecycle: SUILifecycleCallbacks?
+    // policy mirrors the Go ActivationPolicy int32 (0=auto, 1=regular,
+    // 2=accessory, 3=prohibited); nil keeps the auto default.
+    let policy: Int32?
 }
 
 struct SUICommandGroup: Decodable {
@@ -1050,7 +1059,7 @@ public func SUIRunScenePlan(_ planJSON: UnsafePointer<CChar>,
         let hasWindow = plan.scenes.contains { $0.kind == "window" || $0.kind == "document" || $0.kind == "settings" }
         let hasMenuBar = plan.scenes.contains { $0.kind == "menuBar" }
         let hasSettings = plan.scenes.contains { $0.kind == "settings" }
-        app.setActivationPolicy(hasWindow ? .regular : .accessory)
+        app.setActivationPolicy(suiResolveActivationPolicy(plan.policy ?? 0, hasWindow: hasWindow))
 
         let delegate = SUISceneRunnerDelegate()
         delegate.terminateAfterLastWindowClosedValue = !hasMenuBar
