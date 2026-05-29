@@ -50,6 +50,37 @@ Try the bundled example with:
 go run ./examples/hello-world
 ```
 
+## Scenes & multiple windows
+
+A single `swiftui.App` describes every surface an app presents, so the same
+`Run` call covers single-window, multi-window, menu-bar, and Settings apps.
+Give each window a stable `ID` (required once there is more than one), and open
+or focus one at runtime with `swiftui.OpenWindow`:
+
+```go
+app := swiftui.App{
+	Windows: []swiftui.WindowConfig{
+		{ID: "main", Title: "Main", Width: 520, Height: 360, Root: mainView},
+		{ID: "inspector", Title: "Inspector", Width: 320, Height: 320, Root: inspectorView},
+	},
+	Settings: &swiftui.SettingsConfig{Title: "Settings", Root: settingsView},
+}
+swiftui.Run(app)
+
+// Later, from a button callback, open or focus the inspector by id:
+if err := swiftui.OpenWindow("inspector"); err != nil {
+	log.Printf("open inspector: %v", err)
+}
+```
+
+A menu-bar (status-bar) app sets `App.MenuBar` instead of (or alongside)
+`Windows`; `swiftui.RunMenuBar` and `swiftui.RunWithMenuBar` are conveniences
+for the common cases.
+
+```sh
+go run ./examples/multi-window
+```
+
 ## Disclaimer
 
 This is not an official Apple product. Apple, macOS, and all related
