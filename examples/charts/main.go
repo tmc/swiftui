@@ -13,6 +13,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"runtime"
 	"time"
@@ -121,7 +122,7 @@ type backlogPoint struct {
 
 func main() {
 	section := swiftui.NewIntState(0)
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Charts Showcase",
 		Width:  windowWidth,
 		Height: windowHeight,
@@ -132,8 +133,8 @@ func main() {
 			swiftui.Spacer(),
 		).
 			Padding(16).
-			BackgroundRoundedRect(0.10, 0.13, 0.18, 0.94, 18).
-			Border(0.82, 0.86, 0.92, 0.08, 1),
+			BackgroundRoundedRect(swiftui.RGBA(0.10, 0.13, 0.18, 0.94), 18).
+			Border(swiftui.RGBA(0.82, 0.86, 0.92, 0.08), 1),
 		swiftui.DynamicView(section, func(v int) swiftui.View {
 			switch v {
 			case 1:
@@ -146,7 +147,9 @@ func main() {
 		}).MaxFrame(-1, -1),
 	).
 		Padding(14).
-		BackgroundStyle("windowBackground"))
+		BackgroundStyle("windowBackground")); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func segmentedOptions(labels ...string) swiftui.View {
@@ -342,9 +345,9 @@ func screenHeader(title, subtitle string, badges ...string) swiftui.View {
 	}
 	return swiftui.VStackSpaced(10, items...).
 		Padding(16).
-		BackgroundRoundedRect(0.10, 0.13, 0.18, 0.92, 20).
-		Border(0.30, 0.34, 0.40, 0.25, 1).
-		Shadow(0, 0, 0, 0.18, 16, 0, 8)
+		BackgroundRoundedRect(swiftui.RGBA(0.10, 0.13, 0.18, 0.92), 20).
+		Border(swiftui.RGBA(0.30, 0.34, 0.40, 0.25), 1).
+		Shadow(swiftui.RGBA(0, 0, 0, 0.18), 16, 0, 8)
 }
 
 func capabilityRows(labels ...string) swiftui.View {
@@ -370,10 +373,10 @@ func capabilityPill(text string) swiftui.View {
 	return swiftui.Text(text).
 		Font(swiftui.FontCaption2).
 		FontWeight(swiftui.WeightSemibold).
-		ForegroundStyle(0.93, 0.95, 0.98, 1).
+		ForegroundStyle(swiftui.RGBA(0.93, 0.95, 0.98, 1)).
 		AsView().
 		Padding(7).
-		BackgroundRoundedRect(0.16, 0.20, 0.26, 0.92, 10)
+		BackgroundRoundedRect(swiftui.RGBA(0.16, 0.20, 0.26, 0.92), 10)
 }
 
 func headerStat(title, value string) swiftui.View {
@@ -392,8 +395,8 @@ func headerStat(title, value string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(10).
-		BackgroundRoundedRect(0.12, 0.16, 0.22, 0.92, 12).
-		Border(0.82, 0.86, 0.92, 0.08, 1).
+		BackgroundRoundedRect(swiftui.RGBA(0.12, 0.16, 0.22, 0.92), 12).
+		Border(swiftui.RGBA(0.82, 0.86, 0.92, 0.08), 1).
 		MaxFrame(-1, 0)
 }
 
@@ -473,14 +476,14 @@ func coverageBand(title string, lines ...string) swiftui.View {
 	}
 	return swiftui.VStackSpaced(10, children...).
 		Padding(14).
-		BackgroundRoundedRect(0.08, 0.10, 0.14, 0.94, 18).
-		Border(0.82, 0.86, 0.92, 0.10, 1)
+		BackgroundRoundedRect(swiftui.RGBA(0.08, 0.10, 0.14, 0.94), 18).
+		Border(swiftui.RGBA(0.82, 0.86, 0.92, 0.10), 1)
 }
 
 func infoLine(text string) swiftui.View {
 	return swiftui.HStack(
 		swiftui.Image("checkmark.circle.fill").
-			ForegroundStyle(green.R, green.G, green.B, 1),
+			ForegroundStyle(swiftui.RGBA(green.R, green.G, green.B, 1)),
 		swiftui.Text(text).
 			Font(swiftui.FontCaption).
 			ForegroundStyleNamed("secondary").
@@ -503,7 +506,7 @@ func plotChrome(chart charts.ChartView, label string) charts.ChartView {
 		charts.PlotBackgroundColor(swiftui.RGBA(0.07, 0.09, 0.12, 0.16)),
 		charts.PlotBorder(swiftui.RGBA(0.88, 0.90, 0.94, 0.16), 1),
 		charts.PlotBackgroundView(
-			swiftui.ColorView(0.12, 0.15, 0.18, 1).
+			swiftui.ColorView(swiftui.RGBA(0.12, 0.15, 0.18, 1)).
 				Opacity(0.09),
 		),
 		charts.PlotOverlayView(plotBadge(label)),
@@ -519,7 +522,7 @@ func plotBadge(label string) swiftui.View {
 				ForegroundStyleNamed("secondary").
 				AsView().
 				Padding(6).
-				BackgroundRoundedRect(0.10, 0.13, 0.18, 0.86, 8),
+				BackgroundRoundedRect(swiftui.RGBA(0.10, 0.13, 0.18, 0.86), 8),
 		),
 		swiftui.Spacer(),
 	).MaxFrame(-1, -1)
@@ -531,8 +534,8 @@ func annotation(text string) swiftui.View {
 		ForegroundStyleNamed("secondary").
 		AsView().
 		Padding(6).
-		BackgroundRoundedRect(0.09, 0.12, 0.16, 0.94, 8).
-		Border(0.83, 0.86, 0.91, 0.14, 1)
+		BackgroundRoundedRect(swiftui.RGBA(0.09, 0.12, 0.16, 0.94), 8).
+		Border(swiftui.RGBA(0.83, 0.86, 0.91, 0.14), 1)
 }
 
 func serviceErrorsChart() charts.ChartView {

@@ -13,6 +13,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"time"
 
@@ -41,8 +42,7 @@ func main() {
 		count.SetAnimatedWith(0, swiftui.AnimationEaseInOut)
 		bumpHalo(swiftui.AnimationEaseInOut)
 	}
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Counter",
 		Width:  380,
 		Height: 360,
@@ -67,15 +67,15 @@ func main() {
 			swiftui.AnimatedDynamicFloatView(haloScale, swiftui.TransitionScale, func(scale float64) swiftui.View {
 				return swiftui.ZStack(
 					swiftui.Circle().
-						Fill(0.2, 0.45, 0.9, 0.09).
+						Fill(swiftui.RGBA(0.2, 0.45, 0.9, 0.09)).
 						Frame(164, 164).
 						AsView().
 						ScaleEffect(scale),
 					swiftui.Circle().
-						Fill(0.2, 0.45, 0.9, 0.16).
+						Fill(swiftui.RGBA(0.2, 0.45, 0.9, 0.16)).
 						Frame(132, 132).
 						AsView().
-						ScaleEffect((scale + 1.0) / 2.0),
+						ScaleEffect((scale+1.0)/2.0),
 				)
 			}),
 			swiftui.AnimatedDynamicView(count, swiftui.TransitionScale, func(v int) swiftui.View {
@@ -107,7 +107,9 @@ func main() {
 		swiftui.AnimatedDynamicView(count, swiftui.TransitionOpacity, func(v int) swiftui.View {
 			return counterFootnote(v)
 		}),
-	).Padding(24))
+	).Padding(24)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func counterFootnote(v int) swiftui.View {

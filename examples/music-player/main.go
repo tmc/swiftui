@@ -15,6 +15,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
 	"runtime"
 	"sync"
@@ -341,11 +342,11 @@ func main() {
 				return swiftui.HStackSpaced(16,
 					swiftui.ZStack(
 						swiftui.RoundedRectangle(18).
-							Fill(0.15, 0.18, 0.28, 1.0).
+							Fill(swiftui.RGBA(0.15, 0.18, 0.28, 1.0)).
 							Frame(150, 150).
 							AsView(),
 						swiftui.Image("music.note.list").
-							ForegroundStyle(0.35, 0.65, 1.0, 1.0).
+							ForegroundStyle(swiftui.RGBA(0.35, 0.65, 1.0, 1.0)).
 							ImageScale(swiftui.ImageScaleLarge),
 					),
 					swiftui.VStackSpaced(8,
@@ -362,7 +363,7 @@ func main() {
 							swiftui.Spacer(),
 						),
 						swiftui.HStack(
-							swiftui.Text(t.artist + " • " + t.album).
+							swiftui.Text(t.artist+" • "+t.album).
 								Font(swiftui.FontBody).
 								ForegroundStyleNamed("secondary"),
 							swiftui.Spacer(),
@@ -382,7 +383,7 @@ func main() {
 						),
 					).MaxFrame(-1, 0),
 				).Padding(14).
-					Background(0.18, 0.19, 0.23, 0.7).
+					Background(swiftui.RGBA(0.18, 0.19, 0.23, 0.7)).
 					CornerRadius(16)
 			}),
 			swiftui.HStackSpaced(12,
@@ -449,7 +450,7 @@ func main() {
 					h = 4
 				}
 				return swiftui.RoundedRectangle(3).
-					Fill(0.3, 0.7, 1.0, 0.8).
+					Fill(swiftui.RGBA(0.3, 0.7, 1.0, 0.8)).
 					Frame(16, h).
 					AsView()
 			}))
@@ -468,12 +469,12 @@ func main() {
 			// Album art placeholder.
 			swiftui.ZStack(
 				swiftui.RoundedRectangle(20).
-					Fill(0.15, 0.15, 0.3, 1.0).
+					Fill(swiftui.RGBA(0.15, 0.15, 0.3, 1.0)).
 					Frame(200, 200).
 					AsView().
-					Shadow(0, 0, 0, 0.3, 10, 0, 5),
+					Shadow(swiftui.RGBA(0, 0, 0, 0.3), 10, 0, 5),
 				swiftui.Image("music.note").
-					ForegroundStyle(1, 1, 1, 0.4).
+					ForegroundStyle(swiftui.RGBA(1, 1, 1, 0.4)).
 					ImageScale(swiftui.ImageScaleLarge),
 			),
 			// Track info.
@@ -587,7 +588,7 @@ func main() {
 			swiftui.HStack(
 				swiftui.ButtonWithImage("music.note", func() {
 					sheetState.Set(1)
-				}).ForegroundStyle(0.3, 0.7, 1.0, 1.0),
+				}).ForegroundStyle(swiftui.RGBA(0.3, 0.7, 1.0, 1.0)),
 				swiftui.VStack(
 					swiftui.Text(t.title).
 						Font(swiftui.FontCaption).
@@ -618,19 +619,22 @@ func main() {
 					return 1
 				}
 				return float64(t.duration)
-			}()).Tint(0.3, 0.7, 1.0, 1.0),
+			}()).Tint(swiftui.RGBA(0.3, 0.7, 1.0, 1.0)),
 		)
 	})
+	if err :=
 
-	// Main layout.
-	swiftui.Run(swiftui.AppConfig{
-		Title:  "Music Player",
-		Width:  600,
-		Height: 760,
-	}, swiftui.VStack(
-		browseContent,
-		nowPlayingBar,
-	).Sheet(sheetState, sheetContent))
+		// Main layout.
+		swiftui.Run(swiftui.AppConfig{
+			Title:  "Music Player",
+			Width:  600,
+			Height: 760,
+		}, swiftui.VStack(
+			browseContent,
+			nowPlayingBar,
+		).Sheet(sheetState, sheetContent)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func musicBadge(label, value string) swiftui.View {
@@ -642,7 +646,7 @@ func musicBadge(label, value string) swiftui.View {
 			Font(swiftui.FontCaption).
 			FontWeight(swiftui.WeightSemibold),
 	).Padding(8).
-		Background(1, 1, 1, 0.05).
+		Background(swiftui.RGBA(1, 1, 1, 0.05)).
 		CornerRadius(8)
 }
 
@@ -667,7 +671,7 @@ func musicStatCard(label, value, note string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.18, 0.19, 0.23, 0.62).
+		Background(swiftui.RGBA(0.18, 0.19, 0.23, 0.62)).
 		CornerRadius(10)
 }
 

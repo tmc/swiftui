@@ -13,6 +13,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"runtime"
 	"strings"
@@ -53,39 +54,42 @@ func main() {
 	if i := strings.LastIndex(sourceName, "/"); i >= 0 && i < len(sourceName)-1 {
 		sourceName = sourceName[i+1:]
 	}
+	if err :=
 
-	// Display the video player in a window.
-	swiftui.Run(swiftui.AppConfig{
-		Title:  "Video Player",
-		Width:  800,
-		Height: 600,
-	}, swiftui.VStackSpaced(16,
-		swiftui.VStackSpaced(4,
-			swiftui.HStack(
-				swiftui.Text("Playback Demo").
-					Font(swiftui.FontTitle2).
-					FontWeight(swiftui.WeightBold),
-				swiftui.Spacer(),
-				swiftui.Label("Streaming", "play.circle.fill").
-					Font(swiftui.FontCaption).
-					ForegroundStyle(0.3, 0.8, 0.4, 1.0),
+		// Display the video player in a window.
+		swiftui.Run(swiftui.AppConfig{
+			Title:  "Video Player",
+			Width:  800,
+			Height: 600,
+		}, swiftui.VStackSpaced(16,
+			swiftui.VStackSpaced(4,
+				swiftui.HStack(
+					swiftui.Text("Playback Demo").
+						Font(swiftui.FontTitle2).
+						FontWeight(swiftui.WeightBold),
+					swiftui.Spacer(),
+					swiftui.Label("Streaming", "play.circle.fill").
+						Font(swiftui.FontCaption).
+						ForegroundStyle(swiftui.RGBA(0.3, 0.8, 0.4, 1.0)),
+				),
+				swiftui.HStack(
+					swiftui.Text("AVPlayer bridged into SwiftUI with native controls and live playback.").
+						Font(swiftui.FontCallout).
+						ForegroundStyleNamed("secondary"),
+					swiftui.Spacer(),
+				),
 			),
-			swiftui.HStack(
-				swiftui.Text("AVPlayer bridged into SwiftUI with native controls and live playback.").
-					Font(swiftui.FontCallout).
-					ForegroundStyleNamed("secondary"),
-				swiftui.Spacer(),
+			swiftui.GroupBox("Player",
+				videoView.Frame(720, 420),
+			).MaxFrame(-1, 0),
+			swiftui.HStackSpaced(12,
+				videoInfoCard("Source", sourceName),
+				videoInfoCard("Transport", "Native AVKit controls"),
+				videoInfoCard("Mode", "Autoplay on launch"),
 			),
-		),
-		swiftui.GroupBox("Player",
-			videoView.Frame(720, 420),
-		).MaxFrame(-1, 0),
-		swiftui.HStackSpaced(12,
-			videoInfoCard("Source", sourceName),
-			videoInfoCard("Transport", "Native AVKit controls"),
-			videoInfoCard("Mode", "Autoplay on launch"),
-		),
-	).Padding(20))
+		).Padding(20)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func newNSString(s string) objc.ID {
@@ -110,6 +114,6 @@ func videoInfoCard(label, value string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.18, 0.19, 0.22, 0.6).
+		Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.6)).
 		CornerRadius(10)
 }

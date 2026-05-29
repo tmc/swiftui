@@ -13,6 +13,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"runtime"
 	"sync"
@@ -68,10 +69,10 @@ func main() {
 					r, g, b, a := rState.Get(), gState.Get(), bState.Get(), aState.Get()
 					return swiftui.VStack(
 						swiftui.RoundedRectangle(16).
-							Fill(r, g, b, a).
+							Fill(swiftui.RGBA(r, g, b, a)).
 							Frame(200, 200).
 							AsView().
-							Border(0.5, 0.5, 0.5, 0.3, 1),
+							Border(swiftui.RGBA(0.5, 0.5, 0.5, 0.3), 1),
 						swiftui.Text(hexString(r, g, b)).
 							Font(swiftui.FontSystemDesign(16, swiftui.WeightMedium, swiftui.DesignMonospaced)).
 							ForegroundStyleNamed("secondary").
@@ -121,7 +122,7 @@ func main() {
 						views = append(views,
 							swiftui.VStack(
 								swiftui.RoundedRectangle(6).
-									Fill(c.r, c.g, c.b, 1).
+									Fill(swiftui.RGBA(c.r, c.g, c.b, 1)).
 									Frame(32, 32).
 									AsView(),
 								swiftui.Text(hex).
@@ -167,8 +168,7 @@ func main() {
 			}),
 		),
 	).MaxFrame(-1, 0)
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Color Laboratory",
 		Width:  800,
 		Height: 600,
@@ -177,7 +177,9 @@ func main() {
 			leftColumn,
 			rightColumn,
 		).Padding(20),
-	))
+	)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func hexString(r, g, b float64) string {
@@ -245,13 +247,13 @@ func contrastSample(label string, bgR, bgG, bgB, fgR, fgG, fgB float64) swiftui.
 	cr, cg, cb, ca := contrastColor(cl)
 	return swiftui.HStack(
 		swiftui.RoundedRectangle(6).
-			Fill(bgR, bgG, bgB, 1).
+			Fill(swiftui.RGBA(bgR, bgG, bgB, 1)).
 			Frame(80, 30).
 			AsView(),
 		swiftui.Text(fmt.Sprintf("%s: %s", label, cl)).
 			Font(swiftui.FontCaption).
 			FontWeight(swiftui.WeightBold).
-			ForegroundStyle(cr, cg, cb, ca),
+			ForegroundStyle(swiftui.RGBA(cr, cg, cb, ca)),
 		swiftui.Spacer(),
 	)
 }
@@ -359,7 +361,7 @@ func colorRow(label string, colors []savedColor) swiftui.View {
 		views = append(views,
 			swiftui.VStack(
 				swiftui.Circle().
-					Fill(c.r, c.g, c.b, 1).
+					Fill(swiftui.RGBA(c.r, c.g, c.b, 1)).
 					Frame(28, 28).
 					AsView(),
 				swiftui.Text(hexString(c.r, c.g, c.b)).
@@ -388,7 +390,7 @@ func overlay(a, b float64) float64 {
 func blendSwatch(label string, r, g, b float64) swiftui.View {
 	return swiftui.VStack(
 		swiftui.RoundedRectangle(6).
-			Fill(r, g, b, 1).
+			Fill(swiftui.RGBA(r, g, b, 1)).
 			Frame(48, 32).
 			AsView(),
 		swiftui.Text(label).

@@ -12,6 +12,7 @@
 package main
 
 import (
+	"log"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -45,11 +46,11 @@ func main() {
 	previewCard := swiftui.VStackSpaced(12,
 		swiftui.ZStack(
 			swiftui.Circle().
-				Fill(0.28, 0.55, 1.0, 0.14).
+				Fill(swiftui.RGBA(0.28, 0.55, 1.0, 0.14)).
 				Frame(84, 84).
 				AsView(),
 			swiftui.Image("doc.richtext.fill").
-				ForegroundStyle(0.35, 0.65, 1.0, 1.0).
+				ForegroundStyle(swiftui.RGBA(0.35, 0.65, 1.0, 1.0)).
 				ImageScale(swiftui.ImageScaleLarge),
 		),
 		swiftui.Text(fileName).
@@ -65,44 +66,47 @@ func main() {
 
 	previewPtr := quicklook.QuickLookPreview(previewCard.Pointer(), file)
 	preview := swiftui.ViewFromPointer(previewPtr)
+	if err :=
 
-	// Display in a window.
-	swiftui.Run(swiftui.AppConfig{
-		Title:  "QuickLook Preview",
-		Width:  800,
-		Height: 600,
-	}, swiftui.VStackSpaced(16,
-		swiftui.VStackSpaced(4,
-			swiftui.HStack(
-				swiftui.Text("File Preview").
-					Font(swiftui.FontTitle2).
-					FontWeight(swiftui.WeightBold),
-				swiftui.Spacer(),
-				swiftui.Label("Quick Look Bridge", "eye.fill").
-					Font(swiftui.FontCaption).
-					ForegroundStyleNamed("secondary"),
+		// Display in a window.
+		swiftui.Run(swiftui.AppConfig{
+			Title:  "QuickLook Preview",
+			Width:  800,
+			Height: 600,
+		}, swiftui.VStackSpaced(16,
+			swiftui.VStackSpaced(4,
+				swiftui.HStack(
+					swiftui.Text("File Preview").
+						Font(swiftui.FontTitle2).
+						FontWeight(swiftui.WeightBold),
+					swiftui.Spacer(),
+					swiftui.Label("Quick Look Bridge", "eye.fill").
+						Font(swiftui.FontCaption).
+						ForegroundStyleNamed("secondary"),
+				),
+				swiftui.HStack(
+					swiftui.Text("Wrap a document surface with Quick Look and keep useful metadata in view.").
+						Font(swiftui.FontCallout).
+						ForegroundStyleNamed("secondary"),
+					swiftui.Spacer(),
+				),
 			),
-			swiftui.HStack(
-				swiftui.Text("Wrap a document surface with Quick Look and keep useful metadata in view.").
-					Font(swiftui.FontCallout).
-					ForegroundStyleNamed("secondary"),
-				swiftui.Spacer(),
-			),
-		),
-		swiftui.HStackSpaced(12,
-			swiftui.GroupBox("Selection",
-				swiftui.VStackSpaced(10,
-					infoRow("Name", fileName),
-					infoRow("Type", filepath.Ext(file)),
-					infoRow("Size", fileSize),
-					infoRow("Modified", modified),
-				).Padding(10),
-			).Frame(240, 0),
-			swiftui.GroupBox("Preview",
-				preview.MaxFrame(-1, -1),
+			swiftui.HStackSpaced(12,
+				swiftui.GroupBox("Selection",
+					swiftui.VStackSpaced(10,
+						infoRow("Name", fileName),
+						infoRow("Type", filepath.Ext(file)),
+						infoRow("Size", fileSize),
+						infoRow("Modified", modified),
+					).Padding(10),
+				).Frame(240, 0),
+				swiftui.GroupBox("Preview",
+					preview.MaxFrame(-1, -1),
+				).MaxFrame(-1, -1),
 			).MaxFrame(-1, -1),
-		).MaxFrame(-1, -1),
-	).Padding(20))
+		).Padding(20)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func infoRow(label, value string) swiftui.View {

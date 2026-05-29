@@ -14,6 +14,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"sync"
 	"time"
@@ -170,13 +171,13 @@ func main() {
 			swiftui.Spacer(),
 			swiftui.Label(fmt.Sprintf("%d to do", counts[0]), "circle.fill").
 				Font(swiftui.FontCaption).
-				ForegroundStyle(0.3, 0.55, 0.95, 1),
+				ForegroundStyle(swiftui.RGBA(0.3, 0.55, 0.95, 1)),
 			swiftui.Label(fmt.Sprintf("%d active", counts[1]), "circle.fill").
 				Font(swiftui.FontCaption).
-				ForegroundStyle(0.9, 0.6, 0.2, 1),
+				ForegroundStyle(swiftui.RGBA(0.9, 0.6, 0.2, 1)),
 			swiftui.Label(fmt.Sprintf("%d done", counts[2]), "circle.fill").
 				Font(swiftui.FontCaption).
-				ForegroundStyle(0.3, 0.75, 0.45, 1),
+				ForegroundStyle(swiftui.RGBA(0.3, 0.75, 0.45, 1)),
 		).Padding(12)
 	})
 
@@ -228,18 +229,19 @@ func main() {
 			}
 		}
 	}()
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Kanban Board",
 		Width:  900,
 		Height: 600,
-	}, board)
+	}, board); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func buildColumn(col int, hc [3]float64, versions [3]*swiftui.IntState, sheetState *swiftui.IntState) swiftui.View {
 	header := swiftui.VStack(
 		swiftui.HStack(
-			swiftui.Circle().Fill(hc[0], hc[1], hc[2], 1).Frame(10, 10).AsView(),
+			swiftui.Circle().Fill(swiftui.RGBA(hc[0], hc[1], hc[2], 1)).Frame(10, 10).AsView(),
 			swiftui.Text(columnNames[col]).
 				Font(swiftui.FontHeadline).
 				FontWeight(swiftui.WeightSemibold),
@@ -248,7 +250,7 @@ func buildColumn(col int, hc [3]float64, versions [3]*swiftui.IntState, sheetSta
 				sheetState.Set(col + 1) // 1-indexed to distinguish from hidden (0)
 			}).Help(fmt.Sprintf("Add card to %s", columnNames[col])),
 		),
-	).Padding(10).Background(hc[0], hc[1], hc[2], 0.12).CornerRadius(8)
+	).Padding(10).Background(swiftui.RGBA(hc[0], hc[1], hc[2], 0.12)).CornerRadius(8)
 
 	cardList := swiftui.ScrollView(
 		swiftui.AnimatedDynamicView(versions[col], swiftui.TransitionOpacity, func(_ int) swiftui.View {
@@ -294,7 +296,7 @@ func buildCard(card Card, col, idx int, versions [3]*swiftui.IntState) swiftui.V
 				Font(swiftui.FontBody).
 				FontWeight(swiftui.WeightSemibold),
 			swiftui.Spacer(),
-			swiftui.Circle().Fill(pr, pg, pb, 1).Frame(8, 8).AsView(),
+			swiftui.Circle().Fill(swiftui.RGBA(pr, pg, pb, 1)).Frame(8, 8).AsView(),
 		),
 		swiftui.Text(card.Description).
 			Font(swiftui.FontCaption).
@@ -302,15 +304,15 @@ func buildCard(card Card, col, idx int, versions [3]*swiftui.IntState) swiftui.V
 		swiftui.HStack(
 			swiftui.Text(priorityLabel(card.Priority)).
 				Font(swiftui.FontCaption2).
-				ForegroundStyle(pr, pg, pb, 1),
+				ForegroundStyle(swiftui.RGBA(pr, pg, pb, 1)),
 			swiftui.Spacer(),
 			swiftui.Label(timeStr, "clock").
 				Font(swiftui.FontCaption2).
 				ForegroundStyleNamed("tertiary"),
 		),
 	).Padding(10).
-		BackgroundRoundedRect(0.2, 0.2, 0.22, 0.6, 8).
-		Shadow(0, 0, 0, 0.15, 3, 0, 1)
+		BackgroundRoundedRect(swiftui.RGBA(0.2, 0.2, 0.22, 0.6), 8).
+		Shadow(swiftui.RGBA(0, 0, 0, 0.15), 3, 0, 1)
 
 	// Build context menu actions.
 	var menuItems []swiftui.Viewable
@@ -342,7 +344,7 @@ func buildCard(card Card, col, idx int, versions [3]*swiftui.IntState) swiftui.V
 			}
 			mu.Unlock()
 			versions[col].Set(versions[col].Get() + 1)
-		}).ForegroundStyle(0.9, 0.3, 0.3, 1),
+		}).ForegroundStyle(swiftui.RGBA(0.9, 0.3, 0.3, 1)),
 	)
 
 	contextMenu := swiftui.VStack(menuItems...)

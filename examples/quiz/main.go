@@ -11,6 +11,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"sync"
 	"time"
@@ -92,8 +93,7 @@ func main() {
 
 	var mu sync.Mutex
 	answering := false
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Go Quiz",
 		Width:  500,
 		Height: 650,
@@ -106,14 +106,16 @@ func main() {
 		default:
 			return resultsScreen(score, correctMask, screen, questionIdx, selected, total, &mu, &answering)
 		}
-	}))
+	})); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func startScreen(screen *swiftui.IntState) swiftui.View {
 	return swiftui.VStackSpaced(16,
 		swiftui.Spacer(),
 		swiftui.Image("brain.head.profile").
-			ForegroundStyle(0.3, 0.6, 1.0, 1.0).
+			ForegroundStyle(swiftui.RGBA(0.3, 0.6, 1.0, 1.0)).
 			ImageScale(swiftui.ImageScaleLarge),
 		swiftui.Text("Go Quiz").
 			Font(swiftui.FontLargeTitle).
@@ -149,7 +151,7 @@ func playScreen(
 			return swiftui.VStackSpaced(12,
 				// Progress bar
 				swiftui.ProgressLinear(float64(qi+1), float64(total)).
-					Tint(0.3, 0.6, 1.0, 1.0),
+					Tint(swiftui.RGBA(0.3, 0.6, 1.0, 1.0)),
 
 				// Question header
 				swiftui.HStack(
@@ -229,9 +231,9 @@ func answerButton(
 		Disabled(answered)
 
 	if answered && idx == correct {
-		btn = btn.ForegroundStyle(0.2, 0.75, 0.3, 1.0)
+		btn = btn.ForegroundStyle(swiftui.RGBA(0.2, 0.75, 0.3, 1.0))
 	} else if answered && idx == sel {
-		btn = btn.ForegroundStyle(0.9, 0.25, 0.2, 1.0)
+		btn = btn.ForegroundStyle(swiftui.RGBA(0.9, 0.25, 0.2, 1.0))
 	}
 
 	return btn
@@ -256,14 +258,14 @@ func resultsScreen(
 		var row swiftui.View
 		if correct {
 			row = swiftui.HStack(
-				swiftui.Text(dot).ForegroundStyle(0.2, 0.75, 0.3, 1.0).AsView(),
+				swiftui.Text(dot).ForegroundStyle(swiftui.RGBA(0.2, 0.75, 0.3, 1.0)).AsView(),
 				swiftui.Text(fmt.Sprintf(" Q%d: %s", i+1, questions[i].text)).
 					Font(swiftui.FontCaption).AsView(),
 				swiftui.Spacer(),
 			)
 		} else {
 			row = swiftui.HStack(
-				swiftui.Text(dot).ForegroundStyle(0.9, 0.25, 0.2, 1.0).AsView(),
+				swiftui.Text(dot).ForegroundStyle(swiftui.RGBA(0.9, 0.25, 0.2, 1.0)).AsView(),
 				swiftui.Text(fmt.Sprintf(" Q%d: %s", i+1, questions[i].text)).
 					Font(swiftui.FontCaption).AsView(),
 				swiftui.Spacer(),
@@ -279,11 +281,11 @@ func resultsScreen(
 			// Score circle
 			swiftui.ZStack(
 				swiftui.Circle().
-					Stroke(0.85, 0.85, 0.85, 0.3, 8).
+					Stroke(swiftui.RGBA(0.85, 0.85, 0.85, 0.3), 8).
 					Frame(120, 120).
 					AsView(),
 				swiftui.Circle().
-					Stroke(scoreColor(pct, 0), scoreColor(pct, 1), scoreColor(pct, 2), 1.0, 8).
+					Stroke(swiftui.RGBA(scoreColor(pct, 0), scoreColor(pct, 1), scoreColor(pct, 2), 1.0), 8).
 					Frame(120, 120).
 					AsView(),
 				swiftui.VStack(
@@ -293,7 +295,7 @@ func resultsScreen(
 					swiftui.Text(grade).
 						Font(swiftui.FontLargeTitle).
 						FontWeight(swiftui.WeightHeavy).
-						ForegroundStyle(scoreColor(pct, 0), scoreColor(pct, 1), scoreColor(pct, 2), 1.0),
+						ForegroundStyle(swiftui.RGBA(scoreColor(pct, 0), scoreColor(pct, 1), scoreColor(pct, 2), 1.0)),
 				),
 			),
 

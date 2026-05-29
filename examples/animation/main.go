@@ -14,6 +14,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 
 	"github.com/tmc/swiftui"
@@ -32,8 +33,7 @@ func main() {
 	bannerScene := swiftui.NewIntState(0)
 	sceneCycle := swiftui.NewIntState(0)
 	progress := swiftui.NewFloatState(0.0)
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Animations",
 		Width:  600,
 		Height: 860,
@@ -58,7 +58,7 @@ func main() {
 			swiftui.GroupBox("Animated Progress",
 				swiftui.VStackSpaced(12,
 					swiftui.FloatProgressView(progress, 1.0).
-						Tint(0.35, 0.65, 1.0, 1.0),
+						Tint(swiftui.RGBA(0.35, 0.65, 1.0, 1.0)),
 					swiftui.HStackSpaced(8,
 						swiftui.Button("0%", func() {
 							progress.SetAnimated(0.0)
@@ -167,13 +167,15 @@ func main() {
 				).Padding(8),
 			).MaxFrame(-1, 0),
 		).Padding(24),
-	))
+	)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func transitionDemo(label string, transition swiftui.Transition, state *swiftui.IntState) swiftui.View {
 	preview := swiftui.ZStack(
 		swiftui.RoundedRectangle(8).
-			Fill(1.0, 1.0, 1.0, 0.08).
+			Fill(swiftui.RGBA(1.0, 1.0, 1.0, 0.08)).
 			Frame(180, 36).
 			AsView(),
 		swiftui.AnimatedDynamicView(state, transition, func(v int) swiftui.View {
@@ -186,7 +188,7 @@ func transitionDemo(label string, transition swiftui.Transition, state *swiftui.
 			}
 			c := colors[abs(val)%len(colors)]
 			return swiftui.RoundedRectangle(8).
-				Fill(c[0], c[1], c[2], 0.85).
+				Fill(swiftui.RGBA(c[0], c[1], c[2], 0.85)).
 				AsView().
 				Frame(180, 36)
 		}),
@@ -233,11 +235,11 @@ func curveView(v int) swiftui.View {
 	return swiftui.HStackSpaced(14,
 		swiftui.ZStack(
 			swiftui.Circle().
-				Fill(p.r, p.g, p.b, 0.18).
+				Fill(swiftui.RGBA(p.r, p.g, p.b, 0.18)).
 				Frame(52, 52).
 				AsView(),
 			swiftui.Image(p.icon).
-				ForegroundStyle(p.r, p.g, p.b, 1.0).
+				ForegroundStyle(swiftui.RGBA(p.r, p.g, p.b, 1.0)).
 				ImageScale(swiftui.ImageScaleLarge),
 		).Frame(52, 52),
 		swiftui.VStackSpaced(4,
@@ -251,10 +253,10 @@ func curveView(v int) swiftui.View {
 		swiftui.Spacer(),
 	).
 		Padding(16).
-		BackgroundRoundedRect(0.12, 0.15, 0.20, 0.96, 18).
+		BackgroundRoundedRect(swiftui.RGBA(0.12, 0.15, 0.20, 0.96), 18).
 		Overlay(
 			swiftui.RoundedRectangle(18).
-				Stroke(p.r, p.g, p.b, 0.30, 1.2).
+				Stroke(swiftui.RGBA(p.r, p.g, p.b, 0.30), 1.2).
 				AsView(),
 		).
 		MaxFrame(-1, 0)
@@ -282,26 +284,26 @@ func transformView(v int) swiftui.View {
 
 	return swiftui.ZStack(
 		swiftui.RoundedRectangle(24).
-			Fill(0.12, 0.15, 0.20, 0.96).
+			Fill(swiftui.RGBA(0.12, 0.15, 0.20, 0.96)).
 			Frame(360, 190).
 			AsView().
 			Overlay(
 				swiftui.RoundedRectangle(24).
-					Stroke(p.r, p.g, p.b, 0.35, 1.5).
+					Stroke(swiftui.RGBA(p.r, p.g, p.b, 0.35), 1.5).
 					AsView(),
 			),
 		swiftui.VStackSpaced(10,
 			swiftui.ZStack(
 				swiftui.Circle().
-					Fill(p.r, p.g, p.b, 0.18).
+					Fill(swiftui.RGBA(p.r, p.g, p.b, 0.18)).
 					Frame(108, 108).
 					AsView(),
 				swiftui.Circle().
-					Fill(p.r, p.g, p.b, 0.32).
+					Fill(swiftui.RGBA(p.r, p.g, p.b, 0.32)).
 					Frame(78, 78).
 					AsView(),
 				swiftui.Image(p.icon).
-					ForegroundStyle(p.r, p.g, p.b, 1.0).
+					ForegroundStyle(swiftui.RGBA(p.r, p.g, p.b, 1.0)).
 					ImageScale(swiftui.ImageScaleLarge).
 					ScaleEffect(2.1),
 			).Frame(120, 120),
@@ -318,7 +320,7 @@ func transformView(v int) swiftui.View {
 		RotationEffect(p.rotation).
 		Offset(p.x, p.y).
 		Opacity(p.opacity).
-		Shadow(0, 0, 0, 0.24, p.shadow, 0, 10).
+		Shadow(swiftui.RGBA(0, 0, 0, 0.24), p.shadow, 0, 10).
 		MaxFrame(-1, 0)
 }
 
@@ -361,24 +363,24 @@ func stackView(v int) swiftui.View {
 	for _, p := range layout {
 		card := swiftui.ZStack(
 			swiftui.RoundedRectangle(20).
-				Fill(p.r, p.g, p.b, 0.95).
+				Fill(swiftui.RGBA(p.r, p.g, p.b, 0.95)).
 				Frame(240, 132).
 				AsView(),
 			swiftui.VStackSpaced(6,
 				swiftui.Text(p.title).
 					Font(swiftui.FontTitle3).
 					FontWeight(swiftui.WeightBold).
-					ForegroundStyle(1.0, 1.0, 1.0, 1.0),
+					ForegroundStyle(swiftui.RGBA(1.0, 1.0, 1.0, 1.0)),
 				swiftui.Text(p.subtitle).
 					Font(swiftui.FontCaption).
-					ForegroundStyle(1.0, 1.0, 1.0, 0.82),
+					ForegroundStyle(swiftui.RGBA(1.0, 1.0, 1.0, 0.82)),
 			),
 		).
 			Frame(240, 132).
 			ScaleEffect(p.scale).
 			RotationEffect(p.rotation).
 			Offset(p.x, p.y).
-			Shadow(0, 0, 0, 0.18, 18, 0, 10).
+			Shadow(swiftui.RGBA(0, 0, 0, 0.18), 18, 0, 10).
 			ZIndex(p.z)
 		layers = append(layers, card)
 	}
@@ -405,11 +407,11 @@ func bannerView(v int) swiftui.View {
 	return swiftui.HStackSpaced(12,
 		swiftui.ZStack(
 			swiftui.Circle().
-				Fill(b.r, b.g, b.b, 0.18).
+				Fill(swiftui.RGBA(b.r, b.g, b.b, 0.18)).
 				Frame(42, 42).
 				AsView(),
 			swiftui.Image(b.icon).
-				ForegroundStyle(b.r, b.g, b.b, 1.0).
+				ForegroundStyle(swiftui.RGBA(b.r, b.g, b.b, 1.0)).
 				ImageScale(swiftui.ImageScaleLarge),
 		).Frame(42, 42),
 		swiftui.VStackSpaced(4,
@@ -425,16 +427,16 @@ func bannerView(v int) swiftui.View {
 			Font(swiftui.FontCaption).
 			FontWeight(swiftui.WeightSemibold).
 			Padding(8).
-			BackgroundRoundedRect(b.r, b.g, b.b, b.tagAlpha, 10),
+			BackgroundRoundedRect(swiftui.RGBA(b.r, b.g, b.b, b.tagAlpha), 10),
 	).
 		Padding(14).
-		BackgroundRoundedRect(0.12, 0.15, 0.20, 0.96, 18).
+		BackgroundRoundedRect(swiftui.RGBA(0.12, 0.15, 0.20, 0.96), 18).
 		Overlay(
 			swiftui.RoundedRectangle(18).
-				Stroke(b.r, b.g, b.b, 0.30, 1.2).
+				Stroke(swiftui.RGBA(b.r, b.g, b.b, 0.30), 1.2).
 				AsView(),
 		).
-		Shadow(0, 0, 0, 0.14, 12, 0, 6).
+		Shadow(swiftui.RGBA(0, 0, 0, 0.14), 12, 0, 6).
 		MaxFrame(-1, 0)
 }
 
@@ -453,12 +455,12 @@ func sceneView(v int) swiftui.View {
 	s := scenes[idx]
 	return swiftui.VStack(
 		swiftui.Image(s.icon).
-			ForegroundStyle(s.r, s.g, s.b, 1.0).
+			ForegroundStyle(swiftui.RGBA(s.r, s.g, s.b, 1.0)).
 			ImageScale(swiftui.ImageScaleLarge),
 		swiftui.Text(s.title).
 			Font(swiftui.FontTitle).
 			FontWeight(swiftui.WeightBold).
-			ForegroundStyle(s.r, s.g, s.b, 1.0),
+			ForegroundStyle(swiftui.RGBA(s.r, s.g, s.b, 1.0)),
 		swiftui.Text(fmt.Sprintf("Scene %d", idx+1)).
 			Font(swiftui.FontCaption).
 			ForegroundStyleNamed("secondary"),

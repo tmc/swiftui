@@ -13,6 +13,7 @@
 package main
 
 import (
+	"log"
 	"runtime"
 
 	"github.com/tmc/swiftui"
@@ -21,9 +22,9 @@ import (
 func init() { runtime.LockOSThread() }
 
 func main() {
-	mode := swiftui.NewIntState(0) // 0 = light palette, 1 = dark palette
-
-	swiftui.Run(swiftui.AppConfig{
+	mode := swiftui.NewIntState(0)
+	if // 0 = light palette, 1 = dark palette
+	err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Dark & Light Styles",
 		Width:  520,
 		Height: 620,
@@ -47,10 +48,14 @@ func main() {
 				return lightPalette()
 			}),
 		).Padding(24),
-	))
+	)); err !=
+
+		// lightPalette shows semantic styles on light-toned backgrounds.
+		nil {
+		log.Fatal(err)
+	}
 }
 
-// lightPalette shows semantic styles on light-toned backgrounds.
 func lightPalette() swiftui.View {
 	return swiftui.VStackSpaced(14,
 		swiftui.Text("Light Palette").
@@ -157,7 +162,7 @@ func materialCard(title string, bgR, bgG, bgB float64) swiftui.View {
 		swiftui.VStackSpaced(6, rows...).
 			Padding(4),
 	).MaxFrame(-1, 0).
-		Background(bgR, bgG, bgB, 1.0).
+		Background(swiftui.RGBA(bgR, bgG, bgB, 1.0)).
 		CornerRadius(12)
 }
 
@@ -178,7 +183,7 @@ func colorCard(title string, bgR, bgG, bgB float64) swiftui.View {
 		rows = append(rows,
 			swiftui.HStack(
 				swiftui.RoundedRectangle(4).
-					Fill(0.5, 0.5, 0.5, 1.0).
+					Fill(swiftui.RGBA(0.5, 0.5, 0.5, 1.0)).
 					Frame(28, 28).
 					ForegroundStyleNamed(s.name).
 					AsView(),
@@ -194,6 +199,6 @@ func colorCard(title string, bgR, bgG, bgB float64) swiftui.View {
 		swiftui.VStackSpaced(6, rows...).
 			Padding(4),
 	).MaxFrame(-1, 0).
-		Background(bgR, bgG, bgB, 1.0).
+		Background(swiftui.RGBA(bgR, bgG, bgB, 1.0)).
 		CornerRadius(12)
 }

@@ -12,6 +12,7 @@
 package main
 
 import (
+	"log"
 	"net/url"
 	"os"
 	"os/exec"
@@ -74,8 +75,7 @@ func main() {
 		urlState.Set(resolved)
 		page.LoadURL(resolved)
 	}
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Web Browser",
 		Width:  1000,
 		Height: 720,
@@ -112,7 +112,7 @@ func main() {
 				}).ButtonStyle(swiftui.ButtonStyleBordered),
 			),
 		).Padding(16).
-			Background(0.16, 0.17, 0.19, 0.95),
+			Background(swiftui.RGBA(0.16, 0.17, 0.19, 0.95)),
 		swiftui.Divider(),
 		swiftui.HStackSpaced(0,
 			swiftui.VStackSpaced(14,
@@ -134,7 +134,7 @@ func main() {
 				swiftui.Spacer(),
 			).Padding(16).
 				Frame(260, 0).
-				Background(0.13, 0.14, 0.16, 1.0),
+				Background(swiftui.RGBA(0.13, 0.14, 0.16, 1.0)),
 			swiftui.Divider(),
 			webView.
 				WebViewBackForwardNavigationGestures(swiftui.WebViewBehaviorEnabled).
@@ -153,14 +153,16 @@ func main() {
 				MonospacedDigit().
 				ForegroundStyleNamed("secondary"),
 		).Padding(10).
-			Background(0.14, 0.15, 0.17, 0.95),
-	))
+			Background(swiftui.RGBA(0.14, 0.15, 0.17, 0.95)),
+	)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func bookmarkButton(label, icon, target string, load func(string)) swiftui.View {
 	return swiftui.HStack(
 		swiftui.Image(icon).
-			ForegroundStyle(0.35, 0.65, 1.0, 1.0).
+			ForegroundStyle(swiftui.RGBA(0.35, 0.65, 1.0, 1.0)).
 			ImageScale(swiftui.ImageScaleSmall).
 			Frame(16, 0),
 		swiftui.Button(label, func() {

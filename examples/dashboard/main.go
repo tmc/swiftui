@@ -14,6 +14,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"runtime"
 	"sync"
@@ -91,8 +92,7 @@ func main() {
 			time.Sleep(time.Duration(rate*1000) * time.Millisecond)
 		}
 	}()
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Dashboard",
 		Width:  750,
 		Height: 650,
@@ -100,7 +100,9 @@ func main() {
 		overviewTab(goroutines, heapMB, sysMB, numGC, chartVersion, autoRefreshState, lastUpdate),
 		detailsTab(goroutines, heapMB, sysMB, numGC, chartVersion, lastUpdate),
 		controlsTab(spawnCount, autoRefreshState, refreshRateState, goroutines, heapMB, sysMB, numGC, chartVersion),
-	))
+	)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func overviewTab(goroutines, heapMB, sysMB, numGC, chartVersion, autoRefreshState, lastUpdate *swiftui.IntState) swiftui.View {
@@ -171,7 +173,7 @@ func metricCard(icon string, label string, state *swiftui.IntState, r, g, b floa
 	return swiftui.VStackSpaced(6,
 		swiftui.HStack(
 			swiftui.Image(icon).
-				ForegroundStyle(r, g, b, 1.0).
+				ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
 				ImageScale(swiftui.ImageScaleSmall),
 			swiftui.Spacer(),
 		),
@@ -189,7 +191,7 @@ func metricCard(icon string, label string, state *swiftui.IntState, r, g, b floa
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.5).
+		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.5)).
 		CornerRadius(10)
 }
 
@@ -243,7 +245,7 @@ func signalRow(label, icon, value string, ratio float64, r, g, b float64) swiftu
 				ForegroundStyleNamed("secondary"),
 		),
 		swiftui.ProgressLinear(clamp(ratio), 1.0).
-			Tint(r, g, b, 1.0),
+			Tint(swiftui.RGBA(r, g, b, 1.0)),
 	)
 }
 
@@ -275,7 +277,7 @@ func sessionPanel(autoRefresh bool, lastUpdate int) swiftui.View {
 func noteRow(icon, label, value string, r, g, b float64) swiftui.View {
 	return swiftui.HStack(
 		swiftui.Image(icon).
-			ForegroundStyle(r, g, b, 1.0).
+			ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
 			ImageScale(swiftui.ImageScaleSmall).
 			Frame(16, 0),
 		swiftui.Text(label).
@@ -352,7 +354,7 @@ func heapChart(maxHeight float64) swiftui.View {
 				ForegroundStyleNamed("secondary").
 				MonospacedDigit(),
 			swiftui.RoundedRectangle(4).
-				Fill(0.35, 0.65, 1.0, 0.85).
+				Fill(swiftui.RGBA(0.35, 0.65, 1.0, 0.85)).
 				Frame(30, h).
 				AsView(),
 			swiftui.Text(fmt.Sprintf("%d", i+1)).

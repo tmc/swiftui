@@ -14,6 +14,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 
 	"github.com/tmc/swiftui"
@@ -26,8 +27,7 @@ func main() {
 	fontSize := swiftui.NewIntState(15)
 	compactMode := swiftui.NewIntState(0)
 	notifications := swiftui.NewIntState(1)
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Tabs Demo",
 		Width:  720,
 		Height: 560,
@@ -35,7 +35,9 @@ func main() {
 		homeTab(),
 		settingsTab(darkMode, fontSize, compactMode, notifications),
 		aboutTab(),
-	))
+	)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func homeTab() swiftui.View {
@@ -147,15 +149,15 @@ func aboutTab() swiftui.View {
 		swiftui.Spacer(),
 		swiftui.ZStack(
 			swiftui.Circle().
-				Fill(0.2, 0.45, 0.9, 0.16).
+				Fill(swiftui.RGBA(0.2, 0.45, 0.9, 0.16)).
 				Frame(132, 132).
 				AsView(),
 			swiftui.Circle().
-				Stroke(0.2, 0.45, 0.9, 0.35, 1.5).
+				Stroke(swiftui.RGBA(0.2, 0.45, 0.9, 0.35), 1.5).
 				Frame(132, 132).
 				AsView(),
 			swiftui.Image("swift").
-				ForegroundStyle(0.3, 0.6, 1.0, 1.0).
+				ForegroundStyle(swiftui.RGBA(0.3, 0.6, 1.0, 1.0)).
 				ImageScale(swiftui.ImageScaleLarge),
 		),
 		swiftui.Text("SwiftUI for Go").
@@ -180,7 +182,7 @@ func summaryCard(icon, label, value, note string, r, g, b float64) swiftui.View 
 	return swiftui.VStackSpaced(8,
 		swiftui.HStack(
 			swiftui.Image(icon).
-				ForegroundStyle(r, g, b, 1.0).
+				ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
 				ImageScale(swiftui.ImageScaleSmall),
 			swiftui.Spacer(),
 		),
@@ -203,7 +205,7 @@ func summaryCard(icon, label, value, note string, r, g, b float64) swiftui.View 
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.45).
+		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.45)).
 		CornerRadius(10)
 }
 
@@ -212,7 +214,7 @@ func flowRow(step, title, body string) swiftui.View {
 		swiftui.Text(step).
 			Font(swiftui.FontCaption).
 			FontWeight(swiftui.WeightBold).
-			ForegroundStyle(0.3, 0.6, 1.0, 1.0).
+			ForegroundStyle(swiftui.RGBA(0.3, 0.6, 1.0, 1.0)).
 			Frame(18, 18),
 		swiftui.VStackSpaced(2,
 			swiftui.HStack(
@@ -257,7 +259,7 @@ func aboutPillar(title, body string) swiftui.View {
 			Font(swiftui.FontCaption).
 			ForegroundStyleNamed("secondary"),
 	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.32).
+		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.32)).
 		CornerRadius(10)
 }
 

@@ -12,6 +12,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"math/rand/v2"
 	"runtime"
@@ -239,8 +240,7 @@ func main() {
 	regen()
 
 	onChange := func() { regen() }
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Password Generator",
 		Width:  560,
 		Height: 700,
@@ -265,7 +265,7 @@ func main() {
 						}).ButtonStyle(swiftui.ButtonStyleBordered).
 							ControlSize(swiftui.ControlSizeLarge),
 						swiftui.TextFromString(copyLabel).
-							ForegroundStyle(0.2, 0.8, 0.3, 1.0).
+							ForegroundStyle(swiftui.RGBA(0.2, 0.8, 0.3, 1.0)).
 							Font(swiftui.FontCaption).
 							AsView(),
 						swiftui.Spacer(),
@@ -324,12 +324,12 @@ func main() {
 					for i := range 4 {
 						if i <= level {
 							bars[i] = swiftui.RoundedRectangle(3).
-								Fill(cr, cg, cb, 1.0).
+								Fill(swiftui.RGBA(cr, cg, cb, 1.0)).
 								Frame(112, 8).
 								AsView().MaxFrame(-1, 0)
 						} else {
 							bars[i] = swiftui.RoundedRectangle(3).
-								Fill(0.7, 0.7, 0.7, 0.3).
+								Fill(swiftui.RGBA(0.7, 0.7, 0.7, 0.3)).
 								Frame(112, 8).
 								AsView().MaxFrame(-1, 0)
 						}
@@ -341,7 +341,7 @@ func main() {
 							swiftui.Text(label).
 								Font(swiftui.FontBody).
 								FontWeight(swiftui.WeightSemibold).
-								ForegroundStyle(cr, cg, cb, 1.0).
+								ForegroundStyle(swiftui.RGBA(cr, cg, cb, 1.0)).
 								AsView(),
 							swiftui.Spacer(),
 							swiftui.Text(fmt.Sprintf("%.0f bits", bits)).
@@ -388,7 +388,7 @@ func main() {
 								AsView(),
 							swiftui.Spacer(),
 							swiftui.Circle().
-								Fill(dr, dg, db, 1.0).
+								Fill(swiftui.RGBA(dr, dg, db, 1.0)).
 								Frame(8, 8).
 								AsView(),
 						)
@@ -397,5 +397,7 @@ func main() {
 				}).Frame(500, 150),
 			).MaxFrame(-1, 0),
 		).Padding(20),
-	))
+	)); err != nil {
+		log.Fatal(err)
+	}
 }

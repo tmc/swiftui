@@ -13,6 +13,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"time"
 
@@ -29,8 +30,7 @@ func main() {
 	volume := swiftui.NewIntState(50)
 	color := swiftui.NewColorState(0.2, 0.5, 1.0, 1.0)
 	date := swiftui.NewDateState(float64(time.Now().Add(2 * time.Hour).Unix()))
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Profile Form",
 		Width:  660,
 		Height: 600,
@@ -53,7 +53,7 @@ func main() {
 				).MaxFrame(-1, 0),
 				swiftui.Label("Draft", "square.and.pencil").
 					Font(swiftui.FontCaption).
-					ForegroundStyle(0.95, 0.7, 0.2, 1.0),
+					ForegroundStyle(swiftui.RGBA(0.95, 0.7, 0.2, 1.0)),
 			),
 
 			swiftui.HStackSpaced(12,
@@ -87,7 +87,9 @@ func main() {
 				).Padding(10),
 			).MaxFrame(-1, 0),
 		).Padding(24),
-	))
+	)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func infoLine(label, value string) swiftui.View {

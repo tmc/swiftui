@@ -12,6 +12,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"time"
 
@@ -352,7 +353,7 @@ func main() {
 				}).Alert("Clear Cache", "This will remove all cached data.", showClearAlert),
 				swiftui.Button("Delete Account", func() {
 					showDeleteConfirm.Set(1)
-				}).ForegroundStyle(1.0, 0.3, 0.3, 1.0).
+				}).ForegroundStyle(swiftui.RGBA(1.0, 0.3, 0.3, 1.0)).
 					ConfirmationDialog("This action cannot be undone. Delete your account?", showDeleteConfirm,
 						swiftui.VStack(
 							swiftui.Button("Delete Account", func() {}),
@@ -379,8 +380,7 @@ func main() {
 			refreshChanges()
 		}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
 	).Padding(12)
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Settings",
 		Width:  660,
 		Height: 620,
@@ -392,7 +392,9 @@ func main() {
 		).MaxFrame(-1, -1),
 		swiftui.Divider(),
 		statusBar,
-	))
+	)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func boolToInt(v bool) int {

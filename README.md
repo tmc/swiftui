@@ -24,6 +24,7 @@ available, the package runs `swift build` in `internal/swift/` automatically.
 package main
 
 import (
+	"log"
 	"runtime"
 
 	"github.com/tmc/swiftui"
@@ -32,11 +33,13 @@ import (
 func init() { runtime.LockOSThread() }
 
 func main() {
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Hello World",
 		Width:  400,
 		Height: 300,
-	}, swiftui.Text("Hello from Go!").Padding(20).AsView())
+	}, swiftui.Text("Hello from Go!").Padding(20).AsView()); err != nil {
+		log.Fatal(err)
+	}
 }
 ```
 

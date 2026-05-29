@@ -14,6 +14,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"runtime"
 	"strconv"
@@ -152,8 +153,7 @@ func main() {
 			ForegroundStyleNamed("secondary").
 			MaxFrame(-1, 0)
 	}
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Calculator",
 		Width:  320,
 		Height: 450,
@@ -190,7 +190,7 @@ func main() {
 					MonospacedDigit(),
 			),
 		).Padding(16).
-			Background(0.18, 0.19, 0.22, 0.55).
+			Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.55)).
 			CornerRadius(18),
 
 		swiftui.VStackSpaced(8,
@@ -221,9 +221,11 @@ func main() {
 				swiftui.Button("=", func() { c.evaluate() }).
 					ControlSize(swiftui.ControlSizeLarge).
 					ButtonStyle(swiftui.ButtonStyleBorderedProminent).
-					Tint(0.2, 0.6, 1.0, 1.0).
+					Tint(swiftui.RGBA(0.2, 0.6, 1.0, 1.0)).
 					MaxFrame(-1, 0),
 			),
 		),
-	).Padding(18))
+	).Padding(18)); err != nil {
+		log.Fatal(err)
+	}
 }

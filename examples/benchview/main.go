@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -317,8 +318,7 @@ func main() {
 	bumpDisplay := func() {
 		updateTick.Set(updateTick.Get() + 1)
 	}
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Benchview",
 		Width:  windowWidth,
 		Height: 720,
@@ -352,7 +352,9 @@ func main() {
 		reloadFiles,
 		applyOptions,
 		resetOptions,
-	))
+	)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func buildComparison(inputs []inputSpec) comparisonView {
@@ -603,7 +605,7 @@ func benchDashboardTab(
 							onReload()
 						}).
 							Padding(8).
-							Background(1, 1, 1, 0.06).
+							Background(swiftui.RGBA(1, 1, 1, 0.06)).
 							CornerRadius(999),
 						swiftui.Button("Options", func() {
 							if showDisplayControls.Get() == 0 {
@@ -613,7 +615,7 @@ func benchDashboardTab(
 							}
 						}).
 							Padding(8).
-							Background(1, 1, 1, 0.06).
+							Background(swiftui.RGBA(1, 1, 1, 0.06)).
 							CornerRadius(999),
 					),
 				).MaxFrame(-1, 0),
@@ -728,7 +730,7 @@ func overviewStrip(view comparisonView, prefs displayPrefs) swiftui.View {
 	}
 	return swiftui.VStackSpaced(6, lines...).
 		Padding(10).
-		Background(1, 1, 1, 0.03).
+		Background(swiftui.RGBA(1, 1, 1, 0.03)).
 		CornerRadius(10).
 		MaxFrame(-1, 0)
 }
@@ -764,7 +766,7 @@ func metaStrip(
 					AsView(),
 			)...,
 		).Padding(8).
-			Background(1, 1, 1, 0.03).
+			Background(swiftui.RGBA(1, 1, 1, 0.03)).
 			CornerRadius(10)
 	})
 }
@@ -1006,7 +1008,7 @@ func comparisonRow(table tableView, row rowView, prefs displayPrefs) swiftui.Vie
 	}
 	return swiftui.HStackSpaced(12, views...).
 		Padding(padding).
-		Background(r, g, b, rowTint(table, row)).
+		Background(swiftui.RGBA(r, g, b, rowTint(table, row))).
 		CornerRadius(10)
 }
 
@@ -1024,7 +1026,7 @@ func summaryRow(table tableView) swiftui.View {
 	}
 	return swiftui.HStackSpaced(12, views...).
 		Padding(8).
-		Background(1, 1, 1, 0.03).
+		Background(swiftui.RGBA(1, 1, 1, 0.03)).
 		CornerRadius(10)
 }
 
@@ -1058,11 +1060,11 @@ func optionsPopover(
 					swiftui.HStackSpaced(8,
 						swiftui.Button("Apply", onApplyOptions).
 							Padding(8).
-							Background(0.35, 0.65, 1.0, 0.18).
+							Background(swiftui.RGBA(0.35, 0.65, 1.0, 0.18)).
 							CornerRadius(999),
 						swiftui.Button("Defaults", onResetOptions).
 							Padding(8).
-							Background(1, 1, 1, 0.06).
+							Background(swiftui.RGBA(1, 1, 1, 0.06)).
 							CornerRadius(999),
 						swiftui.Spacer(),
 					),
@@ -1076,7 +1078,7 @@ func optionsPopover(
 						}
 						return swiftui.Text(message).
 							Font(swiftui.FontCaption2).
-							ForegroundStyle(0.9, 0.5, 0.2, 1.0).
+							ForegroundStyle(swiftui.RGBA(0.9, 0.5, 0.2, 1.0)).
 							AsView()
 					}),
 				).Padding(10),
@@ -1149,13 +1151,13 @@ func headerText(label string, width float64) swiftui.View {
 	if width > 0 {
 		return view.Frame(width, 0).AsView()
 	}
-	return view.MaxFrame(-1, 0)
+	return view.MaxFrame(-1, 0).AsView()
 }
 
 func monoText(value string, width float64) swiftui.View {
 	return swiftui.ZStack(
 		swiftui.RoundedRectangle(8).
-			Fill(1, 1, 1, 0.04).
+			Fill(swiftui.RGBA(1, 1, 1, 0.04)).
 			Frame(width, 30).
 			AsView(),
 		swiftui.Text(value).
@@ -1177,7 +1179,7 @@ func compactStat(label, value string, r, g, b float64) swiftui.View {
 			MonospacedDigit().
 			LineLimit(1),
 	).Padding(6).
-		Background(r, g, b, 0.14).
+		Background(swiftui.RGBA(r, g, b, 0.14)).
 		CornerRadius(999)
 }
 
@@ -1193,7 +1195,7 @@ func highlightLine(highlight highlightView) swiftui.View {
 		swiftui.Text(highlight.Title).
 			Font(swiftui.FontCaption2).
 			FontWeight(swiftui.WeightSemibold).
-			ForegroundStyle(r, g, b, 1.0),
+			ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)),
 		swiftui.Text(label).
 			Font(swiftui.FontCaption).
 			FontWeight(swiftui.WeightSemibold).
@@ -1213,7 +1215,7 @@ func stringCard(icon, label, value, note string, r, g, b float64) swiftui.View {
 	return swiftui.VStackSpaced(6,
 		swiftui.HStack(
 			swiftui.Image(icon).
-				ForegroundStyle(r, g, b, 1.0).
+				ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
 				ImageScale(swiftui.ImageScaleSmall),
 			swiftui.Spacer(),
 		),
@@ -1237,7 +1239,7 @@ func stringCard(icon, label, value, note string, r, g, b float64) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.42).
+		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.42)).
 		CornerRadius(12).
 		MaxFrame(-1, 0)
 }
@@ -1246,7 +1248,7 @@ func intCard(icon, label string, state *swiftui.IntState, note string, r, g, b f
 	return swiftui.VStackSpaced(6,
 		swiftui.HStack(
 			swiftui.Image(icon).
-				ForegroundStyle(r, g, b, 1.0).
+				ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
 				ImageScale(swiftui.ImageScaleSmall),
 			swiftui.Spacer(),
 		),
@@ -1270,7 +1272,7 @@ func intCard(icon, label string, state *swiftui.IntState, note string, r, g, b f
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.42).
+		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.42)).
 		CornerRadius(12).
 		MaxFrame(-1, 0)
 }
@@ -1279,7 +1281,7 @@ func stateStringCard(icon, label string, state *swiftui.StringState, note string
 	return swiftui.VStackSpaced(6,
 		swiftui.HStack(
 			swiftui.Image(icon).
-				ForegroundStyle(r, g, b, 1.0).
+				ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
 				ImageScale(swiftui.ImageScaleSmall),
 			swiftui.Spacer(),
 		),
@@ -1303,7 +1305,7 @@ func stateStringCard(icon, label string, state *swiftui.StringState, note string
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.2, 0.2, 0.25, 0.42).
+		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.42)).
 		CornerRadius(12).
 		MaxFrame(-1, 0)
 }
@@ -1728,7 +1730,7 @@ func outcomePill(change int) swiftui.View {
 			Font(swiftui.FontCaption2).
 			FontWeight(swiftui.WeightSemibold),
 	).Padding(6).
-		Background(r, g, b, 0.18).
+		Background(swiftui.RGBA(r, g, b, 0.18)).
 		CornerRadius(999)
 }
 
@@ -1751,7 +1753,7 @@ func configChip(label string) swiftui.View {
 			FontWeight(swiftui.WeightSemibold).
 			LineLimit(1),
 	).Padding(5).
-		Background(r, g, b, 0.18).
+		Background(swiftui.RGBA(r, g, b, 0.18)).
 		CornerRadius(999)
 }
 
@@ -1765,7 +1767,7 @@ func changeCountPill(label string, count int, r, g, b float64) swiftui.View {
 			Font(swiftui.FontCaption2).
 			ForegroundStyleNamed("secondary"),
 	).Padding(6).
-		Background(r, g, b, 0.14).
+		Background(swiftui.RGBA(r, g, b, 0.14)).
 		CornerRadius(999)
 }
 
@@ -1773,7 +1775,7 @@ func stackedChangeBar(improved, regressed, unchanged int, width float64) swiftui
 	total := improved + regressed + unchanged
 	if total == 0 {
 		return swiftui.RoundedRectangle(999).
-			Fill(1, 1, 1, 0.06).
+			Fill(swiftui.RGBA(1, 1, 1, 0.06)).
 			Frame(width, 10).
 			AsView()
 	}
@@ -1793,13 +1795,13 @@ func stackedChangeBar(improved, regressed, unchanged int, width float64) swiftui
 		}
 		segments = append(segments,
 			swiftui.Rectangle().
-				Fill(segment.r, segment.g, segment.b, 0.9).
+				Fill(swiftui.RGBA(segment.r, segment.g, segment.b, 0.9)).
 				Frame(width*float64(segment.count)/float64(total), 10).
 				AsView(),
 		)
 	}
 	return swiftui.HStackSpaced(0, segments...).
-		Background(1, 1, 1, 0.04).
+		Background(swiftui.RGBA(1, 1, 1, 0.04)).
 		CornerRadius(999)
 }
 
@@ -1814,7 +1816,7 @@ func highlightCard(highlight highlightView) swiftui.View {
 			swiftui.Text(highlight.Title).
 				Font(swiftui.FontCaption).
 				FontWeight(swiftui.WeightSemibold).
-				ForegroundStyle(r, g, b, 1.0),
+				ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)),
 			swiftui.Spacer(),
 		),
 		swiftui.HStack(
@@ -1837,7 +1839,7 @@ func highlightCard(highlight highlightView) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(10).
-		Background(r, g, b, 0.12).
+		Background(swiftui.RGBA(r, g, b, 0.12)).
 		CornerRadius(12).
 		MaxFrame(-1, 0)
 }
@@ -1911,7 +1913,7 @@ func metricCellView(cell valueCellView, width float64) swiftui.View {
 				Font(swiftui.FontCaption2).
 				FontWeight(swiftui.WeightSemibold).
 				MonospacedDigit().
-				ForegroundStyle(r, g, b, 1.0).
+				ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
 				AsView(),
 		)
 	}
@@ -1933,7 +1935,7 @@ func metricCellView(cell valueCellView, width float64) swiftui.View {
 		),
 	).
 		Padding(6).
-		Background(1, 1, 1, 0.025).
+		Background(swiftui.RGBA(1, 1, 1, 0.025)).
 		CornerRadius(6).
 		Frame(width, 0)
 }
@@ -1960,7 +1962,7 @@ func summaryCellViewBox(cell summaryCellView, width float64) swiftui.View {
 				Font(swiftui.FontCaption2).
 				FontWeight(swiftui.WeightSemibold).
 				MonospacedDigit().
-				ForegroundStyle(r, g, b, 1.0).
+				ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
 				AsView(),
 		)
 	}
@@ -1983,7 +1985,7 @@ func summaryCellViewBox(cell summaryCellView, width float64) swiftui.View {
 	}
 	return swiftui.VStackSpaced(1, views...).
 		Padding(6).
-		Background(1, 1, 1, 0.025).
+		Background(swiftui.RGBA(1, 1, 1, 0.025)).
 		CornerRadius(6).
 		Frame(width, 0)
 }
@@ -2034,7 +2036,7 @@ func errorPanel(message string) swiftui.View {
 		swiftui.VStackSpaced(8,
 			swiftui.Text(message).
 				Font(swiftui.FontCallout).
-				ForegroundStyle(0.9, 0.5, 0.2, 1.0),
+				ForegroundStyle(swiftui.RGBA(0.9, 0.5, 0.2, 1.0)),
 			swiftui.Text("Adjust the benchstat options and apply again.").
 				Font(swiftui.FontCaption).
 				ForegroundStyleNamed("secondary"),

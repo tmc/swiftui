@@ -13,6 +13,7 @@
 package main
 
 import (
+	"log"
 	"runtime"
 
 	"github.com/tmc/swiftui"
@@ -23,8 +24,7 @@ func init() { runtime.LockOSThread() }
 func main() {
 	name := swiftui.NewStringState("")
 	volume := swiftui.NewIntState(50)
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Accessibility",
 		Width:  520,
 		Height: 680,
@@ -44,11 +44,11 @@ func main() {
 					swiftui.Divider().AccessibilityHidden(true),
 					swiftui.Image("heart.fill").
 						ImageScale(swiftui.ImageScaleLarge).
-						ForegroundStyle(0.9, 0.3, 0.3, 1.0).
+						ForegroundStyle(swiftui.RGBA(0.9, 0.3, 0.3, 1.0)).
 						AccessibilityLabel("Favorite heart icon"),
 					swiftui.Image("globe").
 						ImageScale(swiftui.ImageScaleLarge).
-						ForegroundStyle(0.3, 0.6, 1.0, 1.0).
+						ForegroundStyle(swiftui.RGBA(0.3, 0.6, 1.0, 1.0)).
 						AccessibilityLabel("Globe representing international content"),
 				).Padding(8),
 			).MaxFrame(-1, 0),
@@ -67,7 +67,7 @@ func main() {
 						AccessibilityHint("Saves the current document to disk"),
 					swiftui.Button("Delete All", func() {}).
 						ButtonStyle(swiftui.ButtonStyleBordered).
-						ForegroundStyle(0.9, 0.3, 0.3, 1.0).
+						ForegroundStyle(swiftui.RGBA(0.9, 0.3, 0.3, 1.0)).
 						AccessibilityLabel("Delete all items").
 						AccessibilityHint("Permanently removes all items from the list"),
 				).Padding(8),
@@ -90,7 +90,7 @@ func main() {
 					swiftui.Divider().AccessibilityHidden(true),
 					swiftui.Image("sparkles").
 						ImageScale(swiftui.ImageScaleLarge).
-						ForegroundStyle(0.9, 0.75, 0.2, 1.0).
+						ForegroundStyle(swiftui.RGBA(0.9, 0.75, 0.2, 1.0)).
 						AccessibilityHidden(true),
 					swiftui.Text("The sparkle icon above is decorative and hidden from assistive technology.").
 						Font(swiftui.FontCaption).
@@ -117,5 +117,7 @@ func main() {
 				).Padding(8),
 			).MaxFrame(-1, 0),
 		).Padding(24),
-	))
+	)); err != nil {
+		log.Fatal(err)
+	}
 }

@@ -14,6 +14,7 @@
 package main
 
 import (
+	"log"
 	"runtime"
 	"strings"
 
@@ -25,8 +26,7 @@ func init() { runtime.LockOSThread() }
 func main() {
 	content := swiftui.NewStringState("# Welcome\n\nThis is a **markdown** editor.\n\n- Item one\n- Item two\n\n# Another Section\n\nWrite here and press Refresh to preview.")
 	version := swiftui.NewIntState(0)
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Markdown Editor",
 		Width:  900,
 		Height: 600,
@@ -54,7 +54,9 @@ func main() {
 				return renderPreview(content.Get())
 			}).MaxFrame(-1, -1),
 		).MaxFrame(-1, -1),
-	).Padding(0))
+	).Padding(0)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func renderPreview(text string) swiftui.View {

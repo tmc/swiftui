@@ -15,6 +15,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -61,8 +62,7 @@ func main() {
 		elapsed.Set(0)
 		progress.SetAnimated(0)
 	}
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Timer",
 		Width:  380,
 		Height: 430,
@@ -91,7 +91,7 @@ func main() {
 				}
 				return swiftui.Label(label, "circle.fill").
 					Font(swiftui.FontCaption).
-					ForegroundStyle(r, g, b, 1.0).
+					ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
 					AsView()
 			}),
 		),
@@ -99,7 +99,7 @@ func main() {
 		swiftui.VStackSpaced(10,
 			swiftui.ZStack(
 				swiftui.Circle().
-					Fill(0.2, 0.45, 0.9, 0.12).
+					Fill(swiftui.RGBA(0.2, 0.45, 0.9, 0.12)).
 					Frame(210, 210).
 					AsView(),
 				swiftui.DynamicView(elapsed, func(secs int) swiftui.View {
@@ -114,7 +114,7 @@ func main() {
 				}),
 			),
 			swiftui.FloatProgressView(progress, 1.0).
-				Tint(0.2, 0.6, 1.0, 1.0),
+				Tint(swiftui.RGBA(0.2, 0.6, 1.0, 1.0)),
 			swiftui.DynamicView(elapsed, func(secs int) swiftui.View {
 				if secs == 0 {
 					return swiftui.Text("Ready for a fresh run").
@@ -128,7 +128,7 @@ func main() {
 					AsView()
 			}),
 		).Padding(16).
-			Background(0.18, 0.19, 0.22, 0.45).
+			Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.45)).
 			CornerRadius(18),
 
 		swiftui.HStackSpaced(12,
@@ -156,14 +156,16 @@ func main() {
 					stopTicker()
 				}).ControlSize(swiftui.ControlSizeLarge).
 					ButtonStyle(swiftui.ButtonStyleBorderedProminent).
-					Tint(0.9, 0.3, 0.3, 1.0),
+					Tint(swiftui.RGBA(0.9, 0.3, 0.3, 1.0)),
 				swiftui.Button("Reset", func() {
 					resetTimer()
 				}).ControlSize(swiftui.ControlSizeLarge).
 					ButtonStyle(swiftui.ButtonStyleBordered),
 			)
 		}),
-	).Padding(30))
+	).Padding(30)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func timerStatCard(label, value string) swiftui.View {
@@ -182,7 +184,7 @@ func timerStatCard(label, value string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.18, 0.19, 0.22, 0.45).
+		Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.45)).
 		CornerRadius(14)
 }
 

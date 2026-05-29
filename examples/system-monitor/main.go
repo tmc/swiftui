@@ -11,6 +11,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"time"
 
@@ -58,8 +59,7 @@ func main() {
 			gcPct.Set(clamp(float64(m.NumGC) / 100.0))
 		}
 	}()
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "System Monitor",
 		Width:  520,
 		Height: 480,
@@ -133,7 +133,9 @@ func main() {
 				swiftui.Spacer(),
 			),
 		).Padding(24),
-	))
+	)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func clamp(v float64) float64 {
@@ -153,11 +155,11 @@ func gaugeView(label string, state *swiftui.IntState, r, g, b float64) swiftui.V
 			pct := clamp(float64(v) / 50.0) // scale: 50 goroutines = full
 			return swiftui.ZStack(
 				swiftui.Circle().
-					Stroke(r, g, b, 0.15, 8).
+					Stroke(swiftui.RGBA(r, g, b, 0.15), 8).
 					Frame(64, 64).
 					AsView(),
 				swiftui.Circle().
-					Fill(r, g, b, pct*0.3).
+					Fill(swiftui.RGBA(r, g, b, pct*0.3)).
 					Frame(64, 64).
 					AsView(),
 				swiftui.VStack(
@@ -165,7 +167,7 @@ func gaugeView(label string, state *swiftui.IntState, r, g, b float64) swiftui.V
 						Font(swiftui.FontTitle2).
 						FontWeight(swiftui.WeightBold).
 						MonospacedDigit().
-						ForegroundStyle(r, g, b, 1.0),
+						ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)),
 				),
 			)
 		}),
@@ -180,14 +182,14 @@ func circleGauge(label string, pct *swiftui.FloatState, icon string, r, g, b flo
 	return swiftui.VStackSpaced(4,
 		swiftui.ZStack(
 			swiftui.Circle().
-				Stroke(r, g, b, 0.15, 8).
+				Stroke(swiftui.RGBA(r, g, b, 0.15), 8).
 				Frame(64, 64).
 				AsView(),
 			swiftui.FloatGauge(label, pct, 0, 1).
 				Frame(0, 0), // hidden; drives the state
 			swiftui.VStack(
 				swiftui.Image(icon).
-					ForegroundStyle(r, g, b, 1.0).
+					ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
 					ImageScale(swiftui.ImageScaleSmall),
 			),
 		),
@@ -208,6 +210,6 @@ func metricRow(label, icon string, state *swiftui.FloatState, unit string, total
 			Font(swiftui.FontBody).
 			Frame(90, 0),
 		swiftui.FloatProgressView(state, total).
-			Tint(0.35, 0.65, 1.0, 1.0),
+			Tint(swiftui.RGBA(0.35, 0.65, 1.0, 1.0)),
 	)
 }

@@ -12,6 +12,7 @@
 package main
 
 import (
+	"log"
 	"runtime"
 	"strings"
 	"sync"
@@ -30,8 +31,7 @@ func main() {
 	items = []string{"Buy groceries", "Write tests", "Review PR"}
 	input := swiftui.NewStringState("")
 	count := swiftui.NewIntState(len(items))
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Todo List",
 		Width:  500,
 		Height: 600,
@@ -44,7 +44,7 @@ func main() {
 				swiftui.Spacer(),
 				swiftui.Label("Synced", "checkmark.circle.fill").
 					Font(swiftui.FontCaption).
-					ForegroundStyle(0.3, 0.8, 0.4, 1.0),
+					ForegroundStyle(swiftui.RGBA(0.3, 0.8, 0.4, 1.0)),
 			),
 			swiftui.HStack(
 				swiftui.Text("A simple reactive list with inline add and clear actions.").
@@ -107,9 +107,11 @@ func main() {
 				count.Set(0)
 			}).
 				ButtonStyle(swiftui.ButtonStyleBordered).
-				ForegroundStyle(1, 0.35, 0.35, 1),
+				ForegroundStyle(swiftui.RGBA(1, 0.35, 0.35, 1)),
 		),
-	).Padding(20))
+	).Padding(20)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func summaryBar(n int) swiftui.View {
@@ -127,10 +129,10 @@ func todoRow(index int, item string) swiftui.View {
 	return swiftui.HStackSpaced(10,
 		swiftui.ZStack(
 			swiftui.Circle().
-				Fill(0.3, 0.6, 1.0, 0.16).
+				Fill(swiftui.RGBA(0.3, 0.6, 1.0, 0.16)).
 				Frame(24, 24).
 				AsView(),
-			swiftui.Text(string(rune('0' + index))).
+			swiftui.Text(string(rune('0'+index))).
 				Font(swiftui.FontCaption).
 				FontWeight(swiftui.WeightBold),
 		),
@@ -138,7 +140,7 @@ func todoRow(index int, item string) swiftui.View {
 			Font(swiftui.FontBody),
 		swiftui.Spacer(),
 	).Padding(10).
-		Background(0.18, 0.19, 0.22, 0.55).
+		Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.55)).
 		CornerRadius(10)
 }
 
@@ -157,7 +159,7 @@ func listStatCard(label, value string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(0.18, 0.19, 0.22, 0.55).
+		Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.55)).
 		CornerRadius(10)
 }
 

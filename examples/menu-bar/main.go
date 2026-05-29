@@ -13,6 +13,7 @@
 package main
 
 import (
+	"log"
 	"runtime"
 
 	"github.com/tmc/swiftui"
@@ -26,8 +27,7 @@ func main() {
 	showConfirm := swiftui.NewIntState(0)
 	showPopover := swiftui.NewIntState(0)
 	showFullScreen := swiftui.NewIntState(0)
-
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Modal Presentations",
 		Width:  500,
 		Height: 520,
@@ -103,7 +103,9 @@ func main() {
 					swiftui.Button("Select All", func() {}),
 				)),
 		)),
-	).Padding(30))
+	).Padding(30)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func sheetContent() swiftui.View {

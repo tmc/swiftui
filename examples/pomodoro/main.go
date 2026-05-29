@@ -12,6 +12,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"runtime"
 	"sync/atomic"
 	"time"
@@ -158,8 +159,7 @@ func main() {
 		progress.SetAnimated(0)
 		updateMenuLabel(dur)
 	}
-
-	swiftui.RunMenuBar(swiftui.MenuBarConfig{
+	if err := swiftui.RunMenuBar(swiftui.MenuBarConfig{
 		Label:        "25:00",
 		SystemImage:  "timer",
 		Width:        280,
@@ -179,7 +179,7 @@ func main() {
 		swiftui.ZStack(
 			// Track ring
 			swiftui.Circle().
-				Stroke(0.5, 0.5, 0.5, 0.3, 6).
+				Stroke(swiftui.RGBA(0.5, 0.5, 0.5, 0.3), 6).
 				Frame(160, 160).
 				AsView(),
 			// Time remaining
@@ -214,7 +214,7 @@ func main() {
 				swiftui.Button("Pause", func() {
 					pauseTimer()
 				}).ButtonStyle(swiftui.ButtonStyleBorderedProminent).
-					Tint(0.9, 0.6, 0.1, 1.0),
+					Tint(swiftui.RGBA(0.9, 0.6, 0.1, 1.0)),
 				swiftui.Button("Reset", func() {
 					resetTimer()
 				}).ButtonStyle(swiftui.ButtonStyleBordered),
@@ -231,11 +231,11 @@ func main() {
 			for i := range 4 {
 				if i < cycle {
 					dots[i] = swiftui.Circle().
-						Fill(0.9, 0.3, 0.3, 1.0).
+						Fill(swiftui.RGBA(0.9, 0.3, 0.3, 1.0)).
 						Frame(10, 10)
 				} else {
 					dots[i] = swiftui.Circle().
-						Stroke(0.5, 0.5, 0.5, 0.5, 1.5).
+						Stroke(swiftui.RGBA(0.5, 0.5, 0.5, 0.5), 1.5).
 						Frame(10, 10)
 				}
 			}
@@ -247,7 +247,9 @@ func main() {
 				swiftui.HStackSpaced(6, dots...),
 			)
 		}),
-	).Padding(20))
+	).Padding(20)); err != nil {
+		log.Fatal(err)
+	}
 }
 
 func modeColorComponents(m int) (r, g, b, a float64) {
@@ -261,6 +263,7 @@ func modeColorComponents(m int) (r, g, b, a float64) {
 	}
 }
 
-func modeColor(m int) (r, g, b, a float64) {
-	return modeColorComponents(m)
+func modeColor(m int) swiftui.Color {
+	r, g, b, a := modeColorComponents(m)
+	return swiftui.RGBA(r, g, b, a)
 }

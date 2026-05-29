@@ -9,6 +9,7 @@
 package main
 
 import (
+	"log"
 	"runtime"
 
 	"github.com/tmc/swiftui"
@@ -17,7 +18,7 @@ import (
 func init() { runtime.LockOSThread() }
 
 func main() {
-	swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.AppConfig{
 		Title:  "Hello World",
 		Width:  500,
 		Height: 320,
@@ -25,11 +26,11 @@ func main() {
 		swiftui.Spacer(),
 		swiftui.ZStack(
 			swiftui.Circle().
-				Fill(0.28, 0.55, 1.0, 0.14).
+				Fill(swiftui.RGBA(0.28, 0.55, 1.0, 0.14)).
 				Frame(112, 112).
 				AsView(),
 			swiftui.Image("hand.wave.fill").
-				ForegroundStyle(0.35, 0.65, 1.0, 1.0).
+				ForegroundStyle(swiftui.RGBA(0.35, 0.65, 1.0, 1.0)).
 				ImageScale(swiftui.ImageScaleLarge),
 		),
 		swiftui.Text("Hello from Go!").
@@ -41,7 +42,9 @@ func main() {
 			MultilineTextAlignment(swiftui.TextAlignmentCenter),
 		swiftui.Label("purego bridge", "sparkles").
 			Font(swiftui.FontCaption).
-			ForegroundStyle(0.3, 0.8, 0.4, 1.0),
+			ForegroundStyle(swiftui.RGBA(0.3, 0.8, 0.4, 1.0)),
 		swiftui.Spacer(),
-	).Padding(28))
+	).Padding(28)); err != nil {
+		log.Fatal(err)
+	}
 }
