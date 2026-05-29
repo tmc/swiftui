@@ -153,7 +153,7 @@ func main() {
 			ForegroundStyleNamed("secondary").
 			MaxFrame(-1, 0)
 	}
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Calculator",
 		Width:  320,
 		Height: 450,
@@ -225,7 +225,7 @@ func main() {
 					MaxFrame(-1, 0),
 			),
 		),
-	).Padding(18)); err != nil {
+	).Padding(18))); err != nil {
 		log.Fatal(err)
 	}
 }

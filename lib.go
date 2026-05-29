@@ -488,6 +488,7 @@ var (
 	_SUIWebPageReload              func(uintptr)
 
 	// App lifecycle.
+	_SUIRunApp                   func(int32, uintptr, *byte, float64, float64, int32, *byte, *byte, uintptr, float64, float64, int32)
 	_SUIRun                      func(uintptr, *byte, float64, float64)
 	_SUIRunMenuBar               func(*byte, *byte, uintptr, float64, float64)
 	_SUIRunMenuBarEx             func(*byte, *byte, uintptr, float64, float64, int32)
@@ -857,6 +858,7 @@ func init() {
 	tryRegisterLibFunc(&_SUIWebPageReload, libHandle, "SUIWebPageReload")
 
 	// App lifecycle.
+	tryRegisterLibFunc(&_SUIRunApp, libHandle, "SUIRunApp")
 	tryRegisterLibFunc(&_SUIRun, libHandle, "SUIRun")
 	tryRegisterLibFunc(&_SUIRunMenuBar, libHandle, "SUIRunMenuBar")
 	tryRegisterLibFunc(&_SUIRunMenuBarEx, libHandle, "SUIRunMenuBarEx")
@@ -1674,6 +1676,11 @@ func setUnavailableStubs() {
 	}
 	if _SUIFloatProgressView == nil {
 		_SUIFloatProgressView = func(uintptr, float64) uintptr { stub("SUIFloatProgressView"); return 0 }
+	}
+	if _SUIRunApp == nil {
+		_SUIRunApp = func(int32, uintptr, *byte, float64, float64, int32, *byte, *byte, uintptr, float64, float64, int32) {
+			stub("SUIRunApp")
+		}
 	}
 	if _SUIRun == nil {
 		_SUIRun = func(uintptr, *byte, float64, float64) { stub("SUIRun") }

@@ -27,7 +27,7 @@ func main() {
 	fontSize := swiftui.NewIntState(15)
 	compactMode := swiftui.NewIntState(0)
 	notifications := swiftui.NewIntState(1)
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Tabs Demo",
 		Width:  720,
 		Height: 560,
@@ -35,7 +35,7 @@ func main() {
 		homeTab(),
 		settingsTab(darkMode, fontSize, compactMode, notifications),
 		aboutTab(),
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

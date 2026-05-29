@@ -625,14 +625,14 @@ func main() {
 	if err :=
 
 		// Main layout.
-		swiftui.Run(swiftui.AppConfig{
+		swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 			Title:  "Music Player",
 			Width:  600,
 			Height: 760,
 		}, swiftui.VStack(
 			browseContent,
 			nowPlayingBar,
-		).Sheet(sheetState, sheetContent)); err != nil {
+		).Sheet(sheetState, sheetContent))); err != nil {
 		log.Fatal(err)
 	}
 }

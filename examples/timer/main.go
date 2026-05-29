@@ -62,7 +62,7 @@ func main() {
 		elapsed.Set(0)
 		progress.SetAnimated(0)
 	}
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Timer",
 		Width:  380,
 		Height: 430,
@@ -163,7 +163,7 @@ func main() {
 					ButtonStyle(swiftui.ButtonStyleBordered),
 			)
 		}),
-	).Padding(30)); err != nil {
+	).Padding(30))); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -318,7 +318,7 @@ func main() {
 	bumpDisplay := func() {
 		updateTick.Set(updateTick.Get() + 1)
 	}
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Benchview",
 		Width:  windowWidth,
 		Height: 720,
@@ -352,7 +352,7 @@ func main() {
 		reloadFiles,
 		applyOptions,
 		resetOptions,
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

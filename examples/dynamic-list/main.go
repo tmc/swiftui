@@ -31,7 +31,7 @@ func main() {
 	items = []string{"Buy groceries", "Write tests", "Review PR"}
 	input := swiftui.NewStringState("")
 	count := swiftui.NewIntState(len(items))
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Todo List",
 		Width:  500,
 		Height: 600,
@@ -109,7 +109,7 @@ func main() {
 				ButtonStyle(swiftui.ButtonStyleBordered).
 				ForegroundStyle(swiftui.RGBA(1, 0.35, 0.35, 1)),
 		),
-	).Padding(20)); err != nil {
+	).Padding(20))); err != nil {
 		log.Fatal(err)
 	}
 }

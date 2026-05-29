@@ -30,7 +30,7 @@ func main() {
 	volume := swiftui.NewIntState(50)
 	color := swiftui.NewColorState(0.2, 0.5, 1.0, 1.0)
 	date := swiftui.NewDateState(float64(time.Now().Add(2 * time.Hour).Unix()))
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Profile Form",
 		Width:  660,
 		Height: 600,
@@ -87,7 +87,7 @@ func main() {
 				).Padding(10),
 			).MaxFrame(-1, 0),
 		).Padding(24),
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

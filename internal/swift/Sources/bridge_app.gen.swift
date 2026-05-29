@@ -27,44 +27,6 @@ func suiOnMainSync<T>(_ body: () -> T) -> T {
     return DispatchQueue.main.sync(execute: body)
 }
 
-@_cdecl("SUIRun")
-@MainActor
-public func SUIRun(_ rootView: UnsafeMutableRawPointer, _ title: UnsafePointer<CChar>,
-                    _ width: Double, _ height: Double) {
-    suiOnMainSync {
-        let view = Unmanaged<Box<AnyView>>.fromOpaque(rootView).takeUnretainedValue().value
-        let t = String(cString: title)
-
-        let app = NSApplication.shared
-        app.setActivationPolicy(.regular)
-
-        let delegate = SUIAppDelegate()
-        _appDelegate = delegate
-        app.delegate = delegate
-
-        let sized = AnyView(
-            view.frame(minWidth: width, minHeight: height)
-        )
-
-        let hc = NSHostingController(rootView: sized)
-        hc.sizingOptions = []
-
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
-            backing: .buffered, defer: false
-        )
-        window.title = t
-        window.contentViewController = hc
-        window.setContentSize(NSSize(width: width, height: height))
-        window.minSize = NSSize(width: 300, height: 200)
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-        app.activate()
-        app.run()
-    }
-}
-
 class SUIMenuBarAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
@@ -97,6 +59,137 @@ class SUIMenuBarAppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+// suiBuildWindow constructs the standard borrowed-runner NSWindow for a hosted
+// SwiftUI root view and orders it front. Shared by SUIRunApp (window construction
+// lives in one place).
+@MainActor
+func suiBuildWindow(_ view: AnyView, title: String, width: Double, height: Double) {
+    let sized = AnyView(view.frame(minWidth: width, minHeight: height))
+    let hc = NSHostingController(rootView: sized)
+    hc.sizingOptions = []
+
+    let window = NSWindow(
+        contentRect: NSRect(x: 0, y: 0, width: width, height: height),
+        styleMask: [.titled, .closable, .resizable, .miniaturizable],
+        backing: .buffered, defer: false
+    )
+    window.title = title
+    window.contentViewController = hc
+    window.setContentSize(NSSize(width: width, height: height))
+    window.minSize = NSSize(width: 300, height: 200)
+    window.center()
+    window.makeKeyAndOrderFront(nil)
+}
+
+// suiBuildStatusItem installs the menu bar (status bar) item wired to toggle the
+// popover. If content is nil the status item has no popover (a bare menu bar
+// item; an NSMenu can be attached later).
+@MainActor
+func suiBuildStatusItem(delegate: SUIMenuBarAppDelegate, label: String, systemImage: String,
+                        content: AnyView?, width: Double, height: Double, openOnLaunch: Bool) {
+    let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    if let img = NSImage(systemSymbolName: systemImage, accessibilityDescription: label) {
+        item.button?.image = img
+    }
+    item.button?.title = " " + label
+    item.button?.target = delegate
+    item.button?.action = #selector(SUIMenuBarAppDelegate.togglePopover(_:))
+    _statusItem = item
+
+    guard let content = content else { return }
+
+    let popover = NSPopover()
+    popover.contentSize = NSSize(width: width, height: height)
+    popover.behavior = .transient
+    let hc = NSHostingController(rootView: AnyView(content.frame(minWidth: width, minHeight: height)))
+    popover.contentViewController = hc
+    _popover = popover
+
+    if openOnLaunch {
+        DispatchQueue.main.async {
+            delegate.openPopoverOnLaunch()
+        }
+    }
+}
+
+// SUIRunApp is the unified application runner. It presents an optional window
+// (rootView != nil), an optional menu bar item (hasMenuBar != 0; with an
+// optional popover when menuContent != nil), under an activation policy
+// (0=auto, 1=regular, 2=accessory, 3=prohibited). The older SUIRun,
+// SUIRunMenuBar, SUIRunMenuBarEx, and SUIRunWithMenuBar entry points are thin
+// shims over this function, kept for ABI compatibility.
+@_cdecl("SUIRunApp")
+@MainActor
+public func SUIRunApp(_ policy: Int32,
+                       _ rootView: UnsafeMutableRawPointer?,
+                       _ title: UnsafePointer<CChar>,
+                       _ width: Double, _ height: Double,
+                       _ hasMenuBar: Int32,
+                       _ menuLabel: UnsafePointer<CChar>,
+                       _ menuSystemImage: UnsafePointer<CChar>,
+                       _ menuContent: UnsafeMutableRawPointer?,
+                       _ menuWidth: Double, _ menuHeight: Double,
+                       _ openOnLaunch: Int32) {
+    suiOnMainSync {
+        let app = NSApplication.shared
+
+        let hasWindow = rootView != nil
+        let wantsMenuBar = hasMenuBar != 0
+
+        // Resolve the activation policy. 0 = auto: a window implies .regular, a
+        // menu-bar-only app implies .accessory.
+        let resolved: NSApplication.ActivationPolicy
+        switch policy {
+        case 1: resolved = .regular
+        case 2: resolved = .accessory
+        case 3: resolved = .prohibited
+        default: resolved = hasWindow ? .regular : .accessory
+        }
+        app.setActivationPolicy(resolved)
+
+        // A menu-bar app must keep running after its (absent) windows close; a
+        // windowed app should terminate with its last window. Pick the delegate
+        // by which surfaces are present.
+        if wantsMenuBar {
+            let delegate = SUIMenuBarAppDelegate()
+            _menuBarDelegate = delegate
+            app.delegate = delegate
+        } else {
+            let delegate = SUIAppDelegate()
+            _appDelegate = delegate
+            app.delegate = delegate
+        }
+
+        if let rootView = rootView {
+            let view = Unmanaged<Box<AnyView>>.fromOpaque(rootView).takeUnretainedValue().value
+            suiBuildWindow(view, title: String(cString: title), width: width, height: height)
+        }
+
+        if wantsMenuBar, let delegate = _menuBarDelegate {
+            var content: AnyView?
+            if let menuContent = menuContent {
+                content = Unmanaged<Box<AnyView>>.fromOpaque(menuContent).takeUnretainedValue().value
+            }
+            suiBuildStatusItem(delegate: delegate,
+                               label: String(cString: menuLabel),
+                               systemImage: String(cString: menuSystemImage),
+                               content: content,
+                               width: menuWidth, height: menuHeight,
+                               openOnLaunch: openOnLaunch != 0)
+        }
+
+        app.activate()
+        app.run()
+    }
+}
+
+@_cdecl("SUIRun")
+@MainActor
+public func SUIRun(_ rootView: UnsafeMutableRawPointer, _ title: UnsafePointer<CChar>,
+                    _ width: Double, _ height: Double) {
+    SUIRunApp(1, rootView, title, width, height, 0, title, title, nil, 0, 0, 0)
+}
+
 @_cdecl("SUIRunMenuBar")
 @MainActor
 public func SUIRunMenuBar(_ label: UnsafePointer<CChar>,
@@ -113,43 +206,7 @@ public func SUIRunMenuBarEx(_ label: UnsafePointer<CChar>,
                              _ content: UnsafeMutableRawPointer,
                              _ width: Double, _ height: Double,
                              _ openOnLaunch: Int32) {
-    suiOnMainSync {
-        let view = Unmanaged<Box<AnyView>>.fromOpaque(content).takeUnretainedValue().value
-        let labelStr = String(cString: label)
-        let imageStr = String(cString: systemImage)
-
-        let app = NSApplication.shared
-        app.setActivationPolicy(.accessory)
-
-        let delegate = SUIMenuBarAppDelegate()
-        _menuBarDelegate = delegate
-        app.delegate = delegate
-
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let img = NSImage(systemSymbolName: imageStr, accessibilityDescription: labelStr) {
-            item.button?.image = img
-        }
-        item.button?.title = " " + labelStr
-        item.button?.target = delegate
-        item.button?.action = #selector(SUIMenuBarAppDelegate.togglePopover(_:))
-        _statusItem = item
-
-        let popover = NSPopover()
-        popover.contentSize = NSSize(width: width, height: height)
-        popover.behavior = .transient
-        let hc = NSHostingController(rootView: AnyView(view.frame(minWidth: width, minHeight: height)))
-        popover.contentViewController = hc
-        _popover = popover
-
-        if openOnLaunch != 0 {
-            DispatchQueue.main.async {
-                delegate.openPopoverOnLaunch()
-            }
-        }
-
-        app.activate()
-        app.run()
-    }
+    SUIRunApp(2, nil, label, 0, 0, 1, label, systemImage, content, width, height, openOnLaunch)
 }
 
 @_cdecl("SUIRunWithMenuBar")
@@ -161,54 +218,7 @@ public func SUIRunWithMenuBar(_ rootView: UnsafeMutableRawPointer,
                                _ menuSystemImage: UnsafePointer<CChar>,
                                _ menuContent: UnsafeMutableRawPointer,
                                _ menuWidth: Double, _ menuHeight: Double) {
-    suiOnMainSync {
-        let view = Unmanaged<Box<AnyView>>.fromOpaque(rootView).takeUnretainedValue().value
-        let t = String(cString: title)
-        let menuView = Unmanaged<Box<AnyView>>.fromOpaque(menuContent).takeUnretainedValue().value
-        let menuLabelStr = String(cString: menuLabel)
-        let menuImageStr = String(cString: menuSystemImage)
-
-        let app = NSApplication.shared
-        app.setActivationPolicy(.regular)
-
-        let delegate = SUIMenuBarAppDelegate()
-        _menuBarDelegate = delegate
-        app.delegate = delegate
-
-        let sized = AnyView(view.frame(minWidth: width, minHeight: height))
-        let hc = NSHostingController(rootView: sized)
-        hc.sizingOptions = []
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: width, height: height),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
-            backing: .buffered, defer: false
-        )
-        window.title = t
-        window.contentViewController = hc
-        window.setContentSize(NSSize(width: width, height: height))
-        window.minSize = NSSize(width: 300, height: 200)
-        window.center()
-        window.makeKeyAndOrderFront(nil)
-
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let img = NSImage(systemSymbolName: menuImageStr, accessibilityDescription: menuLabelStr) {
-            item.button?.image = img
-        }
-        item.button?.title = " " + menuLabelStr
-        item.button?.target = delegate
-        item.button?.action = #selector(SUIMenuBarAppDelegate.togglePopover(_:))
-        _statusItem = item
-
-        let popover = NSPopover()
-        popover.contentSize = NSSize(width: menuWidth, height: menuHeight)
-        popover.behavior = .transient
-        let menuHC = NSHostingController(rootView: AnyView(menuView.frame(minWidth: menuWidth, minHeight: menuHeight)))
-        popover.contentViewController = menuHC
-        _popover = popover
-
-        app.activate()
-        app.run()
-    }
+    SUIRunApp(1, rootView, title, width, height, 1, menuLabel, menuSystemImage, menuContent, menuWidth, menuHeight, 0)
 }
 
 @_cdecl("SUIUpdateMenuBarLabel")

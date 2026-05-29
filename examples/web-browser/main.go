@@ -75,7 +75,7 @@ func main() {
 		urlState.Set(resolved)
 		page.LoadURL(resolved)
 	}
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Web Browser",
 		Width:  1000,
 		Height: 720,
@@ -154,7 +154,7 @@ func main() {
 				ForegroundStyleNamed("secondary"),
 		).Padding(10).
 			Background(swiftui.RGBA(0.14, 0.15, 0.17, 0.95)),
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

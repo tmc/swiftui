@@ -168,7 +168,7 @@ func main() {
 			}),
 		),
 	).MaxFrame(-1, 0)
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Color Laboratory",
 		Width:  800,
 		Height: 600,
@@ -177,7 +177,7 @@ func main() {
 			leftColumn,
 			rightColumn,
 		).Padding(20),
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

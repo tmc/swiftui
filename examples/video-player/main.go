@@ -57,7 +57,7 @@ func main() {
 	if err :=
 
 		// Display the video player in a window.
-		swiftui.Run(swiftui.AppConfig{
+		swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 			Title:  "Video Player",
 			Width:  800,
 			Height: 600,
@@ -87,7 +87,7 @@ func main() {
 				videoInfoCard("Transport", "Native AVKit controls"),
 				videoInfoCard("Mode", "Autoplay on launch"),
 			),
-		).Padding(20)); err != nil {
+		).Padding(20))); err != nil {
 		log.Fatal(err)
 	}
 }

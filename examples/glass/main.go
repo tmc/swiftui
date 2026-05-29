@@ -25,7 +25,7 @@ func main() {
 	playing := swiftui.NewIntState(0)
 	volume := swiftui.NewIntState(65)
 	progress := swiftui.NewFloatState(0.35)
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Glass",
 		Width:  600,
 		Height: 550,
@@ -133,7 +133,7 @@ func main() {
 				BackgroundStyle("thinMaterial").
 				CornerRadius(14),
 		).Padding(20),
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

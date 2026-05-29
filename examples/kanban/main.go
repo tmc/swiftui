@@ -229,11 +229,11 @@ func main() {
 			}
 		}
 	}()
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Kanban Board",
 		Width:  900,
 		Height: 600,
-	}, board); err != nil {
+	}, board)); err != nil {
 		log.Fatal(err)
 	}
 }

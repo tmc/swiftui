@@ -92,7 +92,7 @@ func main() {
 			time.Sleep(time.Duration(rate*1000) * time.Millisecond)
 		}
 	}()
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Dashboard",
 		Width:  750,
 		Height: 650,
@@ -100,7 +100,7 @@ func main() {
 		overviewTab(goroutines, heapMB, sysMB, numGC, chartVersion, autoRefreshState, lastUpdate),
 		detailsTab(goroutines, heapMB, sysMB, numGC, chartVersion, lastUpdate),
 		controlsTab(spawnCount, autoRefreshState, refreshRateState, goroutines, heapMB, sysMB, numGC, chartVersion),
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -380,7 +380,7 @@ func main() {
 			refreshChanges()
 		}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
 	).Padding(12)
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Settings",
 		Width:  660,
 		Height: 620,
@@ -392,7 +392,7 @@ func main() {
 		).MaxFrame(-1, -1),
 		swiftui.Divider(),
 		statusBar,
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

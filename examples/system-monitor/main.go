@@ -59,7 +59,7 @@ func main() {
 			gcPct.Set(clamp(float64(m.NumGC) / 100.0))
 		}
 	}()
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "System Monitor",
 		Width:  520,
 		Height: 480,
@@ -133,7 +133,7 @@ func main() {
 				swiftui.Spacer(),
 			),
 		).Padding(24),
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -42,7 +42,7 @@ func main() {
 		count.SetAnimatedWith(0, swiftui.AnimationEaseInOut)
 		bumpHalo(swiftui.AnimationEaseInOut)
 	}
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Counter",
 		Width:  380,
 		Height: 360,
@@ -107,7 +107,7 @@ func main() {
 		swiftui.AnimatedDynamicView(count, swiftui.TransitionOpacity, func(v int) swiftui.View {
 			return counterFootnote(v)
 		}),
-	).Padding(24)); err != nil {
+	).Padding(24))); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -23,7 +23,7 @@ import (
 func init() { runtime.LockOSThread() }
 
 func main() {
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Layout Demo",
 		Width:  720,
 		Height: 600,
@@ -47,7 +47,7 @@ func main() {
 				),
 			).Padding(16),
 		),
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

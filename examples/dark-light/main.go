@@ -24,7 +24,7 @@ func init() { runtime.LockOSThread() }
 func main() {
 	mode := swiftui.NewIntState(0)
 	if // 0 = light palette, 1 = dark palette
-	err := swiftui.Run(swiftui.AppConfig{
+	err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Dark & Light Styles",
 		Width:  520,
 		Height: 620,
@@ -48,7 +48,7 @@ func main() {
 				return lightPalette()
 			}),
 		).Padding(24),
-	)); err !=
+	))); err !=
 
 		// lightPalette shows semantic styles on light-toned backgrounds.
 		nil {

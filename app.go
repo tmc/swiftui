@@ -5,19 +5,19 @@ package swiftui
 import "runtime"
 
 // Main locks the calling goroutine to its OS thread and runs body. The AppKit
-// run loop must own the main OS thread, so any goroutine that calls Run,
-// RunMenuBar, or RunWithMenuBar must be pinned to a single thread for the
-// lifetime of the process. Calling Main from main (or from a goroutine started
-// with an explicit runtime.LockOSThread) satisfies that requirement:
+// run loop must own the main OS thread, so any goroutine that calls Run must be
+// pinned to a single thread for the lifetime of the process. Calling Main from
+// main (or from a goroutine started with an explicit runtime.LockOSThread)
+// satisfies that requirement:
 //
 //	func main() {
 //		swiftui.Main(func() {
-//			swiftui.Run(cfg, root)
+//			swiftui.Run(swiftui.WithWindow(cfg, root))
 //		})
 //	}
 //
-// The Run functions also lock the thread themselves, so Main is a convenience
-// for programs that perform setup before the run loop starts.
+// Run locks the thread itself, so Main is a convenience for programs that
+// perform setup before the run loop starts.
 func Main(body func()) {
 	runtime.LockOSThread()
 	body()
@@ -45,66 +45,152 @@ type MenuBarLabelStyle struct {
 	Animate          bool
 }
 
-// Run starts the application event loop with the given root view.
-// This blocks until the application exits, then returns nil. It returns a
-// non-nil error if the bridge dylib failed to load.
-func Run(config AppConfig, root View) error {
+// ActivationPolicy controls whether the app shows a Dock icon and main menu.
+// The zero value, PolicyDefault, is auto: an app with a window is Regular and a
+// menu-bar-only app is Accessory.
+type ActivationPolicy int32
+
+const (
+	// PolicyDefault derives the policy from the surfaces present: Regular when a
+	// window is configured, Accessory when only a menu bar item is.
+	PolicyDefault ActivationPolicy = 0
+	// PolicyRegular shows a Dock icon and the application main menu.
+	PolicyRegular ActivationPolicy = 1
+	// PolicyAccessory hides the Dock icon and main menu (typical for menu-bar
+	// apps that live only in the status bar).
+	PolicyAccessory ActivationPolicy = 2
+	// PolicyProhibited hides the Dock icon, main menu, and any windows from the
+	// switcher (background agents).
+	PolicyProhibited ActivationPolicy = 3
+)
+
+// appSpec is the resolved set of surfaces and options for a single Run call. It
+// is populated by AppOption values and lowered to the unified SUIRunApp bridge
+// entry point.
+type appSpec struct {
+	policy ActivationPolicy
+
+	hasWindow bool
+	window    AppConfig
+	root      View
+
+	hasMenuBar  bool
+	menuBar     MenuBarConfig
+	menuContent View
+}
+
+// AppOption configures a Run call. The available options are WithWindow,
+// WithMenuBar, and WithActivationPolicy. A surface is present only if its option
+// is supplied, so the same Run function expresses window-only, menu-bar-only,
+// and window-plus-menu-bar apps.
+type AppOption func(*appSpec)
+
+// WithWindow adds a titled application window showing root. Without this option
+// the app has no window (a menu-bar-only app).
+func WithWindow(config AppConfig, root View) AppOption {
+	return func(s *appSpec) {
+		s.hasWindow = true
+		s.window = config
+		s.root = root
+	}
+}
+
+// WithMenuBar adds a menu bar (status bar) item. content is shown in a popover
+// when the item is clicked; pass a zero View to install a status item with no
+// popover. Without this option the app has no menu bar item.
+func WithMenuBar(config MenuBarConfig, content View) AppOption {
+	return func(s *appSpec) {
+		s.hasMenuBar = true
+		s.menuBar = config
+		s.menuContent = content
+	}
+}
+
+// WithActivationPolicy overrides the Dock-icon and main-menu behavior. The
+// default is derived from the configured surfaces; see ActivationPolicy.
+func WithActivationPolicy(p ActivationPolicy) AppOption {
+	return func(s *appSpec) { s.policy = p }
+}
+
+// Run starts the application event loop configured by opts and blocks until the
+// application exits, then returns nil. It returns a non-nil error if the bridge
+// dylib failed to load. Configure the app with WithWindow, WithMenuBar, and
+// WithActivationPolicy; at least one surface option is required.
+//
+//	// A window:
+//	swiftui.Run(swiftui.WithWindow(cfg, root))
+//	// A menu-bar-only app (no Dock icon):
+//	swiftui.Run(swiftui.WithMenuBar(mb, panel))
+//	// Both:
+//	swiftui.Run(swiftui.WithWindow(cfg, root), swiftui.WithMenuBar(mb, panel))
+func Run(opts ...AppOption) error {
 	if loadErr != nil {
 		return loadErr
 	}
-	runtime.LockOSThread()
-	withCString(config.Title, func(title *byte) {
-		_SUIRun(root.ptr, title, config.Width, config.Height)
-	})
-	runtime.KeepAlive(root.retained)
-	return nil
+	var s appSpec
+	for _, opt := range opts {
+		opt(&s)
+	}
+	return runSpec(s)
 }
 
-// RunMenuBar starts a menu-bar-only app with no dock icon.
-// The content View is shown in a popover when the status item is clicked.
-// This blocks until the application exits, then returns nil. It returns a
-// non-nil error if the bridge dylib failed to load.
+// RunWindow is a convenience for Run(WithWindow(config, root)).
+func RunWindow(config AppConfig, root View) error {
+	return Run(WithWindow(config, root))
+}
+
+// RunMenuBar is a convenience for a menu-bar-only app:
+// Run(WithMenuBar(config, content)). The content View is shown in a popover when
+// the status item is clicked.
 func RunMenuBar(config MenuBarConfig, content View) error {
-	if loadErr != nil {
-		return loadErr
-	}
-	runtime.LockOSThread()
-	var openOnLaunch int32
-	if config.OpenOnLaunch {
-		openOnLaunch = 1
-	}
-	withCString(config.Label, func(label *byte) {
-		withCString(config.SystemImage, func(img *byte) {
-			if _SUIRunMenuBarEx != nil {
-				_SUIRunMenuBarEx(label, img, content.ptr, config.Width, config.Height, openOnLaunch)
-				return
-			}
-			_SUIRunMenuBar(label, img, content.ptr, config.Width, config.Height)
-		})
-	})
-	runtime.KeepAlive(content.retained)
-	return nil
+	return Run(WithMenuBar(config, content))
 }
 
-// RunWithMenuBar starts a windowed app that also has a menu bar item.
-// The menuContent View is shown in a popover when the status item is clicked.
-// This blocks until the application exits, then returns nil. It returns a
-// non-nil error if the bridge dylib failed to load.
+// RunWithMenuBar is a convenience for a windowed app that also installs a menu
+// bar item: Run(WithWindow(appConfig, content), WithMenuBar(menuConfig,
+// menuContent)).
 func RunWithMenuBar(appConfig AppConfig, content View, menuConfig MenuBarConfig, menuContent View) error {
-	if loadErr != nil {
-		return loadErr
-	}
+	return Run(WithWindow(appConfig, content), WithMenuBar(menuConfig, menuContent))
+}
+
+// runSpec locks the OS thread and drives the unified SUIRunApp bridge entry
+// point. A surface is signaled absent by a zero view pointer (rootView for the
+// window, menuContent for the popover) or a zero hasMenuBar flag.
+func runSpec(s appSpec) error {
 	runtime.LockOSThread()
-	withCString(appConfig.Title, func(title *byte) {
-		withCString(menuConfig.Label, func(menuLabel *byte) {
-			withCString(menuConfig.SystemImage, func(menuImg *byte) {
-				_SUIRunWithMenuBar(content.ptr, title, appConfig.Width, appConfig.Height,
-					menuLabel, menuImg, menuContent.ptr, menuConfig.Width, menuConfig.Height)
+
+	var rootPtr uintptr
+	var width, height float64
+	if s.hasWindow {
+		rootPtr = s.root.ptr
+		width = s.window.Width
+		height = s.window.Height
+	}
+
+	var hasMenuBar int32
+	var menuPtr uintptr
+	var menuWidth, menuHeight float64
+	var openOnLaunch int32
+	if s.hasMenuBar {
+		hasMenuBar = 1
+		menuPtr = s.menuContent.ptr
+		menuWidth = s.menuBar.Width
+		menuHeight = s.menuBar.Height
+		if s.menuBar.OpenOnLaunch {
+			openOnLaunch = 1
+		}
+	}
+
+	withCString(s.window.Title, func(title *byte) {
+		withCString(s.menuBar.Label, func(menuLabel *byte) {
+			withCString(s.menuBar.SystemImage, func(menuImg *byte) {
+				_SUIRunApp(int32(s.policy), rootPtr, title, width, height,
+					hasMenuBar, menuLabel, menuImg, menuPtr, menuWidth, menuHeight, openOnLaunch)
 			})
 		})
 	})
-	runtime.KeepAlive(content.retained)
-	runtime.KeepAlive(menuContent.retained)
+	runtime.KeepAlive(s.root.retained)
+	runtime.KeepAlive(s.menuContent.retained)
 	return nil
 }
 

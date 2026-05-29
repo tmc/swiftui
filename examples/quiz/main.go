@@ -93,7 +93,7 @@ func main() {
 
 	var mu sync.Mutex
 	answering := false
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Go Quiz",
 		Width:  500,
 		Height: 650,
@@ -106,7 +106,7 @@ func main() {
 		default:
 			return resultsScreen(score, correctMask, screen, questionIdx, selected, total, &mu, &answering)
 		}
-	})); err != nil {
+	}))); err != nil {
 		log.Fatal(err)
 	}
 }

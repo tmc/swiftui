@@ -122,7 +122,7 @@ type backlogPoint struct {
 
 func main() {
 	section := swiftui.NewIntState(0)
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Charts Showcase",
 		Width:  windowWidth,
 		Height: windowHeight,
@@ -147,7 +147,7 @@ func main() {
 		}).MaxFrame(-1, -1),
 	).
 		Padding(14).
-		BackgroundStyle("windowBackground")); err != nil {
+		BackgroundStyle("windowBackground"))); err != nil {
 		log.Fatal(err)
 	}
 }

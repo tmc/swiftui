@@ -240,7 +240,7 @@ func main() {
 	regen()
 
 	onChange := func() { regen() }
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Password Generator",
 		Width:  560,
 		Height: 700,
@@ -397,7 +397,7 @@ func main() {
 				}).Frame(500, 150),
 			).MaxFrame(-1, 0),
 		).Padding(20),
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

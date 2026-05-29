@@ -24,7 +24,7 @@ func init() { runtime.LockOSThread() }
 func main() {
 	name := swiftui.NewStringState("")
 	volume := swiftui.NewIntState(50)
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Accessibility",
 		Width:  520,
 		Height: 680,
@@ -117,7 +117,7 @@ func main() {
 				).Padding(8),
 			).MaxFrame(-1, 0),
 		).Padding(24),
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }

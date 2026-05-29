@@ -18,7 +18,7 @@ import (
 func init() { runtime.LockOSThread() }
 
 func main() {
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Hello World",
 		Width:  500,
 		Height: 320,
@@ -44,7 +44,7 @@ func main() {
 			Font(swiftui.FontCaption).
 			ForegroundStyle(swiftui.RGBA(0.3, 0.8, 0.4, 1.0)),
 		swiftui.Spacer(),
-	).Padding(28)); err != nil {
+	).Padding(28))); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -69,7 +69,7 @@ func main() {
 	if err :=
 
 		// Display in a window.
-		swiftui.Run(swiftui.AppConfig{
+		swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 			Title:  "QuickLook Preview",
 			Width:  800,
 			Height: 600,
@@ -104,7 +104,7 @@ func main() {
 					preview.MaxFrame(-1, -1),
 				).MaxFrame(-1, -1),
 			).MaxFrame(-1, -1),
-		).Padding(20)); err != nil {
+		).Padding(20))); err != nil {
 		log.Fatal(err)
 	}
 }

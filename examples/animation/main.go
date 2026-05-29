@@ -33,7 +33,7 @@ func main() {
 	bannerScene := swiftui.NewIntState(0)
 	sceneCycle := swiftui.NewIntState(0)
 	progress := swiftui.NewFloatState(0.0)
-	if err := swiftui.Run(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
 		Title:  "Animations",
 		Width:  600,
 		Height: 860,
@@ -167,7 +167,7 @@ func main() {
 				).Padding(8),
 			).MaxFrame(-1, 0),
 		).Padding(24),
-	)); err != nil {
+	))); err != nil {
 		log.Fatal(err)
 	}
 }
