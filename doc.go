@@ -65,8 +65,12 @@
 //
 // # Scenes
 //
-// RunScenes lowers immutable Window, DocumentGroup, Settings, MenuBarExtra,
-// and runner-owned command dispatch into the current AppKit-owned scene runner.
+// Run is the single entry point for window, multi-window, menu-bar, and Settings
+// apps: it lowers the App's Windows, MenuBar, and Settings, together with
+// runner-owned command dispatch, into the current AppKit-owned scene runner, and
+// OpenWindow focuses or opens a configured window by its WindowConfig.ID at
+// runtime. Document scenes and custom command menus are runner capabilities not
+// yet surfaced as Go API.
 // Today that runner owns NSWindow, main-menu, NSPopover, and document-session
 // lifecycle directly, persists per-instance window frames and visibility,
 // supports multi-instance WindowGroup families with explicit restoration IDs

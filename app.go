@@ -2,7 +2,12 @@
 
 package swiftui
 
-import "runtime"
+import (
+	"encoding/json"
+	"errors"
+	"runtime"
+	"sync"
+)
 
 // Main locks the calling goroutine to its OS thread and runs body. The AppKit
 // run loop must own the main OS thread, so any goroutine that calls Run must be
@@ -12,7 +17,8 @@ import "runtime"
 //
 //	func main() {
 //		swiftui.Main(func() {
-//			swiftui.Run(swiftui.WithWindow(cfg, root))
+//			win := swiftui.WindowConfig{Title: "Hi", Root: root}
+//			swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{win}})
 //		})
 //	}
 //
@@ -23,20 +29,36 @@ func Main(body func()) {
 	body()
 }
 
-// AppConfig configures the application window.
-type AppConfig struct {
+// WindowConfig configures the application window and the view it shows.
+type WindowConfig struct {
 	Title  string
 	Width  float64
 	Height float64
+	Root   View // The window's root view.
+	// ID identifies the window for OpenWindow. It is required for the
+	// multi-window scene runner (apps with more than one window or a Settings
+	// scene) and ignored by the single-window runner. If empty in a scene-runner
+	// app, Title is used as the identifier.
+	ID string
 }
 
-// MenuBarConfig configures a menu bar status item.
+// SettingsConfig configures the standard Settings window, opened from the app
+// menu (Cmd-,). Presenting Settings routes the app through the scene runner.
+type SettingsConfig struct {
+	Title  string
+	Width  float64
+	Height float64
+	Root   View // The settings view.
+}
+
+// MenuBarConfig configures a menu bar (status bar) item and its popover.
 type MenuBarConfig struct {
 	Label        string  // Text shown next to the icon
 	SystemImage  string  // SF Symbol name for the icon
 	Width        float64 // Popover width
 	Height       float64 // Popover height
 	OpenOnLaunch bool    // Show the popover immediately after app launch.
+	Content      View    // Popover content; a zero View installs a status item with no popover.
 }
 
 // MenuBarLabelStyle controls visual behavior when updating the status label.
@@ -64,134 +86,269 @@ const (
 	PolicyProhibited ActivationPolicy = 3
 )
 
-// appSpec is the resolved set of surfaces and options for a single Run call. It
-// is populated by AppOption values and lowered to the unified SUIRunApp bridge
-// entry point.
-type appSpec struct {
-	policy ActivationPolicy
-
-	hasWindow bool
-	window    AppConfig
-	root      View
-
-	hasMenuBar  bool
-	menuBar     MenuBarConfig
-	menuContent View
+// App describes the surfaces an application presents. An empty Windows slice or
+// a nil MenuBar means that surface is absent, so the same App type expresses
+// single-window, multi-window, menu-bar-only, and window-plus-menu-bar apps. At
+// least one window or a menu bar item must be configured; a Settings scene alone
+// is not a surface (see ErrNoSurface).
+//
+// Run presents every window in Windows. When more than one window is configured
+// (or a Settings scene is present), each WindowConfig.ID must be non-empty and
+// unique so OpenWindow can address it; Run reports ErrWindowID otherwise.
+type App struct {
+	// Windows are the application's windows. Run presents all of them; the
+	// first window is the initial key window.
+	Windows []WindowConfig
+	// MenuBar, when non-nil, installs a menu bar (status bar) item.
+	MenuBar *MenuBarConfig
+	// Settings, when non-nil, installs a Settings scene reachable from the
+	// app menu (Cmd-,). A Settings scene is an adornment on a windowed or
+	// menu-bar app, not a surface of its own.
+	Settings *SettingsConfig
+	// Policy overrides the Dock-icon and main-menu behavior. The zero value
+	// derives it from the configured surfaces; see ActivationPolicy.
+	Policy ActivationPolicy
 }
 
-// AppOption configures a Run call. The available options are WithWindow,
-// WithMenuBar, and WithActivationPolicy. A surface is present only if its option
-// is supplied, so the same Run function expresses window-only, menu-bar-only,
-// and window-plus-menu-bar apps.
-type AppOption func(*appSpec)
+var (
+	// ErrNoSurface is returned by Run when an App configures neither a window
+	// nor a menu bar item; such an app would launch with nothing to show and no
+	// way to quit. A Settings scene alone does not satisfy this requirement.
+	ErrNoSurface = errors.New("swiftui: App configures no surface (set Windows or MenuBar)")
+	// ErrWindowID is returned by Run when a multi-window App (or an App with a
+	// Settings scene alongside multiple windows) has a window with an empty or
+	// duplicate ID. Window identity is required so OpenWindow can address each
+	// window, and must not be derived from the mutable Title.
+	ErrWindowID = errors.New("swiftui: multi-window App requires a unique non-empty WindowConfig.ID")
+	// ErrNoWindow is returned by OpenWindow when no window configured in the
+	// running App has the given id.
+	ErrNoWindow = errors.New("swiftui: no window with that id")
+	// ErrAppNotRunning is returned by OpenWindow when it is called before Run
+	// has started the application event loop.
+	ErrAppNotRunning = errors.New("swiftui: OpenWindow called before Run")
+)
 
-// WithWindow adds a titled application window showing root. Without this option
-// the app has no window (a menu-bar-only app).
-func WithWindow(config AppConfig, root View) AppOption {
-	return func(s *appSpec) {
-		s.hasWindow = true
-		s.window = config
-		s.root = root
-	}
+// appState tracks the single process-global runner so OpenWindow can report a
+// useful error before Run starts. There is exactly one AppKit runner per
+// process; the bridge openers take no handle.
+var appState struct {
+	mu      sync.Mutex
+	running bool
 }
 
-// WithMenuBar adds a menu bar (status bar) item. content is shown in a popover
-// when the item is clicked; pass a zero View to install a status item with no
-// popover. Without this option the app has no menu bar item.
-func WithMenuBar(config MenuBarConfig, content View) AppOption {
-	return func(s *appSpec) {
-		s.hasMenuBar = true
-		s.menuBar = config
-		s.menuContent = content
-	}
-}
-
-// WithActivationPolicy overrides the Dock-icon and main-menu behavior. The
-// default is derived from the configured surfaces; see ActivationPolicy.
-func WithActivationPolicy(p ActivationPolicy) AppOption {
-	return func(s *appSpec) { s.policy = p }
-}
-
-// Run starts the application event loop configured by opts and blocks until the
-// application exits, then returns nil. It returns a non-nil error if the bridge
-// dylib failed to load. Configure the app with WithWindow, WithMenuBar, and
-// WithActivationPolicy; at least one surface option is required.
+// Run starts the application event loop for app, presenting every window in
+// app.Windows together with any MenuBar and Settings scene, and blocks until the
+// application exits. Single-window and multi-window apps go through this same
+// call.
+//
+// Run returns ErrNoSurface if the App configures no window and no menu bar item,
+// ErrWindowID if a multi-window App has a window with an empty or duplicate ID,
+// or a non-nil error if the bridge dylib failed to load.
 //
 //	// A window:
-//	swiftui.Run(swiftui.WithWindow(cfg, root))
+//	win := swiftui.WindowConfig{Title: "Hi", Width: 400, Height: 300, Root: root}
+//	swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{win}})
 //	// A menu-bar-only app (no Dock icon):
-//	swiftui.Run(swiftui.WithMenuBar(mb, panel))
-//	// Both:
-//	swiftui.Run(swiftui.WithWindow(cfg, root), swiftui.WithMenuBar(mb, panel))
-func Run(opts ...AppOption) error {
+//	swiftui.Run(swiftui.App{MenuBar: &swiftui.MenuBarConfig{Label: "Hi", Content: panel}})
+//	// Multiple windows, addressable at runtime by OpenWindow:
+//	main := swiftui.WindowConfig{ID: "main", Title: "Main", Root: mainView}
+//	insp := swiftui.WindowConfig{ID: "inspector", Title: "Inspector", Root: inspView}
+//	swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{main, insp}})
+func Run(app App) error {
 	if loadErr != nil {
 		return loadErr
 	}
-	var s appSpec
-	for _, opt := range opts {
-		opt(&s)
+	// A Settings scene is an adornment, not a surface: an app with only Settings
+	// has no Dock icon, nothing to show, and no way to quit.
+	if len(app.Windows) == 0 && app.MenuBar == nil {
+		return ErrNoSurface
 	}
-	return runSpec(s)
-}
-
-// RunWindow is a convenience for Run(WithWindow(config, root)).
-func RunWindow(config AppConfig, root View) error {
-	return Run(WithWindow(config, root))
-}
-
-// RunMenuBar is a convenience for a menu-bar-only app:
-// Run(WithMenuBar(config, content)). The content View is shown in a popover when
-// the status item is clicked.
-func RunMenuBar(config MenuBarConfig, content View) error {
-	return Run(WithMenuBar(config, content))
-}
-
-// RunWithMenuBar is a convenience for a windowed app that also installs a menu
-// bar item: Run(WithWindow(appConfig, content), WithMenuBar(menuConfig,
-// menuContent)).
-func RunWithMenuBar(appConfig AppConfig, content View, menuConfig MenuBarConfig, menuContent View) error {
-	return Run(WithWindow(appConfig, content), WithMenuBar(menuConfig, menuContent))
-}
-
-// runSpec locks the OS thread and drives the unified SUIRunApp bridge entry
-// point. A surface is signaled absent by a zero view pointer (rootView for the
-// window, menuContent for the popover) or a zero hasMenuBar flag.
-func runSpec(s appSpec) error {
+	if err := validateWindowIDs(app); err != nil {
+		return err
+	}
 	runtime.LockOSThread()
 
+	appState.mu.Lock()
+	appState.running = true
+	appState.mu.Unlock()
+
+	// The scene runner is required whenever a single AppKit window is not enough:
+	// more than one window, or a Settings scene. The simple case keeps the
+	// _SUIRunApp fast path byte-for-byte.
+	if len(app.Windows) > 1 || app.Settings != nil {
+		return runApp(app)
+	}
+	return runAppSimple(app)
+}
+
+// validateWindowIDs enforces the multi-window identity invariant: when OpenWindow
+// must be able to address windows (more than one window, or a Settings scene that
+// shares the scene runner), every window ID must be non-empty and unique.
+func validateWindowIDs(app App) error {
+	if len(app.Windows) <= 1 && app.Settings == nil {
+		return nil
+	}
+	seen := make(map[string]bool, len(app.Windows))
+	for _, win := range app.Windows {
+		if win.ID == "" || seen[win.ID] {
+			return ErrWindowID
+		}
+		seen[win.ID] = true
+	}
+	return nil
+}
+
+// runAppSimple presents at most one window plus an optional menu bar through the
+// single-surface _SUIRunApp bridge entry.
+func runAppSimple(app App) error {
 	var rootPtr uintptr
+	var title string
 	var width, height float64
-	if s.hasWindow {
-		rootPtr = s.root.ptr
-		width = s.window.Width
-		height = s.window.Height
+	var root View
+	if len(app.Windows) > 0 {
+		win := app.Windows[0]
+		root = win.Root
+		rootPtr = root.ptr
+		title = win.Title
+		width = win.Width
+		height = win.Height
 	}
 
 	var hasMenuBar int32
+	var menuLabelStr, menuImageStr string
 	var menuPtr uintptr
 	var menuWidth, menuHeight float64
 	var openOnLaunch int32
-	if s.hasMenuBar {
+	var menuContent View
+	if app.MenuBar != nil {
 		hasMenuBar = 1
-		menuPtr = s.menuContent.ptr
-		menuWidth = s.menuBar.Width
-		menuHeight = s.menuBar.Height
-		if s.menuBar.OpenOnLaunch {
+		menuContent = app.MenuBar.Content
+		menuPtr = menuContent.ptr
+		menuLabelStr = app.MenuBar.Label
+		menuImageStr = app.MenuBar.SystemImage
+		menuWidth = app.MenuBar.Width
+		menuHeight = app.MenuBar.Height
+		if app.MenuBar.OpenOnLaunch {
 			openOnLaunch = 1
 		}
 	}
 
-	withCString(s.window.Title, func(title *byte) {
-		withCString(s.menuBar.Label, func(menuLabel *byte) {
-			withCString(s.menuBar.SystemImage, func(menuImg *byte) {
-				_SUIRunApp(int32(s.policy), rootPtr, title, width, height,
+	withCString(title, func(t *byte) {
+		withCString(menuLabelStr, func(menuLabel *byte) {
+			withCString(menuImageStr, func(menuImg *byte) {
+				_SUIRunApp(int32(app.Policy), rootPtr, t, width, height,
 					hasMenuBar, menuLabel, menuImg, menuPtr, menuWidth, menuHeight, openOnLaunch)
 			})
 		})
 	})
-	runtime.KeepAlive(s.root.retained)
-	runtime.KeepAlive(s.menuContent.retained)
+	runtime.KeepAlive(root.retained)
+	runtime.KeepAlive(menuContent.retained)
 	return nil
+}
+
+// runApp presents multiple windows and/or a Settings scene through the scene
+// runner. It builds a scene-plan document indexing each scene's view into an
+// ordered view-pointer slice, then drives _SUIRunScenePlan.
+func runApp(app App) error {
+	plan := scenePlan{}
+	views := make([]View, 0, len(app.Windows)+2)
+	addView := func(v View) int {
+		idx := len(views)
+		views = append(views, v)
+		return idx
+	}
+
+	for i, win := range app.Windows {
+		openOnLaunch := true
+		plan.Scenes = append(plan.Scenes, scenePlanScene{
+			Kind:         "window",
+			ID:           win.ID,
+			Title:        win.Title,
+			Width:        win.Width,
+			Height:       win.Height,
+			OpenOnLaunch: &openOnLaunch,
+			ViewIndex:    addView(win.Root),
+		})
+		_ = i
+	}
+
+	if app.Settings != nil {
+		plan.Scenes = append(plan.Scenes, scenePlanScene{
+			Kind:      "settings",
+			ID:        "settings",
+			Title:     app.Settings.Title,
+			Width:     app.Settings.Width,
+			Height:    app.Settings.Height,
+			ViewIndex: addView(app.Settings.Root),
+		})
+	}
+
+	if app.MenuBar != nil {
+		openOnLaunch := app.MenuBar.OpenOnLaunch
+		plan.Scenes = append(plan.Scenes, scenePlanScene{
+			Kind:         "menuBar",
+			Label:        app.MenuBar.Label,
+			SystemImage:  app.MenuBar.SystemImage,
+			Width:        app.MenuBar.Width,
+			Height:       app.MenuBar.Height,
+			OpenOnLaunch: &openOnLaunch,
+			ViewIndex:    addView(app.MenuBar.Content),
+		})
+	}
+
+	planJSON, err := json.Marshal(plan)
+	if err != nil {
+		return err
+	}
+
+	ptrs := make([]uintptr, len(views))
+	for i, v := range views {
+		ptrs[i] = v.ptr
+	}
+	runScenePlan(string(planJSON), ptrs)
+	// Keep the view-pointer slice and every retained Swift box alive for the
+	// full duration of the blocking run: the bridge holds the boxes by raw
+	// uintptr, so without these the GC could free them mid-run.
+	runtime.KeepAlive(ptrs)
+	runtime.KeepAlive(views)
+	return nil
+}
+
+// scenePlan is the wire document decoded by the Swift SUIRunScenePlan bridge.
+// Its field tags must match the SUIScenePlanPayload Decodable struct.
+type scenePlan struct {
+	Scenes []scenePlanScene `json:"scenes"`
+}
+
+// scenePlanScene mirrors the Swift SUIScenePlanScene Decodable struct. Optional
+// fields use omitempty (or a pointer, where false is meaningful) so the decoder
+// applies its own defaults.
+type scenePlanScene struct {
+	Kind         string  `json:"kind"`
+	ID           string  `json:"id,omitempty"`
+	Title        string  `json:"title,omitempty"`
+	Width        float64 `json:"width,omitempty"`
+	Height       float64 `json:"height,omitempty"`
+	Label        string  `json:"label,omitempty"`
+	SystemImage  string  `json:"systemImage,omitempty"`
+	OpenOnLaunch *bool   `json:"openOnLaunch,omitempty"`
+	ViewIndex    int     `json:"viewIndex"`
+}
+
+// RunMenuBar is a convenience for a menu-bar-only app:
+// Run(App{MenuBar: &config}). The content View is shown in a popover when the
+// status item is clicked.
+func RunMenuBar(config MenuBarConfig, content View) error {
+	config.Content = content
+	return Run(App{MenuBar: &config})
+}
+
+// RunWithMenuBar is a convenience for a windowed app that also installs a menu
+// bar item: Run(App{Windows: []WindowConfig{winConfig}, MenuBar: &menuConfig}).
+func RunWithMenuBar(winConfig WindowConfig, content View, menuConfig MenuBarConfig, menuContent View) error {
+	winConfig.Root = content
+	menuConfig.Content = menuContent
+	return Run(App{Windows: []WindowConfig{winConfig}, MenuBar: &menuConfig})
 }
 
 // runScenePlan starts the current scene-aware runner from a serialized scene plan.
@@ -215,18 +372,39 @@ func runScenePlan(planJSON string, views []uintptr) {
 	withCString(planJSON, func(plan *byte) {
 		_SUIRunScenePlan(plan, head, int32(len(views)))
 	})
+	// _SUIRunScenePlan blocks for the lifetime of the app and retains the views
+	// by raw pointer; keep the backing array reachable so the GC cannot move or
+	// free it while the bridge still reads through head.
+	runtime.KeepAlive(views)
 }
 
-// openSceneWindow focuses or opens one AppKit-owned scene window by identifier.
+// OpenWindow focuses the window whose WindowConfig.ID equals id, opening it if it
+// is not currently on screen. It addresses only windows configured in the App
+// passed to Run; it does not create new windows.
 //
-// This is the current OpenWindowAction implementation used by the scene runner.
-// It is runner-backed today, not direct SwiftUI environment parity.
-func openSceneWindow(id string) bool {
+// OpenWindow must be called on the AppKit main thread after Run has started the
+// event loop, typically from a view callback. It returns ErrAppNotRunning before
+// Run, ErrNoWindow when no configured window has the given id, or nil once the
+// window is opened or focused. The runner is AppKit-backed today rather than
+// direct SwiftUI OpenWindowAction parity.
+func OpenWindow(id string) error {
+	if loadErr != nil {
+		return loadErr
+	}
+	appState.mu.Lock()
+	running := appState.running
+	appState.mu.Unlock()
+	if !running {
+		return ErrAppNotRunning
+	}
 	var ok int32
 	withCString(id, func(sceneID *byte) {
 		ok = _SUIOpenSceneWindow(sceneID)
 	})
-	return ok != 0
+	if ok == 0 {
+		return ErrNoWindow
+	}
+	return nil
 }
 
 // UpdateMenuBarLabel changes the status item text at runtime.
