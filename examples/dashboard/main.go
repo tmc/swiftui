@@ -92,15 +92,16 @@ func main() {
 			time.Sleep(time.Duration(rate*1000) * time.Millisecond)
 		}
 	}()
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Dashboard",
 		Width:  750,
 		Height: 650,
-	}, swiftui.TabView(
-		overviewTab(goroutines, heapMB, sysMB, numGC, chartVersion, autoRefreshState, lastUpdate),
-		detailsTab(goroutines, heapMB, sysMB, numGC, chartVersion, lastUpdate),
-		controlsTab(spawnCount, autoRefreshState, refreshRateState, goroutines, heapMB, sysMB, numGC, chartVersion),
-	))); err != nil {
+		Root: swiftui.TabView(
+			overviewTab(goroutines, heapMB, sysMB, numGC, chartVersion, autoRefreshState, lastUpdate),
+			detailsTab(goroutines, heapMB, sysMB, numGC, chartVersion, lastUpdate),
+			controlsTab(spawnCount, autoRefreshState, refreshRateState, goroutines, heapMB, sysMB, numGC, chartVersion),
+		),
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }

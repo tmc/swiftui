@@ -18,33 +18,34 @@ import (
 func init() { runtime.LockOSThread() }
 
 func main() {
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Hello World",
 		Width:  500,
 		Height: 320,
-	}, swiftui.VStackSpaced(18,
-		swiftui.Spacer(),
-		swiftui.ZStack(
-			swiftui.Circle().
-				Fill(swiftui.RGBA(0.28, 0.55, 1.0, 0.14)).
-				Frame(112, 112).
-				AsView(),
-			swiftui.Image("hand.wave.fill").
-				ForegroundStyle(swiftui.RGBA(0.35, 0.65, 1.0, 1.0)).
-				ImageScale(swiftui.ImageScaleLarge),
-		),
-		swiftui.Text("Hello from Go!").
-			Font(swiftui.FontLargeTitle).
-			FontWeight(swiftui.WeightBold),
-		swiftui.Text("A native macOS window rendered through SwiftUI and driven from Go.").
-			Font(swiftui.FontBody).
-			ForegroundStyleNamed("secondary").
-			MultilineTextAlignment(swiftui.TextAlignmentCenter),
-		swiftui.Label("purego bridge", "sparkles").
-			Font(swiftui.FontCaption).
-			ForegroundStyle(swiftui.RGBA(0.3, 0.8, 0.4, 1.0)),
-		swiftui.Spacer(),
-	).Padding(28))); err != nil {
+		Root: swiftui.VStackSpaced(18,
+			swiftui.Spacer(),
+			swiftui.ZStack(
+				swiftui.Circle().
+					Fill(swiftui.RGBA(0.28, 0.55, 1.0, 0.14)).
+					Frame(112, 112).
+					AsView(),
+				swiftui.Image("hand.wave.fill").
+					ForegroundStyle(swiftui.RGBA(0.35, 0.65, 1.0, 1.0)).
+					ImageScale(swiftui.ImageScaleLarge),
+			),
+			swiftui.Text("Hello from Go!").
+				Font(swiftui.FontLargeTitle).
+				FontWeight(swiftui.WeightBold),
+			swiftui.Text("A native macOS window rendered through SwiftUI and driven from Go.").
+				Font(swiftui.FontBody).
+				ForegroundStyleNamed("secondary").
+				MultilineTextAlignment(swiftui.TextAlignmentCenter),
+			swiftui.Label("purego bridge", "sparkles").
+				Font(swiftui.FontCaption).
+				ForegroundStyle(swiftui.RGBA(0.3, 0.8, 0.4, 1.0)),
+			swiftui.Spacer(),
+		).Padding(28),
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }

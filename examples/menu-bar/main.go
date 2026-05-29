@@ -27,83 +27,84 @@ func main() {
 	showConfirm := swiftui.NewIntState(0)
 	showPopover := swiftui.NewIntState(0)
 	showFullScreen := swiftui.NewIntState(0)
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Modal Presentations",
 		Width:  500,
 		Height: 520,
-	}, swiftui.VStackSpaced(16,
-		swiftui.Text("Modal Presentations").
-			Font(swiftui.FontTitle).
-			FontWeight(swiftui.WeightBold).
-			AsView(),
+		Root: swiftui.VStackSpaced(16,
+			swiftui.Text("Modal Presentations").
+				Font(swiftui.FontTitle).
+				FontWeight(swiftui.WeightBold).
+				AsView(),
 
-		swiftui.Text("Tap each button to trigger a different modal type.").
-			Font(swiftui.FontCaption).
-			ForegroundStyleNamed("secondary").
-			AsView(),
+			swiftui.Text("Tap each button to trigger a different modal type.").
+				Font(swiftui.FontCaption).
+				ForegroundStyleNamed("secondary").
+				AsView(),
 
-		swiftui.Divider(),
+			swiftui.Divider(),
 
-		// Sheet
-		swiftui.Button("Sheet", func() {
-			showSheet.Set(1)
-		}).ButtonStyle(swiftui.ButtonStyleBordered).
-			ControlSize(swiftui.ControlSizeLarge).
-			Help("Present a modal sheet").
-			Sheet(showSheet, sheetContent()),
+			// Sheet
+			swiftui.Button("Sheet", func() {
+				showSheet.Set(1)
+			}).ButtonStyle(swiftui.ButtonStyleBordered).
+				ControlSize(swiftui.ControlSizeLarge).
+				Help("Present a modal sheet").
+				Sheet(showSheet, sheetContent()),
 
-		// Alert
-		swiftui.Button("Alert", func() {
-			showAlert.Set(1)
-		}).ButtonStyle(swiftui.ButtonStyleBordered).
-			ControlSize(swiftui.ControlSizeLarge).
-			Help("Show an alert dialog").
-			Alert("File Saved", "Your document has been saved successfully.", showAlert),
+			// Alert
+			swiftui.Button("Alert", func() {
+				showAlert.Set(1)
+			}).ButtonStyle(swiftui.ButtonStyleBordered).
+				ControlSize(swiftui.ControlSizeLarge).
+				Help("Show an alert dialog").
+				Alert("File Saved", "Your document has been saved successfully.", showAlert),
 
-		// Confirmation Dialog
-		swiftui.Button("Confirmation Dialog", func() {
-			showConfirm.Set(1)
-		}).ButtonStyle(swiftui.ButtonStyleBordered).
-			ControlSize(swiftui.ControlSizeLarge).
-			Help("Show a confirmation dialog with actions").
-			ConfirmationDialog("Delete Item?", showConfirm, swiftui.VStack(
-				swiftui.Button("Delete", func() {}),
-				swiftui.Button("Archive Instead", func() {}),
-			)),
-
-		// Popover
-		swiftui.Button("Popover", func() {
-			showPopover.Set(1)
-		}).ButtonStyle(swiftui.ButtonStyleBordered).
-			ControlSize(swiftui.ControlSizeLarge).
-			Help("Show a popover").
-			Popover(showPopover, popoverContent()),
-
-		// Full Screen Cover
-		swiftui.Button("Full Screen Cover", func() {
-			showFullScreen.Set(1)
-		}).ButtonStyle(swiftui.ButtonStyleBorderedProminent).
-			ControlSize(swiftui.ControlSizeLarge).
-			Help("Present a full-screen modal").
-			FullScreenCover(showFullScreen, fullScreenContent(showFullScreen)),
-
-		swiftui.Divider(),
-
-		// Context Menu (right-click)
-		swiftui.GroupBox("Context Menu", swiftui.VStack(
-			swiftui.Label("Right-click here", "cursorarrow.click.2").
-				Font(swiftui.FontBody).
-				AsView().
-				Padding(20).
-				ContextMenu(swiftui.VStack(
-					swiftui.Button("Cut", func() {}),
-					swiftui.Button("Copy", func() {}),
-					swiftui.Button("Paste", func() {}),
-					swiftui.Divider(),
-					swiftui.Button("Select All", func() {}),
+			// Confirmation Dialog
+			swiftui.Button("Confirmation Dialog", func() {
+				showConfirm.Set(1)
+			}).ButtonStyle(swiftui.ButtonStyleBordered).
+				ControlSize(swiftui.ControlSizeLarge).
+				Help("Show a confirmation dialog with actions").
+				ConfirmationDialog("Delete Item?", showConfirm, swiftui.VStack(
+					swiftui.Button("Delete", func() {}),
+					swiftui.Button("Archive Instead", func() {}),
 				)),
-		)),
-	).Padding(30))); err != nil {
+
+			// Popover
+			swiftui.Button("Popover", func() {
+				showPopover.Set(1)
+			}).ButtonStyle(swiftui.ButtonStyleBordered).
+				ControlSize(swiftui.ControlSizeLarge).
+				Help("Show a popover").
+				Popover(showPopover, popoverContent()),
+
+			// Full Screen Cover
+			swiftui.Button("Full Screen Cover", func() {
+				showFullScreen.Set(1)
+			}).ButtonStyle(swiftui.ButtonStyleBorderedProminent).
+				ControlSize(swiftui.ControlSizeLarge).
+				Help("Present a full-screen modal").
+				FullScreenCover(showFullScreen, fullScreenContent(showFullScreen)),
+
+			swiftui.Divider(),
+
+			// Context Menu (right-click)
+			swiftui.GroupBox("Context Menu", swiftui.VStack(
+				swiftui.Label("Right-click here", "cursorarrow.click.2").
+					Font(swiftui.FontBody).
+					AsView().
+					Padding(20).
+					ContextMenu(swiftui.VStack(
+						swiftui.Button("Cut", func() {}),
+						swiftui.Button("Copy", func() {}),
+						swiftui.Button("Paste", func() {}),
+						swiftui.Divider(),
+						swiftui.Button("Select All", func() {}),
+					)),
+			)),
+		).Padding(30),
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }

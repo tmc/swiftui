@@ -168,16 +168,17 @@ func main() {
 			}),
 		),
 	).MaxFrame(-1, 0)
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Color Laboratory",
 		Width:  800,
 		Height: 600,
-	}, swiftui.ScrollView(
-		swiftui.HStackSpaced(16,
-			leftColumn,
-			rightColumn,
-		).Padding(20),
-	))); err != nil {
+		Root: swiftui.ScrollView(
+			swiftui.HStackSpaced(16,
+				leftColumn,
+				rightColumn,
+			).Padding(20),
+		),
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }

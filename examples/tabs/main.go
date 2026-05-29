@@ -27,15 +27,16 @@ func main() {
 	fontSize := swiftui.NewIntState(15)
 	compactMode := swiftui.NewIntState(0)
 	notifications := swiftui.NewIntState(1)
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Tabs Demo",
 		Width:  720,
 		Height: 560,
-	}, swiftui.TabView(
-		homeTab(),
-		settingsTab(darkMode, fontSize, compactMode, notifications),
-		aboutTab(),
-	))); err != nil {
+		Root: swiftui.TabView(
+			homeTab(),
+			settingsTab(darkMode, fontSize, compactMode, notifications),
+			aboutTab(),
+		),
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -380,19 +380,20 @@ func main() {
 			refreshChanges()
 		}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
 	).Padding(12)
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Settings",
 		Width:  660,
 		Height: 620,
-	}, swiftui.VStack(
-		swiftui.TabView(
-			generalTab,
-			appearanceTab,
-			advancedTab,
-		).MaxFrame(-1, -1),
-		swiftui.Divider(),
-		statusBar,
-	))); err != nil {
+		Root: swiftui.VStack(
+			swiftui.TabView(
+				generalTab,
+				appearanceTab,
+				advancedTab,
+			).MaxFrame(-1, -1),
+			swiftui.Divider(),
+			statusBar,
+		),
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }

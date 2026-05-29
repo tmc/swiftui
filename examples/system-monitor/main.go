@@ -59,81 +59,81 @@ func main() {
 			gcPct.Set(clamp(float64(m.NumGC) / 100.0))
 		}
 	}()
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "System Monitor",
 		Width:  520,
 		Height: 480,
-	}, swiftui.ScrollView(
-		swiftui.VStackSpaced(16,
-			// Header
-			swiftui.HStack(
-				swiftui.Label("System Monitor", "waveform.path.ecg").
-					Font(swiftui.FontTitle).
-					FontWeight(swiftui.WeightBold),
-				swiftui.Spacer(),
-			),
+		Root: swiftui.ScrollView(
+			swiftui.VStackSpaced(16,
+				// Header
+				swiftui.HStack(
+					swiftui.Label("System Monitor", "waveform.path.ecg").
+						Font(swiftui.FontTitle).
+						FontWeight(swiftui.WeightBold),
+					swiftui.Spacer(),
+				),
 
-			// Gauges row
-			swiftui.GroupBox("Runtime Gauges",
-				swiftui.HStackSpaced(24,
-					gaugeView("Goroutines", goroutines, 0.35, 0.65, 1.0),
-					circleGauge("Heap", heapPct, "memorychip.fill", 0.9, 0.5, 0.2),
-					circleGauge("Sys", sysPct, "cpu", 0.3, 0.7, 1.0),
-					circleGauge("GC", gcPct, "arrow.triangle.2.circlepath", 0.3, 0.8, 0.4),
-				).Padding(12),
-			).MaxFrame(-1, 0),
+				// Gauges row
+				swiftui.GroupBox("Runtime Gauges",
+					swiftui.HStackSpaced(24,
+						gaugeView("Goroutines", goroutines, 0.35, 0.65, 1.0),
+						circleGauge("Heap", heapPct, "memorychip.fill", 0.9, 0.5, 0.2),
+						circleGauge("Sys", sysPct, "cpu", 0.3, 0.7, 1.0),
+						circleGauge("GC", gcPct, "arrow.triangle.2.circlepath", 0.3, 0.8, 0.4),
+					).Padding(12),
+				).MaxFrame(-1, 0),
 
-			// Detail cards
-			swiftui.GroupBox("Memory",
-				swiftui.VStackSpaced(12,
-					metricRow("Heap Alloc", "memorychip.fill", heapMB, "MB", 256),
-					metricRow("Sys Memory", "cpu", sysMB, "MB", 256),
-				).Padding(8),
-			).MaxFrame(-1, 0),
+				// Detail cards
+				swiftui.GroupBox("Memory",
+					swiftui.VStackSpaced(12,
+						metricRow("Heap Alloc", "memorychip.fill", heapMB, "MB", 256),
+						metricRow("Sys Memory", "cpu", sysMB, "MB", 256),
+					).Padding(8),
+				).MaxFrame(-1, 0),
 
-			swiftui.GroupBox("Scheduling",
-				swiftui.VStackSpaced(12,
-					swiftui.HStack(
-						swiftui.Label("Goroutines", "arrow.triangle.branch").
-							Font(swiftui.FontBody),
-						swiftui.Spacer(),
-						swiftui.TextFrom(goroutines).
-							Font(swiftui.FontBody).
-							FontWeight(swiftui.WeightSemibold).
-							MonospacedDigit(),
-					),
-					swiftui.HStack(
-						swiftui.Label("CPUs", "square.grid.3x3.fill").
-							Font(swiftui.FontBody),
-						swiftui.Spacer(),
-						swiftui.Text(fmt.Sprintf("%d", runtime.NumCPU())).
-							Font(swiftui.FontBody).
-							FontWeight(swiftui.WeightSemibold).
-							MonospacedDigit(),
-					),
-					swiftui.HStack(
-						swiftui.Label("GC Cycles", "arrow.triangle.2.circlepath").
-							Font(swiftui.FontBody),
-						swiftui.Spacer(),
-						swiftui.TextFrom(numGC).
-							Font(swiftui.FontBody).
-							FontWeight(swiftui.WeightSemibold).
-							MonospacedDigit(),
-					),
-				).Padding(8),
-			).MaxFrame(-1, 0),
+				swiftui.GroupBox("Scheduling",
+					swiftui.VStackSpaced(12,
+						swiftui.HStack(
+							swiftui.Label("Goroutines", "arrow.triangle.branch").
+								Font(swiftui.FontBody),
+							swiftui.Spacer(),
+							swiftui.TextFrom(goroutines).
+								Font(swiftui.FontBody).
+								FontWeight(swiftui.WeightSemibold).
+								MonospacedDigit(),
+						),
+						swiftui.HStack(
+							swiftui.Label("CPUs", "square.grid.3x3.fill").
+								Font(swiftui.FontBody),
+							swiftui.Spacer(),
+							swiftui.Text(fmt.Sprintf("%d", runtime.NumCPU())).
+								Font(swiftui.FontBody).
+								FontWeight(swiftui.WeightSemibold).
+								MonospacedDigit(),
+						),
+						swiftui.HStack(
+							swiftui.Label("GC Cycles", "arrow.triangle.2.circlepath").
+								Font(swiftui.FontBody),
+							swiftui.Spacer(),
+							swiftui.TextFrom(numGC).
+								Font(swiftui.FontBody).
+								FontWeight(swiftui.WeightSemibold).
+								MonospacedDigit(),
+						),
+					).Padding(8),
+				).MaxFrame(-1, 0),
 
-			// Force GC button
-			swiftui.HStack(
-				swiftui.Spacer(),
-				swiftui.Button("Force GC", func() {
-					runtime.GC()
-				}).ButtonStyle(swiftui.ButtonStyleBorderedProminent).
-					ControlSize(swiftui.ControlSizeLarge),
-				swiftui.Spacer(),
-			),
-		).Padding(24),
-	))); err != nil {
+				// Force GC button
+				swiftui.HStack(
+					swiftui.Spacer(),
+					swiftui.Button("Force GC", func() {
+						runtime.GC()
+					}).ButtonStyle(swiftui.ButtonStyleBorderedProminent).
+						ControlSize(swiftui.ControlSizeLarge),
+					swiftui.Spacer(),
+				),
+			).Padding(24),
+		)}}}); err != nil {
 		log.Fatal(err)
 	}
 }

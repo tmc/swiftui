@@ -24,31 +24,32 @@ func init() { runtime.LockOSThread() }
 func main() {
 	mode := swiftui.NewIntState(0)
 	if // 0 = light palette, 1 = dark palette
-	err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Dark & Light Styles",
 		Width:  520,
 		Height: 620,
-	}, swiftui.ScrollView(
-		swiftui.VStackSpaced(16,
-			// Header
-			swiftui.Text("Theme Showcase").
-				Font(swiftui.FontLargeTitle).
-				FontWeight(swiftui.WeightBold),
+		Root: swiftui.ScrollView(
+			swiftui.VStackSpaced(16,
+				// Header
+				swiftui.Text("Theme Showcase").
+					Font(swiftui.FontLargeTitle).
+					FontWeight(swiftui.WeightBold),
 
-			// Toggle between palettes
-			swiftui.Toggle("Dark palette", mode, func() {}),
+				// Toggle between palettes
+				swiftui.Toggle("Dark palette", mode, func() {}),
 
-			swiftui.Divider(),
+				swiftui.Divider(),
 
-			// Dynamic content based on toggle
-			swiftui.DynamicView(mode, func(v int) swiftui.View {
-				if v == 1 {
-					return darkPalette()
-				}
-				return lightPalette()
-			}),
-		).Padding(24),
-	))); err !=
+				// Dynamic content based on toggle
+				swiftui.DynamicView(mode, func(v int) swiftui.View {
+					if v == 1 {
+						return darkPalette()
+					}
+					return lightPalette()
+				}),
+			).Padding(24),
+		),
+	}}}); err !=
 
 		// lightPalette shows semantic styles on light-toned backgrounds.
 		nil {

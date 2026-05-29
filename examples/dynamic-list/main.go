@@ -31,85 +31,86 @@ func main() {
 	items = []string{"Buy groceries", "Write tests", "Review PR"}
 	input := swiftui.NewStringState("")
 	count := swiftui.NewIntState(len(items))
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Todo List",
 		Width:  500,
 		Height: 600,
-	}, swiftui.VStackSpaced(12,
-		swiftui.VStackSpaced(4,
-			swiftui.HStack(
-				swiftui.Text("Todo List").
-					Font(swiftui.FontTitle2).
-					FontWeight(swiftui.WeightBold),
-				swiftui.Spacer(),
-				swiftui.Label("Synced", "checkmark.circle.fill").
-					Font(swiftui.FontCaption).
-					ForegroundStyle(swiftui.RGBA(0.3, 0.8, 0.4, 1.0)),
+		Root: swiftui.VStackSpaced(12,
+			swiftui.VStackSpaced(4,
+				swiftui.HStack(
+					swiftui.Text("Todo List").
+						Font(swiftui.FontTitle2).
+						FontWeight(swiftui.WeightBold),
+					swiftui.Spacer(),
+					swiftui.Label("Synced", "checkmark.circle.fill").
+						Font(swiftui.FontCaption).
+						ForegroundStyle(swiftui.RGBA(0.3, 0.8, 0.4, 1.0)),
+				),
+				swiftui.HStack(
+					swiftui.Text("A simple reactive list with inline add and clear actions.").
+						Font(swiftui.FontCallout).
+						ForegroundStyleNamed("secondary"),
+					swiftui.Spacer(),
+				),
 			),
+			swiftui.HStackSpaced(8,
+				swiftui.TextField("New item...", input, func() {
+					addItem(input, count)
+				}).TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
+				swiftui.Button("Add", func() {
+					addItem(input, count)
+				}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
+			),
+			swiftui.DynamicView(count, func(n int) swiftui.View {
+				return summaryBar(n)
+			}),
+			swiftui.GroupBox("Items",
+				swiftui.ScrollView(
+					swiftui.DynamicView(count, func(n int) swiftui.View {
+						if n == 0 {
+							return swiftui.VStackSpaced(8,
+								swiftui.Spacer(),
+								swiftui.Image("tray").
+									ForegroundStyleNamed("secondary").
+									ImageScale(swiftui.ImageScaleLarge),
+								swiftui.Text("Nothing queued").
+									Font(swiftui.FontBody).
+									ForegroundStyleNamed("secondary"),
+								swiftui.Text("Add a task above to repopulate the list.").
+									Font(swiftui.FontCaption).
+									ForegroundStyleNamed("tertiary"),
+								swiftui.Spacer(),
+							).Padding(36)
+						}
+						mu.Lock()
+						snapshot := make([]string, len(items))
+						copy(snapshot, items)
+						mu.Unlock()
+
+						rows := make([]swiftui.Viewable, 0, len(snapshot))
+						for i, item := range snapshot {
+							rows = append(rows, todoRow(i+1, item))
+						}
+						return swiftui.VStackSpaced(8, rows...).Padding(8)
+					}),
+				).Frame(440, 320),
+			).MaxFrame(-1, 0),
 			swiftui.HStack(
-				swiftui.Text("A simple reactive list with inline add and clear actions.").
-					Font(swiftui.FontCallout).
+				swiftui.Text("Keep the list small and explicit. This example is about state, not data modeling.").
+					Font(swiftui.FontCaption).
 					ForegroundStyleNamed("secondary"),
 				swiftui.Spacer(),
-			),
-		),
-		swiftui.HStackSpaced(8,
-			swiftui.TextField("New item...", input, func() {
-				addItem(input, count)
-			}).TextFieldStyle(swiftui.TextFieldStyleRoundedBorder),
-			swiftui.Button("Add", func() {
-				addItem(input, count)
-			}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
-		),
-		swiftui.DynamicView(count, func(n int) swiftui.View {
-			return summaryBar(n)
-		}),
-		swiftui.GroupBox("Items",
-			swiftui.ScrollView(
-				swiftui.DynamicView(count, func(n int) swiftui.View {
-					if n == 0 {
-						return swiftui.VStackSpaced(8,
-							swiftui.Spacer(),
-							swiftui.Image("tray").
-								ForegroundStyleNamed("secondary").
-								ImageScale(swiftui.ImageScaleLarge),
-							swiftui.Text("Nothing queued").
-								Font(swiftui.FontBody).
-								ForegroundStyleNamed("secondary"),
-							swiftui.Text("Add a task above to repopulate the list.").
-								Font(swiftui.FontCaption).
-								ForegroundStyleNamed("tertiary"),
-							swiftui.Spacer(),
-						).Padding(36)
-					}
+				swiftui.Button("Clear All", func() {
 					mu.Lock()
-					snapshot := make([]string, len(items))
-					copy(snapshot, items)
+					items = nil
 					mu.Unlock()
-
-					rows := make([]swiftui.Viewable, 0, len(snapshot))
-					for i, item := range snapshot {
-						rows = append(rows, todoRow(i+1, item))
-					}
-					return swiftui.VStackSpaced(8, rows...).Padding(8)
-				}),
-			).Frame(440, 320),
-		).MaxFrame(-1, 0),
-		swiftui.HStack(
-			swiftui.Text("Keep the list small and explicit. This example is about state, not data modeling.").
-				Font(swiftui.FontCaption).
-				ForegroundStyleNamed("secondary"),
-			swiftui.Spacer(),
-			swiftui.Button("Clear All", func() {
-				mu.Lock()
-				items = nil
-				mu.Unlock()
-				count.Set(0)
-			}).
-				ButtonStyle(swiftui.ButtonStyleBordered).
-				ForegroundStyle(swiftui.RGBA(1, 0.35, 0.35, 1)),
-		),
-	).Padding(20))); err != nil {
+					count.Set(0)
+				}).
+					ButtonStyle(swiftui.ButtonStyleBordered).
+					ForegroundStyle(swiftui.RGBA(1, 0.35, 0.35, 1)),
+			),
+		).Padding(20),
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }

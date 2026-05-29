@@ -33,141 +33,141 @@ func main() {
 	bannerScene := swiftui.NewIntState(0)
 	sceneCycle := swiftui.NewIntState(0)
 	progress := swiftui.NewFloatState(0.0)
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Animations",
 		Width:  600,
 		Height: 860,
-	}, swiftui.ScrollView(
-		swiftui.VStackSpaced(20,
-			// Header
-			swiftui.Text("Animation Showcase").
-				Font(swiftui.FontLargeTitle).
-				FontWeight(swiftui.WeightBold),
+		Root: swiftui.ScrollView(
+			swiftui.VStackSpaced(20,
+				// Header
+				swiftui.Text("Animation Showcase").
+					Font(swiftui.FontLargeTitle).
+					FontWeight(swiftui.WeightBold),
 
-			// Transition demos
-			swiftui.GroupBox("Transitions",
-				swiftui.VStackSpaced(12,
-					transitionDemo("Move", swiftui.TransitionMove, moveScene),
-					transitionDemo("Opacity", swiftui.TransitionOpacity, opacityScene),
-					transitionDemo("Scale", swiftui.TransitionScale, scaleScene),
-					transitionDemo("Push", swiftui.TransitionPush, pushScene),
-				).Padding(8),
-			).MaxFrame(-1, 0),
+				// Transition demos
+				swiftui.GroupBox("Transitions",
+					swiftui.VStackSpaced(12,
+						transitionDemo("Move", swiftui.TransitionMove, moveScene),
+						transitionDemo("Opacity", swiftui.TransitionOpacity, opacityScene),
+						transitionDemo("Scale", swiftui.TransitionScale, scaleScene),
+						transitionDemo("Push", swiftui.TransitionPush, pushScene),
+					).Padding(8),
+				).MaxFrame(-1, 0),
 
-			// Progress bar with animated state
-			swiftui.GroupBox("Animated Progress",
-				swiftui.VStackSpaced(12,
-					swiftui.FloatProgressView(progress, 1.0).
-						Tint(swiftui.RGBA(0.35, 0.65, 1.0, 1.0)),
-					swiftui.HStackSpaced(8,
-						swiftui.Button("0%", func() {
-							progress.SetAnimated(0.0)
-						}).ButtonStyle(swiftui.ButtonStyleBordered),
-						swiftui.Button("25%", func() {
-							progress.SetAnimated(0.25)
-						}).ButtonStyle(swiftui.ButtonStyleBordered),
-						swiftui.Button("50%", func() {
-							progress.SetAnimated(0.5)
-						}).ButtonStyle(swiftui.ButtonStyleBordered),
-						swiftui.Button("75%", func() {
-							progress.SetAnimated(0.75)
-						}).ButtonStyle(swiftui.ButtonStyleBordered),
-						swiftui.Button("100%", func() {
-							progress.SetAnimated(1.0)
-						}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
-					),
-				).Padding(8),
-			).MaxFrame(-1, 0),
+				// Progress bar with animated state
+				swiftui.GroupBox("Animated Progress",
+					swiftui.VStackSpaced(12,
+						swiftui.FloatProgressView(progress, 1.0).
+							Tint(swiftui.RGBA(0.35, 0.65, 1.0, 1.0)),
+						swiftui.HStackSpaced(8,
+							swiftui.Button("0%", func() {
+								progress.SetAnimated(0.0)
+							}).ButtonStyle(swiftui.ButtonStyleBordered),
+							swiftui.Button("25%", func() {
+								progress.SetAnimated(0.25)
+							}).ButtonStyle(swiftui.ButtonStyleBordered),
+							swiftui.Button("50%", func() {
+								progress.SetAnimated(0.5)
+							}).ButtonStyle(swiftui.ButtonStyleBordered),
+							swiftui.Button("75%", func() {
+								progress.SetAnimated(0.75)
+							}).ButtonStyle(swiftui.ButtonStyleBordered),
+							swiftui.Button("100%", func() {
+								progress.SetAnimated(1.0)
+							}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
+						),
+					).Padding(8),
+				).MaxFrame(-1, 0),
 
-			// Curve-controlled state changes
-			swiftui.GroupBox("Animation Curves",
-				swiftui.VStackSpaced(12,
-					swiftui.Text("Each button drives the same scene change with a different animation curve.").
-						Font(swiftui.FontCaption).
-						ForegroundStyleNamed("secondary"),
-					swiftui.AnimatedDynamicView(curveScene, swiftui.TransitionScale, curveView),
-					swiftui.HStackSpaced(6,
-						curveButton("Ease In-Out", curveScene, swiftui.AnimationEaseInOut),
-						curveButton("Ease In", curveScene, swiftui.AnimationEaseIn),
-						curveButton("Ease Out", curveScene, swiftui.AnimationEaseOut),
-						curveButton("Spring", curveScene, swiftui.AnimationSpring),
-						curveButton("Bouncy", curveScene, swiftui.AnimationBouncy),
-					),
-				).Padding(8),
-			).MaxFrame(-1, 0),
+				// Curve-controlled state changes
+				swiftui.GroupBox("Animation Curves",
+					swiftui.VStackSpaced(12,
+						swiftui.Text("Each button drives the same scene change with a different animation curve.").
+							Font(swiftui.FontCaption).
+							ForegroundStyleNamed("secondary"),
+						swiftui.AnimatedDynamicView(curveScene, swiftui.TransitionScale, curveView),
+						swiftui.HStackSpaced(6,
+							curveButton("Ease In-Out", curveScene, swiftui.AnimationEaseInOut),
+							curveButton("Ease In", curveScene, swiftui.AnimationEaseIn),
+							curveButton("Ease Out", curveScene, swiftui.AnimationEaseOut),
+							curveButton("Spring", curveScene, swiftui.AnimationSpring),
+							curveButton("Bouncy", curveScene, swiftui.AnimationBouncy),
+						),
+					).Padding(8),
+				).MaxFrame(-1, 0),
 
-			// Transform-driven scenes
-			swiftui.GroupBox("Transform Presets",
-				swiftui.VStackSpaced(12,
-					swiftui.Text("Scale, rotation, offset, opacity, and shadow combined into scene presets.").
-						Font(swiftui.FontCaption).
-						ForegroundStyleNamed("secondary"),
-					swiftui.AnimatedDynamicView(transformScene, swiftui.TransitionScale, transformView),
-					swiftui.HStackSpaced(6,
-						sceneButton("Docked", transformScene, 0),
-						sceneButton("Lifted", transformScene, 1),
-						sceneButton("Tilted", transformScene, 2),
-						sceneButton("Orbit", transformScene, 3),
-						sceneButton("Burst", transformScene, 4),
-					),
-				).Padding(8),
-			).MaxFrame(-1, 0),
+				// Transform-driven scenes
+				swiftui.GroupBox("Transform Presets",
+					swiftui.VStackSpaced(12,
+						swiftui.Text("Scale, rotation, offset, opacity, and shadow combined into scene presets.").
+							Font(swiftui.FontCaption).
+							ForegroundStyleNamed("secondary"),
+						swiftui.AnimatedDynamicView(transformScene, swiftui.TransitionScale, transformView),
+						swiftui.HStackSpaced(6,
+							sceneButton("Docked", transformScene, 0),
+							sceneButton("Lifted", transformScene, 1),
+							sceneButton("Tilted", transformScene, 2),
+							sceneButton("Orbit", transformScene, 3),
+							sceneButton("Burst", transformScene, 4),
+						),
+					).Padding(8),
+				).MaxFrame(-1, 0),
 
-			// Layered cards
-			swiftui.GroupBox("Layered Cards",
-				swiftui.VStackSpaced(12,
-					swiftui.Text("Complex stacks stay readable when motion also carries hierarchy.").
-						Font(swiftui.FontCaption).
-						ForegroundStyleNamed("secondary"),
-					swiftui.AnimatedDynamicView(stackScene, swiftui.TransitionPush, stackView),
-					swiftui.HStackSpaced(6,
-						sceneButton("Stack", stackScene, 0),
-						sceneButton("Fan", stackScene, 1),
-						sceneButton("Spread", stackScene, 2),
-						sceneButton("Spotlight", stackScene, 3),
-					),
-				).Padding(8),
-			).MaxFrame(-1, 0),
+				// Layered cards
+				swiftui.GroupBox("Layered Cards",
+					swiftui.VStackSpaced(12,
+						swiftui.Text("Complex stacks stay readable when motion also carries hierarchy.").
+							Font(swiftui.FontCaption).
+							ForegroundStyleNamed("secondary"),
+						swiftui.AnimatedDynamicView(stackScene, swiftui.TransitionPush, stackView),
+						swiftui.HStackSpaced(6,
+							sceneButton("Stack", stackScene, 0),
+							sceneButton("Fan", stackScene, 1),
+							sceneButton("Spread", stackScene, 2),
+							sceneButton("Spotlight", stackScene, 3),
+						),
+					).Padding(8),
+				).MaxFrame(-1, 0),
 
-			// Banners
-			swiftui.GroupBox("Live Banners",
-				swiftui.VStackSpaced(12,
-					swiftui.Text("Push-style transitions work well for transient status and build feedback.").
-						Font(swiftui.FontCaption).
-						ForegroundStyleNamed("secondary"),
-					swiftui.AnimatedDynamicView(bannerScene, swiftui.TransitionPush, bannerView),
-					swiftui.HStackSpaced(6,
-						sceneButton("Preview", bannerScene, 0),
-						sceneButton("Success", bannerScene, 1),
-						sceneButton("Review", bannerScene, 2),
-						sceneButton("Offline", bannerScene, 3),
-					),
-				).Padding(8),
-			).MaxFrame(-1, 0),
+				// Banners
+				swiftui.GroupBox("Live Banners",
+					swiftui.VStackSpaced(12,
+						swiftui.Text("Push-style transitions work well for transient status and build feedback.").
+							Font(swiftui.FontCaption).
+							ForegroundStyleNamed("secondary"),
+						swiftui.AnimatedDynamicView(bannerScene, swiftui.TransitionPush, bannerView),
+						swiftui.HStackSpaced(6,
+							sceneButton("Preview", bannerScene, 0),
+							sceneButton("Success", bannerScene, 1),
+							sceneButton("Review", bannerScene, 2),
+							sceneButton("Offline", bannerScene, 3),
+						),
+					).Padding(8),
+				).MaxFrame(-1, 0),
 
-			// Scene cycling demo
-			swiftui.GroupBox("Scene Cycling",
-				swiftui.VStackSpaced(12,
-					swiftui.AnimatedDynamicView(sceneCycle, swiftui.TransitionMove, func(v int) swiftui.View {
-						return sceneView(v)
-					}),
-					swiftui.HStack(
-						swiftui.Button("Previous", func() {
-							sceneCycle.SetAnimated(sceneCycle.Get() - 1)
-						}).ButtonStyle(swiftui.ButtonStyleBordered),
-						swiftui.Spacer(),
-						swiftui.TextFrom(sceneCycle).
-							Font(swiftui.FontBody).
-							MonospacedDigit(),
-						swiftui.Spacer(),
-						swiftui.Button("Next", func() {
-							sceneCycle.SetAnimated(sceneCycle.Get() + 1)
-						}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
-					),
-				).Padding(8),
-			).MaxFrame(-1, 0),
-		).Padding(24),
-	))); err != nil {
+				// Scene cycling demo
+				swiftui.GroupBox("Scene Cycling",
+					swiftui.VStackSpaced(12,
+						swiftui.AnimatedDynamicView(sceneCycle, swiftui.TransitionMove, func(v int) swiftui.View {
+							return sceneView(v)
+						}),
+						swiftui.HStack(
+							swiftui.Button("Previous", func() {
+								sceneCycle.SetAnimated(sceneCycle.Get() - 1)
+							}).ButtonStyle(swiftui.ButtonStyleBordered),
+							swiftui.Spacer(),
+							swiftui.TextFrom(sceneCycle).
+								Font(swiftui.FontBody).
+								MonospacedDigit(),
+							swiftui.Spacer(),
+							swiftui.Button("Next", func() {
+								sceneCycle.SetAnimated(sceneCycle.Get() + 1)
+							}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
+						),
+					).Padding(8),
+				).MaxFrame(-1, 0),
+			).Padding(24),
+		)}}}); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -26,35 +26,36 @@ func init() { runtime.LockOSThread() }
 func main() {
 	content := swiftui.NewStringState("# Welcome\n\nThis is a **markdown** editor.\n\n- Item one\n- Item two\n\n# Another Section\n\nWrite here and press Refresh to preview.")
 	version := swiftui.NewIntState(0)
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Markdown Editor",
 		Width:  900,
 		Height: 600,
-	}, swiftui.VStack(
-		// Toolbar
-		swiftui.HStack(
-			swiftui.Text("Markdown Editor").
-				Font(swiftui.FontTitle2).
-				FontWeight(swiftui.WeightBold),
-			swiftui.Spacer(),
-			swiftui.Button("Refresh Preview", func() {
-				version.Set(version.Get() + 1)
-			}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
-		).Padding(12),
-		swiftui.Divider(),
-		// Split pane
-		swiftui.HStack(
-			// Left: editor
-			swiftui.TextEditor(content).
-				MaxFrame(-1, -1).
-				Font(swiftui.FontBody),
+		Root: swiftui.VStack(
+			// Toolbar
+			swiftui.HStack(
+				swiftui.Text("Markdown Editor").
+					Font(swiftui.FontTitle2).
+					FontWeight(swiftui.WeightBold),
+				swiftui.Spacer(),
+				swiftui.Button("Refresh Preview", func() {
+					version.Set(version.Get() + 1)
+				}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
+			).Padding(12),
 			swiftui.Divider(),
-			// Right: preview
-			swiftui.DynamicView(version, func(_ int) swiftui.View {
-				return renderPreview(content.Get())
-			}).MaxFrame(-1, -1),
-		).MaxFrame(-1, -1),
-	).Padding(0))); err != nil {
+			// Split pane
+			swiftui.HStack(
+				// Left: editor
+				swiftui.TextEditor(content).
+					MaxFrame(-1, -1).
+					Font(swiftui.FontBody),
+				swiftui.Divider(),
+				// Right: preview
+				swiftui.DynamicView(version, func(_ int) swiftui.View {
+					return renderPreview(content.Get())
+				}).MaxFrame(-1, -1),
+			).MaxFrame(-1, -1),
+		).Padding(0),
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }

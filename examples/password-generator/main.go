@@ -240,164 +240,165 @@ func main() {
 	regen()
 
 	onChange := func() { regen() }
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Password Generator",
 		Width:  560,
 		Height: 700,
-	}, swiftui.ScrollView(
-		swiftui.VStackSpaced(16,
-			// -- Password display --
-			swiftui.GroupBox("Generated Password",
-				swiftui.VStackSpaced(10,
-					swiftui.TextFromString(password).
-						Font(swiftui.FontSystemDesign(18, swiftui.WeightMedium, swiftui.DesignMonospaced)).
-						AsView().
-						MaxFrame(-1, 0).
-						Padding(8),
-					swiftui.SecureField("Password", password, func() {}),
-					swiftui.HStackSpaced(12,
-						swiftui.Button("Regenerate", func() {
-							regen()
-						}).ButtonStyle(swiftui.ButtonStyleBorderedProminent).
-							ControlSize(swiftui.ControlSizeLarge),
-						swiftui.Button("Copy", func() {
-							copyLabel.Set("Copied!")
-						}).ButtonStyle(swiftui.ButtonStyleBordered).
-							ControlSize(swiftui.ControlSizeLarge),
-						swiftui.TextFromString(copyLabel).
-							ForegroundStyle(swiftui.RGBA(0.2, 0.8, 0.3, 1.0)).
-							Font(swiftui.FontCaption).
-							AsView(),
-						swiftui.Spacer(),
-					),
-				).Padding(8),
-			).MaxFrame(-1, 0),
+		Root: swiftui.ScrollView(
+			swiftui.VStackSpaced(16,
+				// -- Password display --
+				swiftui.GroupBox("Generated Password",
+					swiftui.VStackSpaced(10,
+						swiftui.TextFromString(password).
+							Font(swiftui.FontSystemDesign(18, swiftui.WeightMedium, swiftui.DesignMonospaced)).
+							AsView().
+							MaxFrame(-1, 0).
+							Padding(8),
+						swiftui.SecureField("Password", password, func() {}),
+						swiftui.HStackSpaced(12,
+							swiftui.Button("Regenerate", func() {
+								regen()
+							}).ButtonStyle(swiftui.ButtonStyleBorderedProminent).
+								ControlSize(swiftui.ControlSizeLarge),
+							swiftui.Button("Copy", func() {
+								copyLabel.Set("Copied!")
+							}).ButtonStyle(swiftui.ButtonStyleBordered).
+								ControlSize(swiftui.ControlSizeLarge),
+							swiftui.TextFromString(copyLabel).
+								ForegroundStyle(swiftui.RGBA(0.2, 0.8, 0.3, 1.0)).
+								Font(swiftui.FontCaption).
+								AsView(),
+							swiftui.Spacer(),
+						),
+					).Padding(8),
+				).MaxFrame(-1, 0),
 
-			// -- Configuration --
-			swiftui.Form(
-				swiftui.Section("Length",
-					swiftui.HStack(
-						swiftui.Slider("", length, 8, 64, onChange),
-						swiftui.TextFrom(length).
-							Font(swiftui.FontBody).
-							FontWeight(swiftui.WeightSemibold).
-							MonospacedDigit().
-							Frame(30, 0),
-					),
-				),
-				swiftui.Section("Character Types",
-					swiftui.VStack(
-						swiftui.Toggle("Uppercase (A-Z)", upper, onChange),
-						swiftui.Toggle("Lowercase (a-z)", lower, onChange),
-						swiftui.Toggle("Digits (0-9)", digits, onChange),
-						swiftui.Toggle("Symbols (!@#...)", symbols, onChange),
-					),
-				),
-				swiftui.Section("Exclusions",
-					swiftui.TextField("Characters to exclude", exclude, func() { regen() }),
-				),
-				swiftui.Section("Separator",
-					swiftui.VStack(
-						swiftui.PickerSegmented("Style", sepType,
-							swiftui.VStack(
-								swiftui.Text("None").AsView().Tag(0),
-								swiftui.Text("Dash").AsView().Tag(1),
-								swiftui.Text("Space").AsView().Tag(2),
-								swiftui.Text("Dot").AsView().Tag(3),
-							), onChange),
-						swiftui.Stepper("Every N chars", sepN, 3, 6, onChange),
-					),
-				),
-			).Frame(500, 300),
-
-			// -- Strength meter --
-			swiftui.GroupBox("Strength",
-				swiftui.DynamicView(version, func(_ int) swiftui.View {
-					ps := poolSize(upper.Get(), lower.Get(), digits.Get(), symbols.Get(), exclude.Get())
-					bits := entropy(length.Get(), ps)
-					level := strengthLevel(bits)
-					label := strengthLabel(level)
-					cr, cg, cb := strengthColor(level)
-					crack := crackTime(bits)
-
-					bars := make([]swiftui.Viewable, 4)
-					for i := range 4 {
-						if i <= level {
-							bars[i] = swiftui.RoundedRectangle(3).
-								Fill(swiftui.RGBA(cr, cg, cb, 1.0)).
-								Frame(112, 8).
-								AsView().MaxFrame(-1, 0)
-						} else {
-							bars[i] = swiftui.RoundedRectangle(3).
-								Fill(swiftui.RGBA(0.7, 0.7, 0.7, 0.3)).
-								Frame(112, 8).
-								AsView().MaxFrame(-1, 0)
-						}
-					}
-
-					return swiftui.VStackSpaced(8,
-						swiftui.HStackSpaced(4, bars...),
+				// -- Configuration --
+				swiftui.Form(
+					swiftui.Section("Length",
 						swiftui.HStack(
-							swiftui.Text(label).
+							swiftui.Slider("", length, 8, 64, onChange),
+							swiftui.TextFrom(length).
 								Font(swiftui.FontBody).
 								FontWeight(swiftui.WeightSemibold).
-								ForegroundStyle(swiftui.RGBA(cr, cg, cb, 1.0)).
-								AsView(),
-							swiftui.Spacer(),
-							swiftui.Text(fmt.Sprintf("%.0f bits", bits)).
-								Font(swiftui.FontCaption).
-								ForegroundStyleNamed("secondary").
-								AsView(),
+								MonospacedDigit().
+								Frame(30, 0),
 						),
-						swiftui.HStack(
-							swiftui.Text("Time to crack:").
-								Font(swiftui.FontCaption).
-								ForegroundStyleNamed("secondary").
-								AsView(),
-							swiftui.Spacer(),
-							swiftui.Text(crack).
-								Font(swiftui.FontCaption).
-								FontWeight(swiftui.WeightMedium).
-								AsView(),
+					),
+					swiftui.Section("Character Types",
+						swiftui.VStack(
+							swiftui.Toggle("Uppercase (A-Z)", upper, onChange),
+							swiftui.Toggle("Lowercase (a-z)", lower, onChange),
+							swiftui.Toggle("Digits (0-9)", digits, onChange),
+							swiftui.Toggle("Symbols (!@#...)", symbols, onChange),
 						),
-					)
-				}).Padding(8),
-			).MaxFrame(-1, 0),
+					),
+					swiftui.Section("Exclusions",
+						swiftui.TextField("Characters to exclude", exclude, func() { regen() }),
+					),
+					swiftui.Section("Separator",
+						swiftui.VStack(
+							swiftui.PickerSegmented("Style", sepType,
+								swiftui.VStack(
+									swiftui.Text("None").AsView().Tag(0),
+									swiftui.Text("Dash").AsView().Tag(1),
+									swiftui.Text("Space").AsView().Tag(2),
+									swiftui.Text("Dot").AsView().Tag(3),
+								), onChange),
+							swiftui.Stepper("Every N chars", sepN, 3, 6, onChange),
+						),
+					),
+				).Frame(500, 300),
 
-			// -- History --
-			swiftui.GroupBox("History",
-				swiftui.DynamicView(histVer, func(_ int) swiftui.View {
-					entries := getHistory()
-					if len(entries) == 0 {
-						return swiftui.Text("No passwords generated yet.").
-							ForegroundStyleNamed("secondary").
-							Font(swiftui.FontCaption).
-							AsView()
-					}
-					rows := make([]swiftui.Viewable, len(entries))
-					for i, e := range entries {
-						display := e.password
-						if len(display) > 24 {
-							display = display[:24] + "..."
+				// -- Strength meter --
+				swiftui.GroupBox("Strength",
+					swiftui.DynamicView(version, func(_ int) swiftui.View {
+						ps := poolSize(upper.Get(), lower.Get(), digits.Get(), symbols.Get(), exclude.Get())
+						bits := entropy(length.Get(), ps)
+						level := strengthLevel(bits)
+						label := strengthLabel(level)
+						cr, cg, cb := strengthColor(level)
+						crack := crackTime(bits)
+
+						bars := make([]swiftui.Viewable, 4)
+						for i := range 4 {
+							if i <= level {
+								bars[i] = swiftui.RoundedRectangle(3).
+									Fill(swiftui.RGBA(cr, cg, cb, 1.0)).
+									Frame(112, 8).
+									AsView().MaxFrame(-1, 0)
+							} else {
+								bars[i] = swiftui.RoundedRectangle(3).
+									Fill(swiftui.RGBA(0.7, 0.7, 0.7, 0.3)).
+									Frame(112, 8).
+									AsView().MaxFrame(-1, 0)
+							}
 						}
-						level := strengthLevel(e.entropy)
-						dr, dg, db := strengthColor(level)
-						rows[i] = swiftui.HStack(
-							swiftui.Text(display).
-								Font(swiftui.FontSystemDesign(12, swiftui.WeightRegular, swiftui.DesignMonospaced)).
-								AsView(),
-							swiftui.Spacer(),
-							swiftui.Circle().
-								Fill(swiftui.RGBA(dr, dg, db, 1.0)).
-								Frame(8, 8).
-								AsView(),
+
+						return swiftui.VStackSpaced(8,
+							swiftui.HStackSpaced(4, bars...),
+							swiftui.HStack(
+								swiftui.Text(label).
+									Font(swiftui.FontBody).
+									FontWeight(swiftui.WeightSemibold).
+									ForegroundStyle(swiftui.RGBA(cr, cg, cb, 1.0)).
+									AsView(),
+								swiftui.Spacer(),
+								swiftui.Text(fmt.Sprintf("%.0f bits", bits)).
+									Font(swiftui.FontCaption).
+									ForegroundStyleNamed("secondary").
+									AsView(),
+							),
+							swiftui.HStack(
+								swiftui.Text("Time to crack:").
+									Font(swiftui.FontCaption).
+									ForegroundStyleNamed("secondary").
+									AsView(),
+								swiftui.Spacer(),
+								swiftui.Text(crack).
+									Font(swiftui.FontCaption).
+									FontWeight(swiftui.WeightMedium).
+									AsView(),
+							),
 						)
-					}
-					return swiftui.List(rows...)
-				}).Frame(500, 150),
-			).MaxFrame(-1, 0),
-		).Padding(20),
-	))); err != nil {
+					}).Padding(8),
+				).MaxFrame(-1, 0),
+
+				// -- History --
+				swiftui.GroupBox("History",
+					swiftui.DynamicView(histVer, func(_ int) swiftui.View {
+						entries := getHistory()
+						if len(entries) == 0 {
+							return swiftui.Text("No passwords generated yet.").
+								ForegroundStyleNamed("secondary").
+								Font(swiftui.FontCaption).
+								AsView()
+						}
+						rows := make([]swiftui.Viewable, len(entries))
+						for i, e := range entries {
+							display := e.password
+							if len(display) > 24 {
+								display = display[:24] + "..."
+							}
+							level := strengthLevel(e.entropy)
+							dr, dg, db := strengthColor(level)
+							rows[i] = swiftui.HStack(
+								swiftui.Text(display).
+									Font(swiftui.FontSystemDesign(12, swiftui.WeightRegular, swiftui.DesignMonospaced)).
+									AsView(),
+								swiftui.Spacer(),
+								swiftui.Circle().
+									Fill(swiftui.RGBA(dr, dg, db, 1.0)).
+									Frame(8, 8).
+									AsView(),
+							)
+						}
+						return swiftui.List(rows...)
+					}).Frame(500, 150),
+				).MaxFrame(-1, 0),
+			).Padding(20),
+		),
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }

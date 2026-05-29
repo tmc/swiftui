@@ -69,42 +69,43 @@ func main() {
 	if err :=
 
 		// Display in a window.
-		swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+		swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 			Title:  "QuickLook Preview",
 			Width:  800,
 			Height: 600,
-		}, swiftui.VStackSpaced(16,
-			swiftui.VStackSpaced(4,
-				swiftui.HStack(
-					swiftui.Text("File Preview").
-						Font(swiftui.FontTitle2).
-						FontWeight(swiftui.WeightBold),
-					swiftui.Spacer(),
-					swiftui.Label("Quick Look Bridge", "eye.fill").
-						Font(swiftui.FontCaption).
-						ForegroundStyleNamed("secondary"),
+			Root: swiftui.VStackSpaced(16,
+				swiftui.VStackSpaced(4,
+					swiftui.HStack(
+						swiftui.Text("File Preview").
+							Font(swiftui.FontTitle2).
+							FontWeight(swiftui.WeightBold),
+						swiftui.Spacer(),
+						swiftui.Label("Quick Look Bridge", "eye.fill").
+							Font(swiftui.FontCaption).
+							ForegroundStyleNamed("secondary"),
+					),
+					swiftui.HStack(
+						swiftui.Text("Wrap a document surface with Quick Look and keep useful metadata in view.").
+							Font(swiftui.FontCallout).
+							ForegroundStyleNamed("secondary"),
+						swiftui.Spacer(),
+					),
 				),
-				swiftui.HStack(
-					swiftui.Text("Wrap a document surface with Quick Look and keep useful metadata in view.").
-						Font(swiftui.FontCallout).
-						ForegroundStyleNamed("secondary"),
-					swiftui.Spacer(),
-				),
-			),
-			swiftui.HStackSpaced(12,
-				swiftui.GroupBox("Selection",
-					swiftui.VStackSpaced(10,
-						infoRow("Name", fileName),
-						infoRow("Type", filepath.Ext(file)),
-						infoRow("Size", fileSize),
-						infoRow("Modified", modified),
-					).Padding(10),
-				).Frame(240, 0),
-				swiftui.GroupBox("Preview",
-					preview.MaxFrame(-1, -1),
+				swiftui.HStackSpaced(12,
+					swiftui.GroupBox("Selection",
+						swiftui.VStackSpaced(10,
+							infoRow("Name", fileName),
+							infoRow("Type", filepath.Ext(file)),
+							infoRow("Size", fileSize),
+							infoRow("Modified", modified),
+						).Padding(10),
+					).Frame(240, 0),
+					swiftui.GroupBox("Preview",
+						preview.MaxFrame(-1, -1),
+					).MaxFrame(-1, -1),
 				).MaxFrame(-1, -1),
-			).MaxFrame(-1, -1),
-		).Padding(20))); err != nil {
+			).Padding(20),
+		}}}); err != nil {
 		log.Fatal(err)
 	}
 }

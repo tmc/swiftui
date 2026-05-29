@@ -57,37 +57,38 @@ func main() {
 	if err :=
 
 		// Display the video player in a window.
-		swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+		swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 			Title:  "Video Player",
 			Width:  800,
 			Height: 600,
-		}, swiftui.VStackSpaced(16,
-			swiftui.VStackSpaced(4,
-				swiftui.HStack(
-					swiftui.Text("Playback Demo").
-						Font(swiftui.FontTitle2).
-						FontWeight(swiftui.WeightBold),
-					swiftui.Spacer(),
-					swiftui.Label("Streaming", "play.circle.fill").
-						Font(swiftui.FontCaption).
-						ForegroundStyle(swiftui.RGBA(0.3, 0.8, 0.4, 1.0)),
+			Root: swiftui.VStackSpaced(16,
+				swiftui.VStackSpaced(4,
+					swiftui.HStack(
+						swiftui.Text("Playback Demo").
+							Font(swiftui.FontTitle2).
+							FontWeight(swiftui.WeightBold),
+						swiftui.Spacer(),
+						swiftui.Label("Streaming", "play.circle.fill").
+							Font(swiftui.FontCaption).
+							ForegroundStyle(swiftui.RGBA(0.3, 0.8, 0.4, 1.0)),
+					),
+					swiftui.HStack(
+						swiftui.Text("AVPlayer bridged into SwiftUI with native controls and live playback.").
+							Font(swiftui.FontCallout).
+							ForegroundStyleNamed("secondary"),
+						swiftui.Spacer(),
+					),
 				),
-				swiftui.HStack(
-					swiftui.Text("AVPlayer bridged into SwiftUI with native controls and live playback.").
-						Font(swiftui.FontCallout).
-						ForegroundStyleNamed("secondary"),
-					swiftui.Spacer(),
+				swiftui.GroupBox("Player",
+					videoView.Frame(720, 420),
+				).MaxFrame(-1, 0),
+				swiftui.HStackSpaced(12,
+					videoInfoCard("Source", sourceName),
+					videoInfoCard("Transport", "Native AVKit controls"),
+					videoInfoCard("Mode", "Autoplay on launch"),
 				),
-			),
-			swiftui.GroupBox("Player",
-				videoView.Frame(720, 420),
-			).MaxFrame(-1, 0),
-			swiftui.HStackSpaced(12,
-				videoInfoCard("Source", sourceName),
-				videoInfoCard("Transport", "Native AVKit controls"),
-				videoInfoCard("Mode", "Autoplay on launch"),
-			),
-		).Padding(20))); err != nil {
+			).Padding(20),
+		}}}); err != nil {
 		log.Fatal(err)
 	}
 }

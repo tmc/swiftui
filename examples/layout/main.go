@@ -23,31 +23,32 @@ import (
 func init() { runtime.LockOSThread() }
 
 func main() {
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Layout Demo",
 		Width:  720,
 		Height: 600,
-	}, swiftui.ZStack(
-		background(),
-		swiftui.ScrollView(
-			swiftui.VStackSpaced(12,
-				header(),
-				swiftui.HStackSpaced(12,
-					statCard("Active Users", "42", "This week", "person.2.fill", 0.27, 0.62, 1.0),
-					statCard("Open Events", "128", "Current total", "bolt.fill", 0.96, 0.47, 0.29),
-					statCard("Monthly Revenue", "$9.8k", "Month to date", "banknote.fill", 0.28, 0.78, 0.44),
-				),
-				swiftui.HStackSpaced(12,
-					trafficPanel().MaxFrame(-1, 0),
-					checklistPanel().MaxFrame(-1, 0),
-				),
-				swiftui.HStackSpaced(12,
-					activityPanel().MaxFrame(-1, 0),
-					actionsPanel().MaxFrame(-1, 0),
-				),
-			).Padding(16),
+		Root: swiftui.ZStack(
+			background(),
+			swiftui.ScrollView(
+				swiftui.VStackSpaced(12,
+					header(),
+					swiftui.HStackSpaced(12,
+						statCard("Active Users", "42", "This week", "person.2.fill", 0.27, 0.62, 1.0),
+						statCard("Open Events", "128", "Current total", "bolt.fill", 0.96, 0.47, 0.29),
+						statCard("Monthly Revenue", "$9.8k", "Month to date", "banknote.fill", 0.28, 0.78, 0.44),
+					),
+					swiftui.HStackSpaced(12,
+						trafficPanel().MaxFrame(-1, 0),
+						checklistPanel().MaxFrame(-1, 0),
+					),
+					swiftui.HStackSpaced(12,
+						activityPanel().MaxFrame(-1, 0),
+						actionsPanel().MaxFrame(-1, 0),
+					),
+				).Padding(16),
+			),
 		),
-	))); err != nil {
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }

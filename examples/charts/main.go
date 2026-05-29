@@ -122,32 +122,33 @@ type backlogPoint struct {
 
 func main() {
 	section := swiftui.NewIntState(0)
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Charts Showcase",
 		Width:  windowWidth,
 		Height: windowHeight,
-	}, swiftui.VStackSpaced(0,
-		swiftui.HStack(
-			swiftui.PickerSegmented("Section", section, segmentedOptions("Highlights", "Research", "Ops"), func() {}).
-				MaxFrame(360, 0),
-			swiftui.Spacer(),
+		Root: swiftui.VStackSpaced(0,
+			swiftui.HStack(
+				swiftui.PickerSegmented("Section", section, segmentedOptions("Highlights", "Research", "Ops"), func() {}).
+					MaxFrame(360, 0),
+				swiftui.Spacer(),
+			).
+				Padding(16).
+				BackgroundRoundedRect(swiftui.RGBA(0.10, 0.13, 0.18, 0.94), 18).
+				Border(swiftui.RGBA(0.82, 0.86, 0.92, 0.08), 1),
+			swiftui.DynamicView(section, func(v int) swiftui.View {
+				switch v {
+				case 1:
+					return researchScreen()
+				case 2:
+					return opsScreen()
+				default:
+					return highlightsScreen()
+				}
+			}).MaxFrame(-1, -1),
 		).
-			Padding(16).
-			BackgroundRoundedRect(swiftui.RGBA(0.10, 0.13, 0.18, 0.94), 18).
-			Border(swiftui.RGBA(0.82, 0.86, 0.92, 0.08), 1),
-		swiftui.DynamicView(section, func(v int) swiftui.View {
-			switch v {
-			case 1:
-				return researchScreen()
-			case 2:
-				return opsScreen()
-			default:
-				return highlightsScreen()
-			}
-		}).MaxFrame(-1, -1),
-	).
-		Padding(14).
-		BackgroundStyle("windowBackground"))); err != nil {
+			Padding(14).
+			BackgroundStyle("windowBackground"),
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -93,20 +93,21 @@ func main() {
 
 	var mu sync.Mutex
 	answering := false
-	if err := swiftui.Run(swiftui.WithWindow(swiftui.AppConfig{
+	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Go Quiz",
 		Width:  500,
 		Height: 650,
-	}, swiftui.AnimatedDynamicView(screen, swiftui.TransitionPush, func(s int) swiftui.View {
-		switch s {
-		case 0:
-			return startScreen(screen)
-		case 1:
-			return playScreen(questionIdx, score, selected, screen, correctMask, total, &mu, &answering)
-		default:
-			return resultsScreen(score, correctMask, screen, questionIdx, selected, total, &mu, &answering)
-		}
-	}))); err != nil {
+		Root: swiftui.AnimatedDynamicView(screen, swiftui.TransitionPush, func(s int) swiftui.View {
+			switch s {
+			case 0:
+				return startScreen(screen)
+			case 1:
+				return playScreen(questionIdx, score, selected, screen, correctMask, total, &mu, &answering)
+			default:
+				return resultsScreen(score, correctMask, screen, questionIdx, selected, total, &mu, &answering)
+			}
+		}),
+	}}}); err != nil {
 		log.Fatal(err)
 	}
 }
