@@ -1,13 +1,14 @@
+//go:build !swiftui_embed
+
 package embeddedbridge
 
 import "testing"
 
-func TestPayload(t *testing.T) {
+// TestPayloadStub verifies the default (non-embed) build returns an empty
+// payload so the loader falls back to building the bridge from source.
+func TestPayloadStub(t *testing.T) {
 	data, name := Payload()
-	if name != "libSwiftUIBridge.dylib" {
-		t.Fatalf("Payload name = %q, want libSwiftUIBridge.dylib", name)
-	}
-	if len(data) == 0 {
-		t.Fatal("Payload returned empty data")
+	if name != "" || len(data) != 0 {
+		t.Fatalf("Payload() = (%d bytes, %q), want empty stub", len(data), name)
 	}
 }

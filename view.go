@@ -230,6 +230,27 @@ const (
 	NavigationSplitViewStyleProminentDetail NavigationSplitViewStyleKind = 2
 )
 
+// MenuButtonStyleKind identifies menu button styles.
+type MenuButtonStyleKind int32
+
+const (
+	MenuButtonStyleDefault            MenuButtonStyleKind = 0
+	MenuButtonStylePullDown           MenuButtonStyleKind = 1
+	MenuButtonStyleBorderlessPullDown MenuButtonStyleKind = 2
+	MenuButtonStyleBorderlessButton   MenuButtonStyleKind = 3
+	MenuButtonStyleTexturedPullDown   MenuButtonStyleKind = 4
+)
+
+// NavigationViewStyleKind identifies legacy navigation view styles.
+type NavigationViewStyleKind int32
+
+const (
+	NavigationViewStyleAutomatic    NavigationViewStyleKind = 0
+	NavigationViewStyleColumn       NavigationViewStyleKind = 1
+	NavigationViewStyleDoubleColumn NavigationViewStyleKind = 2
+	NavigationViewStyleStack        NavigationViewStyleKind = 3
+)
+
 // NavigationSplitViewVisibilityKind identifies column visibility.
 type NavigationSplitViewVisibilityKind int32
 
@@ -255,7 +276,9 @@ const (
 	ToolbarItemPlacementStatus             ToolbarItemPlacement = 8
 )
 
-// GlassStyle identifies glass effect styles.
+// GlassStyle identifies legacy glass-style presets.
+//
+// Deprecated: use Glass and GlassVariant for Liquid Glass effects.
 type GlassStyle int32
 
 const (
@@ -270,12 +293,15 @@ const (
 type GlassShape int32
 
 const (
+	GlassShapeDefault          GlassShape = -1
 	GlassShapeRoundedRectangle GlassShape = 0
 	GlassShapeCapsule          GlassShape = 1
 	GlassShapeCircle           GlassShape = 2
 )
 
-// GlassButtonStyleKind identifies glass button styles.
+// GlassButtonStyleKind identifies legacy glass button styles.
+//
+// Deprecated: use View.GlassButtonStyle or View.GlassProminentButtonStyle.
 type GlassButtonStyleKind int32
 
 const (
@@ -360,6 +386,7 @@ type ScrollBounce int32
 const (
 	ScrollBounceBasedOnSize ScrollBounce = 0
 	ScrollBounceAlways      ScrollBounce = 1
+	ScrollBounceAutomatic   ScrollBounce = 2
 )
 
 // PresentationDragIndicatorKind identifies drag indicator visibility.
@@ -397,8 +424,19 @@ const (
 	AccessibilityTraitStaticText  AccessibilityTrait = 16
 )
 
+// Frame sizing sentinels for MaxFrame's maxWidth/maxHeight arguments.
+//
+// FrameInfinity maps to SwiftUI's .infinity (expand to fill the available
+// space along that axis); FrameUnset maps to nil (no maximum constraint).
+// They are untyped float constants so they can be passed directly to MaxFrame.
+const (
+	FrameInfinity = -1.0
+	FrameUnset    = 0.0
+)
+
 // Viewable is satisfied by View, ShapeView, and TextView.
-// Container functions accept Viewable so any view type can be passed directly.
+// Functions and modifiers that take a child view accept Viewable, so any
+// view type can be passed directly without an explicit conversion.
 type Viewable interface {
 	viewPtr() uintptr
 }
@@ -432,6 +470,32 @@ func (v *View) Release() {
 	v.retained.release()
 	v.retained = nil
 	v.ptr = 0
+}
+
+// FocusNamespace coordinates namespace-backed focus scopes.
+//
+// Bridge surface.
+//
+// The zero value is not usable; call NewFocusNamespace.
+type FocusNamespace struct {
+	ptr      uintptr
+	retained *retained
+}
+
+// NewFocusNamespace creates a new SwiftUI namespace handle for focus routing.
+func NewFocusNamespace() *FocusNamespace {
+	ptr := _SUINamespaceCreate()
+	return &FocusNamespace{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Release decrements the underlying Swift retain count.
+func (ns *FocusNamespace) Release() {
+	if ns == nil || ns.retained == nil {
+		return
+	}
+	ns.retained.release()
+	ns.retained = nil
+	ns.ptr = 0
 }
 
 // Color represents an RGBA color value.
@@ -477,16 +541,16 @@ func (v View) Frame(width float64, height float64) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
-// MaxFrame sets maximum width/height constraints. Use -1 for .infinity, 0 for nil.
+// MaxFrame sets maximum width/height constraints. Use FrameInfinity (-1) for .infinity, FrameUnset (0) for nil.
 func (v View) MaxFrame(maxWidth float64, maxHeight float64) View {
 	ptr := _SUIViewMaxFrame(v.ptr, maxWidth, maxHeight)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
-// ForegroundStyle sets the foreground color using RGBA values.
-func (v View) ForegroundStyle(r float64, g float64, b float64, a float64) View {
-	ptr := _SUIViewForegroundStyle(v.ptr, r, g, b, a)
+// ForegroundStyle sets the foreground color.
+func (v View) ForegroundStyle(c Color) View {
+	ptr := _SUIViewForegroundStyle(v.ptr, c.R, c.G, c.B, c.A)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -504,6 +568,13 @@ func (v View) ForegroundStyleNamed(name string) View {
 // ButtonStyle sets the button style for the view hierarchy.
 func (v View) ButtonStyle(style ButtonStyleKind) View {
 	ptr := _SUIViewButtonStyle(v.ptr, int32(style))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ToggleStyle sets the toggle style for the view hierarchy.
+func (v View) ToggleStyle(style ToggleStyleKind) View {
+	ptr := _SUIViewToggleStyle(v.ptr, int32(style))
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -564,16 +635,16 @@ func (v View) Help(text string) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
-// Background sets a background color using RGBA values.
-func (v View) Background(r float64, g float64, b float64, a float64) View {
-	ptr := _SUIViewBackground(v.ptr, r, g, b, a)
+// Background sets a background color.
+func (v View) Background(c Color) View {
+	ptr := _SUIViewBackground(v.ptr, c.R, c.G, c.B, c.A)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
 // BackgroundRoundedRect sets a rounded rectangle background.
-func (v View) BackgroundRoundedRect(r float64, g float64, b float64, a float64, cornerRadius float64) View {
-	ptr := _SUIViewBackgroundRoundedRect(v.ptr, r, g, b, a, cornerRadius)
+func (v View) BackgroundRoundedRect(c Color, cornerRadius float64) View {
+	ptr := _SUIViewBackgroundRoundedRect(v.ptr, c.R, c.G, c.B, c.A, cornerRadius)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -586,8 +657,9 @@ func (v View) ClipRoundedRect(cornerRadius float64) View {
 }
 
 // Overlay places another view on top of this view.
-func (v View) Overlay(overlay View) View {
-	ptr := _SUIViewOverlay(v.ptr, overlay.ptr)
+func (v View) Overlay(overlay Viewable) View {
+	ptr := _SUIViewOverlay(v.ptr, overlay.viewPtr())
+	runtime.KeepAlive(overlay)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -595,6 +667,13 @@ func (v View) Overlay(overlay View) View {
 // Animation applies an animation curve to the view.
 func (v View) Animation(kind AnimationKind) View {
 	ptr := _SUIViewAnimation(v.ptr, int32(kind))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// AnimationCurve applies a named animation curve with an explicit duration in seconds. Pass 0 to use SwiftUI's default duration. Duration is ignored for spring and bouncy curves.
+func (v View) AnimationCurve(kind AnimationKind, duration float64) View {
+	ptr := _SUIViewAnimationCurve(v.ptr, int32(kind), duration)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -609,6 +688,20 @@ func (v View) BackgroundStyle(name string) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// LabelsHidden hides labels for controls that support label presentation.
+func (v View) LabelsHidden() View {
+	ptr := _SUIViewLabelsHidden(v.ptr)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ContentShapeRectangle makes the view hit-test as a rectangle.
+func (v View) ContentShapeRectangle() View {
+	ptr := _SUIViewContentShapeRectangle(v.ptr)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // TextFieldStyle sets the style for text fields.
 func (v View) TextFieldStyle(style TextFieldStyleKind) View {
 	ptr := _SUIViewTextFieldStyle(v.ptr, int32(style))
@@ -616,16 +709,23 @@ func (v View) TextFieldStyle(style TextFieldStyleKind) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// ScrollContentBackgroundHidden hides the native scroll content background for scroll-backed controls such as TextEditor so callers can provide explicit chrome.
+func (v View) ScrollContentBackgroundHidden() View {
+	ptr := _SUIViewScrollContentBackgroundHidden(v.ptr)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // Shadow adds a shadow effect to the view.
-func (v View) Shadow(r float64, g float64, b float64, a float64, radius float64, x float64, y float64) View {
-	ptr := _SUIViewShadow(v.ptr, r, g, b, a, radius, x, y)
+func (v View) Shadow(c Color, radius float64, x float64, y float64) View {
+	ptr := _SUIViewShadow(v.ptr, c.R, c.G, c.B, c.A, radius, x, y)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
 // Border adds a border to the view.
-func (v View) Border(r float64, g float64, b float64, a float64, width float64) View {
-	ptr := _SUIViewBorder(v.ptr, r, g, b, a, width)
+func (v View) Border(c Color, width float64) View {
+	ptr := _SUIViewBorder(v.ptr, c.R, c.G, c.B, c.A, width)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -640,6 +740,13 @@ func (v View) CornerRadius(radius float64) View {
 // ScaleEffect scales the view uniformly.
 func (v View) ScaleEffect(scale float64) View {
 	ptr := _SUIViewScaleEffect(v.ptr, scale)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScaleEffectAt scales the view around a specific anchor point.
+func (v View) ScaleEffectAt(scale float64, anchor UnitPoint) View {
+	ptr := _SUIViewScaleEffectAnchor(v.ptr, scale, unitPointIndex(anchor))
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -680,6 +787,17 @@ func (v View) OnTapGesture(action func()) View {
 	return ret
 }
 
+// OnTapGestureCount adds a tap gesture handler that requires the given number of taps. Use 1 for single-tap (equivalent to OnTapGesture), 2 for double-click.
+func (v View) OnTapGestureCount(count int, action func()) View {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnTapGestureCount(v.ptr, int32(count), actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
 // Focusable controls whether the view can receive keyboard focus.
 func (v View) Focusable(focusable bool) View {
 	var focusableV int32
@@ -691,12 +809,62 @@ func (v View) Focusable(focusable bool) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// Focused binds keyboard focus to a BoolState for explicit focus control.
+func (v View) Focused(state *BoolState) View {
+	ptr := _SUIViewFocused(v.ptr, state.ptr)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // NavigationTitle sets the navigation title for the view.
 func (v View) NavigationTitle(title string) View {
 	var ptr uintptr
 	withCString(title, func(titleC *byte) {
 		ptr = _SUIViewNavigationTitle(v.ptr, titleC)
 	})
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// NavigationSplitViewStyle sets the split view column presentation style.
+func (v View) NavigationSplitViewStyle(style NavigationSplitViewStyleKind) View {
+	ptr := _SUIViewNavigationSplitViewStyle(v.ptr, int32(style))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// MenuButtonStyle sets the menu button style for the view hierarchy.
+func (v View) MenuButtonStyle(style MenuButtonStyleKind) View {
+	ptr := _SUIViewMenuButtonStyle(v.ptr, int32(style))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// NavigationViewStyle sets the legacy navigation view style.
+func (v View) NavigationViewStyle(style NavigationViewStyleKind) View {
+	ptr := _SUIViewNavigationViewStyle(v.ptr, int32(style))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Collapsible controls whether a section is collapsible.
+func (v View) Collapsible(collapsible bool) View {
+	var collapsibleV int32
+	if collapsible {
+		collapsibleV = 1
+	}
+	ptr := _SUISectionCollapsible(v.ptr, collapsibleV)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// IsDetailLink marks a navigation link as a detail link.
+func (v View) IsDetailLink(isDetailLink bool) View {
+	var isDetailLinkV int32
+	if isDetailLink {
+		isDetailLinkV = 1
+	}
+	ptr := _SUINavigationLinkIsDetailLink(v.ptr, isDetailLinkV)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -713,9 +881,93 @@ func (v View) TabItem(label string, systemImage string) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// ToolbarRole sets the semantic toolbar role for the view hierarchy.
+func (v View) ToolbarRole(role ToolbarRole) View {
+	ptr := _SUIViewToolbarRole(v.ptr, int32(role))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ToolbarItem adds a single toolbar item with the given placement.
+func (v View) ToolbarItem(placement ToolbarItemPlacement, content Viewable) View {
+	ptr := _SUIViewToolbarItem(v.ptr, int32(placement), content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// KeyboardShortcut binds a keyboard shortcut to a control.
+func (v View) KeyboardShortcut(key string, modifiers ShortcutModifier) View {
+	var ptr uintptr
+	withCString(key, func(keyC *byte) {
+		ptr = _SUIViewKeyboardShortcut(v.ptr, keyC, int32(modifiers))
+	})
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Searchable adds a search field bound to a StringState.
+func (v View) Searchable(query *StringState, prompt string) View {
+	var ptr uintptr
+	withCString(prompt, func(promptC *byte) {
+		ptr = _SUIViewSearchable(v.ptr, query.ptr, promptC)
+	})
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// PointerStyle sets the pointer cursor style for the view.
+func (v View) PointerStyle(style PointerStyleKind) View {
+	ptr := _SUIViewPointerStyle(v.ptr, int32(style))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// SubmitLabel sets the submit label for text input controls.
+func (v View) SubmitLabel(label SubmitLabelKind) View {
+	ptr := _SUIViewSubmitLabel(v.ptr, int32(label))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // Tag assigns an integer tag for selection tracking.
 func (v View) Tag(tag int32) View {
 	ptr := _SUIViewTag(v.ptr, tag)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ID assigns a stable integer identity for ScrollViewReader scroll targets.
+func (v View) ID(id int) View {
+	ptr := _SUIViewID(v.ptr, int32(id))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// DefaultScrollAnchor sets the default anchor used when a scroll view chooses an initial target.
+func (v View) DefaultScrollAnchor(anchor ScrollAnchor) View {
+	ptr := _SUIViewDefaultScrollAnchor(v.ptr, int32(anchor))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScrollTargetBehavior sets how a scroll view snaps to its scroll targets.
+func (v View) ScrollTargetBehavior(behavior ScrollTargetBehaviorKind) View {
+	ptr := _SUIViewScrollTargetBehavior(v.ptr, int32(behavior))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScrollTargetLayout marks a layout container as providing scroll targets.
+func (v View) ScrollTargetLayout() View {
+	ptr := _SUIViewScrollTargetLayout(v.ptr)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScrollBounceBehavior sets the bounce policy for a scroll view along one axis.
+func (v View) ScrollBounceBehavior(behavior ScrollBounce, axis Axis) View {
+	ptr := _SUIViewScrollBounceBehavior(v.ptr, int32(behavior), int32(axis))
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -742,6 +994,80 @@ func (v View) OnDisappear(action func()) View {
 	return ret
 }
 
+// Refreshable adds a native refresh action to the view.
+func (v View) Refreshable(action func()) View {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewRefreshable(v.ptr, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
+// DraggableText makes a view draggable with a string payload.
+func (v View) DraggableText(text string) View {
+	var ptr uintptr
+	withCString(text, func(textC *byte) {
+		ptr = _SUIViewDraggableText(v.ptr, textC)
+	})
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// DraggableURL makes a view draggable with a URL payload.
+func (v View) DraggableURL(url string) View {
+	var ptr uintptr
+	withCString(url, func(urlC *byte) {
+		ptr = _SUIViewDraggableURL(v.ptr, urlC)
+	})
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// DraggableFileURL makes a view draggable with a file URL payload.
+func (v View) DraggableFileURL(path string) View {
+	var ptr uintptr
+	withCString(path, func(pathC *byte) {
+		ptr = _SUIViewDraggableFileURL(v.ptr, pathC)
+	})
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// DropDestinationText accepts dropped text payloads.
+func (v View) DropDestinationText(action func(string) bool) View {
+	actionID := registerStringCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewDropDestinationText(v.ptr, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
+// DropDestinationURL accepts dropped URL payloads.
+func (v View) DropDestinationURL(action func(string) bool) View {
+	actionID := registerStringCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewDropDestinationURL(v.ptr, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
+// DropDestinationFileURL accepts dropped file URL payloads.
+func (v View) DropDestinationFileURL(action func(string) bool) View {
+	actionID := registerStringCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewDropDestinationFileURL(v.ptr, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
 // OnHover adds a hover callback. The callback fires when hover state changes.
 func (v View) OnHover(action func()) View {
 	actionID := registerCallback(action)
@@ -753,9 +1079,31 @@ func (v View) OnHover(action func()) View {
 	return ret
 }
 
+// OnHoverPhase adds a hover callback that reports whether the pointer is inside the view.
+func (v View) OnHoverPhase(action func(bool)) View {
+	actionID := registerBoolCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnHoverPhase(v.ptr, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
+// OnHoverLocation adds a hover callback that reports phase and local pointer coordinates.
+func (v View) OnHoverLocation(action func(bool, float64, float64)) View {
+	actionID := registerHoverCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnHoverLocation(v.ptr, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
 // Tint applies a tint color to the view.
-func (v View) Tint(r float64, g float64, b float64, a float64) View {
-	ptr := _SUIViewTint(v.ptr, r, g, b, a)
+func (v View) Tint(c Color) View {
+	ptr := _SUIViewTint(v.ptr, c.R, c.G, c.B, c.A)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -789,9 +1137,18 @@ func (v View) AspectRatio(ratio float64, contentMode ContentMode) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// SafeAreaInset attaches content to one edge of the safe area with explicit spacing.
+func (v View) SafeAreaInset(edge Edge, spacing float64, content Viewable) View {
+	ptr := _SUIViewSafeAreaInset(v.ptr, int32(edge), spacing, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // Sheet presents a modal sheet when the IntState is nonzero.
-func (v View) Sheet(state *IntState, content View) View {
-	ptr := _SUIViewSheet(v.ptr, state.ptr, content.ptr)
+func (v View) Sheet(state *IntState, content Viewable) View {
+	ptr := _SUIViewSheet(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -809,18 +1166,51 @@ func (v View) Alert(title string, message string, state *IntState) View {
 }
 
 // ConfirmationDialog presents a confirmation dialog with custom actions when the IntState is nonzero.
-func (v View) ConfirmationDialog(title string, state *IntState, actions View) View {
+func (v View) ConfirmationDialog(title string, state *IntState, actions Viewable) View {
 	var ptr uintptr
 	withCString(title, func(titleC *byte) {
-		ptr = _SUIViewConfirmationDialog(v.ptr, titleC, state.ptr, actions.ptr)
+		ptr = _SUIViewConfirmationDialog(v.ptr, titleC, state.ptr, actions.viewPtr())
+	})
+	runtime.KeepAlive(actions)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// SheetPresented presents a modal sheet while the BoolState is true.
+func (v View) SheetPresented(state *BoolState, content Viewable) View {
+	ptr := _SUIViewSheetBool(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// AlertPresented presents an alert dialog while the BoolState is true.
+func (v View) AlertPresented(title string, message string, state *BoolState) View {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		withCString(message, func(messageC *byte) {
+			ptr = _SUIViewAlertBool(v.ptr, titleC, messageC, state.ptr)
+		})
 	})
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// ConfirmationDialogPresented presents a confirmation dialog while the BoolState is true.
+func (v View) ConfirmationDialogPresented(title string, state *BoolState, actions Viewable) View {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		ptr = _SUIViewConfirmationDialogBool(v.ptr, titleC, state.ptr, actions.viewPtr())
+	})
+	runtime.KeepAlive(actions)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // ContextMenu adds a right-click context menu to the view.
-func (v View) ContextMenu(content View) View {
-	ptr := _SUIViewContextMenu(v.ptr, content.ptr)
+func (v View) ContextMenu(content Viewable) View {
+	ptr := _SUIViewContextMenu(v.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -854,8 +1244,9 @@ func (v View) Clipped() View {
 }
 
 // Mask clips the view using the given view as a mask.
-func (v View) Mask(mask View) View {
-	ptr := _SUIViewMask(v.ptr, mask.ptr)
+func (v View) Mask(mask Viewable) View {
+	ptr := _SUIViewMask(v.ptr, mask.viewPtr())
+	runtime.KeepAlive(mask)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -880,6 +1271,16 @@ func (v View) AccessibilityHint(hint string) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// AccessibilityValue sets accessibility value text for the view.
+func (v View) AccessibilityValue(value string) View {
+	var ptr uintptr
+	withCString(value, func(valueC *byte) {
+		ptr = _SUIViewAccessibilityValue(v.ptr, valueC)
+	})
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // AccessibilityHidden hides the view from accessibility features.
 func (v View) AccessibilityHidden(hidden bool) View {
 	var hiddenV int32
@@ -887,6 +1288,29 @@ func (v View) AccessibilityHidden(hidden bool) View {
 		hiddenV = 1
 	}
 	ptr := _SUIViewAccessibilityHidden(v.ptr, hiddenV)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// AccessibilityRotorJSON applies a normalized accessibility rotor payload.
+func (v View) AccessibilityRotorJSON(modelJSON string) View {
+	var ptr uintptr
+	withCString(modelJSON, func(modelJSONC *byte) {
+		ptr = _SUIViewAccessibilityRotor(v.ptr, modelJSONC)
+	})
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// AccessibilityIdentifier sets the accessibility identifier for the view.
+func (v View) AccessibilityIdentifier(identifier string) View {
+	if _SUIAccessibilityIdentifier == nil {
+		return v
+	}
+	var ptr uintptr
+	withCString(identifier, func(identifierC *byte) {
+		ptr = _SUIAccessibilityIdentifier(v.ptr, identifierC)
+	})
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -899,8 +1323,9 @@ func (v View) ListStyle(style ListStyleKind) View {
 }
 
 // ListRowBackground sets a custom background for a list row.
-func (v View) ListRowBackground(background View) View {
-	ptr := _SUIViewListRowBackground(v.ptr, background.ptr)
+func (v View) ListRowBackground(background Viewable) View {
+	ptr := _SUIViewListRowBackground(v.ptr, background.viewPtr())
+	runtime.KeepAlive(background)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -952,16 +1377,65 @@ func (v View) WebViewTextSelection(enabled bool) View {
 }
 
 // Popover presents a popover when the IntState is nonzero.
-func (v View) Popover(state *IntState, content View) View {
-	ptr := _SUIViewPopover(v.ptr, state.ptr, content.ptr)
+func (v View) Popover(state *IntState, content Viewable) View {
+	ptr := _SUIViewPopover(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// PopoverPresented presents a popover while the BoolState is true.
+func (v View) PopoverPresented(state *BoolState, content Viewable) View {
+	ptr := _SUIViewPopoverBool(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
 // FullScreenCover presents a full-screen modal when the IntState is nonzero.
-func (v View) FullScreenCover(state *IntState, content View) View {
-	ptr := _SUIViewFullScreenCover(v.ptr, state.ptr, content.ptr)
+func (v View) FullScreenCover(state *IntState, content Viewable) View {
+	ptr := _SUIViewFullScreenCover(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// FullScreenCoverPresented presents a full-screen modal while the BoolState is true.
+func (v View) FullScreenCoverPresented(state *BoolState, content Viewable) View {
+	ptr := _SUIViewFullScreenCoverBool(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// FocusSection groups a set of views into a keyboard-focus section.
+func (v View) FocusSection() View {
+	ptr := _SUIViewFocusSection(v.ptr)
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// FocusScopeID assigns a namespace-backed focus scope to the view hierarchy.
+//
+// Bridge surface.
+func (v View) FocusScopeID(namespace *FocusNamespace) View {
+	ptr := _SUIViewFocusScopeID(v.ptr, namespace.ptr)
+	runtime.KeepAlive(v.retained)
+	runtime.KeepAlive(namespace.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// PrefersDefaultFocus marks a view as the preferred initial focus target within a scope.
+//
+// Bridge surface.
+func (v View) PrefersDefaultFocus(preferred bool, namespace *FocusNamespace) View {
+	var preferredV int32
+	if preferred {
+		preferredV = 1
+	}
+	ptr := _SUIViewPrefersDefaultFocus(v.ptr, preferredV, namespace.ptr)
+	runtime.KeepAlive(v.retained)
+	runtime.KeepAlive(namespace.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -978,15 +1452,15 @@ func (v ShapeView) AsView() View {
 }
 
 // Fill sets the fill color for shape views.
-func (v ShapeView) Fill(r float64, g float64, b float64, a float64) ShapeView {
-	ptr := _SUIViewFill(v.View.ptr, r, g, b, a)
+func (v ShapeView) Fill(c Color) ShapeView {
+	ptr := _SUIViewFill(v.View.ptr, c.R, c.G, c.B, c.A)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
 
 // Stroke sets the stroke color and width for shape views.
-func (v ShapeView) Stroke(r float64, g float64, b float64, a float64, lineWidth float64) ShapeView {
-	ptr := _SUIViewStroke(v.View.ptr, r, g, b, a, lineWidth)
+func (v ShapeView) Stroke(c Color, lineWidth float64) ShapeView {
+	ptr := _SUIViewStroke(v.View.ptr, c.R, c.G, c.B, c.A, lineWidth)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -994,6 +1468,13 @@ func (v ShapeView) Stroke(r float64, g float64, b float64, a float64, lineWidth 
 // Padding applies uniform padding around the view.
 func (v ShapeView) Padding(amount float64) ShapeView {
 	ptr := _SUIViewPadding(v.View.ptr, amount)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// PaddingEdge applies padding to specific edges.
+func (v ShapeView) PaddingEdge(edges Edge, amount float64) ShapeView {
+	ptr := _SUIViewPaddingEdge(v.View.ptr, int32(edges), amount)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -1012,9 +1493,16 @@ func (v ShapeView) Frame(width float64, height float64) ShapeView {
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
 
-// ForegroundStyle sets the foreground color using RGBA values.
-func (v ShapeView) ForegroundStyle(r float64, g float64, b float64, a float64) ShapeView {
-	ptr := _SUIViewForegroundStyle(v.View.ptr, r, g, b, a)
+// MaxFrame sets maximum width/height constraints. Use FrameInfinity (-1) for .infinity, FrameUnset (0) for nil.
+func (v ShapeView) MaxFrame(maxWidth float64, maxHeight float64) ShapeView {
+	ptr := _SUIViewMaxFrame(v.View.ptr, maxWidth, maxHeight)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ForegroundStyle sets the foreground color.
+func (v ShapeView) ForegroundStyle(c Color) ShapeView {
+	ptr := _SUIViewForegroundStyle(v.View.ptr, c.R, c.G, c.B, c.A)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -1025,6 +1513,34 @@ func (v ShapeView) ForegroundStyleNamed(name string) ShapeView {
 	withCString(name, func(nameC *byte) {
 		ptr = _SUIViewForegroundStyleName(v.View.ptr, nameC)
 	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ButtonStyle sets the button style for the view hierarchy.
+func (v ShapeView) ButtonStyle(style ButtonStyleKind) ShapeView {
+	ptr := _SUIViewButtonStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ToggleStyle sets the toggle style for the view hierarchy.
+func (v ShapeView) ToggleStyle(style ToggleStyleKind) ShapeView {
+	ptr := _SUIViewToggleStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ControlSize sets the control size for the view hierarchy.
+func (v ShapeView) ControlSize(size ControlSize) ShapeView {
+	ptr := _SUIViewControlSize(v.View.ptr, int32(size))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ImageScale sets the scale for SF Symbol images.
+func (v ShapeView) ImageScale(scale ImageScale) ShapeView {
+	ptr := _SUIViewImageScale(v.View.ptr, int32(scale))
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -1050,9 +1566,146 @@ func (v ShapeView) Opacity(opacity float64) ShapeView {
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
 
-// Background sets a background color using RGBA values.
-func (v ShapeView) Background(r float64, g float64, b float64, a float64) ShapeView {
-	ptr := _SUIViewBackground(v.View.ptr, r, g, b, a)
+// Disabled disables user interaction for the view.
+func (v ShapeView) Disabled(disabled bool) ShapeView {
+	var disabledV int32
+	if disabled {
+		disabledV = 1
+	}
+	ptr := _SUIViewDisabled(v.View.ptr, disabledV)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Help adds a tooltip to the view.
+func (v ShapeView) Help(text string) ShapeView {
+	var ptr uintptr
+	withCString(text, func(textC *byte) {
+		ptr = _SUIViewHelp(v.View.ptr, textC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Background sets a background color.
+func (v ShapeView) Background(c Color) ShapeView {
+	ptr := _SUIViewBackground(v.View.ptr, c.R, c.G, c.B, c.A)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// BackgroundRoundedRect sets a rounded rectangle background.
+func (v ShapeView) BackgroundRoundedRect(c Color, cornerRadius float64) ShapeView {
+	ptr := _SUIViewBackgroundRoundedRect(v.View.ptr, c.R, c.G, c.B, c.A, cornerRadius)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ClipRoundedRect clips the view to a rounded rectangle.
+func (v ShapeView) ClipRoundedRect(cornerRadius float64) ShapeView {
+	ptr := _SUIViewClipRoundedRect(v.View.ptr, cornerRadius)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Overlay places another view on top of this view.
+func (v ShapeView) Overlay(overlay Viewable) ShapeView {
+	ptr := _SUIViewOverlay(v.View.ptr, overlay.viewPtr())
+	runtime.KeepAlive(overlay)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Animation applies an animation curve to the view.
+func (v ShapeView) Animation(kind AnimationKind) ShapeView {
+	ptr := _SUIViewAnimation(v.View.ptr, int32(kind))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AnimationCurve applies a named animation curve with an explicit duration in seconds. Pass 0 to use SwiftUI's default duration. Duration is ignored for spring and bouncy curves.
+func (v ShapeView) AnimationCurve(kind AnimationKind, duration float64) ShapeView {
+	ptr := _SUIViewAnimationCurve(v.View.ptr, int32(kind), duration)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// BackgroundStyle sets a named background style (e.g. "regularMaterial", "windowBackground").
+func (v ShapeView) BackgroundStyle(name string) ShapeView {
+	var ptr uintptr
+	withCString(name, func(nameC *byte) {
+		ptr = _SUIViewBackgroundStyle(v.View.ptr, nameC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// LabelsHidden hides labels for controls that support label presentation.
+func (v ShapeView) LabelsHidden() ShapeView {
+	ptr := _SUIViewLabelsHidden(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ContentShapeRectangle makes the view hit-test as a rectangle.
+func (v ShapeView) ContentShapeRectangle() ShapeView {
+	ptr := _SUIViewContentShapeRectangle(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// TextFieldStyle sets the style for text fields.
+func (v ShapeView) TextFieldStyle(style TextFieldStyleKind) ShapeView {
+	ptr := _SUIViewTextFieldStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScrollContentBackgroundHidden hides the native scroll content background for scroll-backed controls such as TextEditor so callers can provide explicit chrome.
+func (v ShapeView) ScrollContentBackgroundHidden() ShapeView {
+	ptr := _SUIViewScrollContentBackgroundHidden(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Shadow adds a shadow effect to the view.
+func (v ShapeView) Shadow(c Color, radius float64, x float64, y float64) ShapeView {
+	ptr := _SUIViewShadow(v.View.ptr, c.R, c.G, c.B, c.A, radius, x, y)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Border adds a border to the view.
+func (v ShapeView) Border(c Color, width float64) ShapeView {
+	ptr := _SUIViewBorder(v.View.ptr, c.R, c.G, c.B, c.A, width)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// CornerRadius clips the view to a rounded rectangle.
+func (v ShapeView) CornerRadius(radius float64) ShapeView {
+	ptr := _SUIViewCornerRadius(v.View.ptr, radius)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScaleEffect scales the view uniformly.
+func (v ShapeView) ScaleEffect(scale float64) ShapeView {
+	ptr := _SUIViewScaleEffect(v.View.ptr, scale)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScaleEffectAt scales the view around a specific anchor point.
+func (v ShapeView) ScaleEffectAt(scale float64, anchor UnitPoint) ShapeView {
+	ptr := _SUIViewScaleEffectAnchor(v.View.ptr, scale, unitPointIndex(anchor))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// RotationEffect rotates the view by the given angle in degrees.
+func (v ShapeView) RotationEffect(degrees float64) ShapeView {
+	ptr := _SUIViewRotationEffect(v.View.ptr, degrees)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -1060,6 +1713,649 @@ func (v ShapeView) Background(r float64, g float64, b float64, a float64) ShapeV
 // Offset moves the view by the given x and y distances.
 func (v ShapeView) Offset(x float64, y float64) ShapeView {
 	ptr := _SUIViewOffset(v.View.ptr, x, y)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AllowsHitTesting controls whether the view receives hit-test events.
+func (v ShapeView) AllowsHitTesting(enabled bool) ShapeView {
+	var enabledV int32
+	if enabled {
+		enabledV = 1
+	}
+	ptr := _SUIViewAllowsHitTesting(v.View.ptr, enabledV)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// OnTapGesture adds a tap gesture handler to the view.
+func (v ShapeView) OnTapGesture(action func()) ShapeView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnTapGesture(v.View.ptr, actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// OnTapGestureCount adds a tap gesture handler that requires the given number of taps. Use 1 for single-tap (equivalent to OnTapGesture), 2 for double-click.
+func (v ShapeView) OnTapGestureCount(count int, action func()) ShapeView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnTapGestureCount(v.View.ptr, int32(count), actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// Focusable controls whether the view can receive keyboard focus.
+func (v ShapeView) Focusable(focusable bool) ShapeView {
+	var focusableV int32
+	if focusable {
+		focusableV = 1
+	}
+	ptr := _SUIViewFocusable(v.View.ptr, focusableV)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Focused binds keyboard focus to a BoolState for explicit focus control.
+func (v ShapeView) Focused(state *BoolState) ShapeView {
+	ptr := _SUIViewFocused(v.View.ptr, state.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// NavigationTitle sets the navigation title for the view.
+func (v ShapeView) NavigationTitle(title string) ShapeView {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		ptr = _SUIViewNavigationTitle(v.View.ptr, titleC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// NavigationSplitViewStyle sets the split view column presentation style.
+func (v ShapeView) NavigationSplitViewStyle(style NavigationSplitViewStyleKind) ShapeView {
+	ptr := _SUIViewNavigationSplitViewStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// MenuButtonStyle sets the menu button style for the view hierarchy.
+func (v ShapeView) MenuButtonStyle(style MenuButtonStyleKind) ShapeView {
+	ptr := _SUIViewMenuButtonStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// NavigationViewStyle sets the legacy navigation view style.
+func (v ShapeView) NavigationViewStyle(style NavigationViewStyleKind) ShapeView {
+	ptr := _SUIViewNavigationViewStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Collapsible controls whether a section is collapsible.
+func (v ShapeView) Collapsible(collapsible bool) ShapeView {
+	var collapsibleV int32
+	if collapsible {
+		collapsibleV = 1
+	}
+	ptr := _SUISectionCollapsible(v.View.ptr, collapsibleV)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// IsDetailLink marks a navigation link as a detail link.
+func (v ShapeView) IsDetailLink(isDetailLink bool) ShapeView {
+	var isDetailLinkV int32
+	if isDetailLink {
+		isDetailLinkV = 1
+	}
+	ptr := _SUINavigationLinkIsDetailLink(v.View.ptr, isDetailLinkV)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// TabItem sets the tab label and icon for use inside a TabView.
+func (v ShapeView) TabItem(label string, systemImage string) ShapeView {
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		withCString(systemImage, func(systemImageC *byte) {
+			ptr = _SUIViewTabItem(v.View.ptr, labelC, systemImageC)
+		})
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ToolbarRole sets the semantic toolbar role for the view hierarchy.
+func (v ShapeView) ToolbarRole(role ToolbarRole) ShapeView {
+	ptr := _SUIViewToolbarRole(v.View.ptr, int32(role))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ToolbarItem adds a single toolbar item with the given placement.
+func (v ShapeView) ToolbarItem(placement ToolbarItemPlacement, content Viewable) ShapeView {
+	ptr := _SUIViewToolbarItem(v.View.ptr, int32(placement), content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// KeyboardShortcut binds a keyboard shortcut to a control.
+func (v ShapeView) KeyboardShortcut(key string, modifiers ShortcutModifier) ShapeView {
+	var ptr uintptr
+	withCString(key, func(keyC *byte) {
+		ptr = _SUIViewKeyboardShortcut(v.View.ptr, keyC, int32(modifiers))
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Searchable adds a search field bound to a StringState.
+func (v ShapeView) Searchable(query *StringState, prompt string) ShapeView {
+	var ptr uintptr
+	withCString(prompt, func(promptC *byte) {
+		ptr = _SUIViewSearchable(v.View.ptr, query.ptr, promptC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// PointerStyle sets the pointer cursor style for the view.
+func (v ShapeView) PointerStyle(style PointerStyleKind) ShapeView {
+	ptr := _SUIViewPointerStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// SubmitLabel sets the submit label for text input controls.
+func (v ShapeView) SubmitLabel(label SubmitLabelKind) ShapeView {
+	ptr := _SUIViewSubmitLabel(v.View.ptr, int32(label))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Tag assigns an integer tag for selection tracking.
+func (v ShapeView) Tag(tag int32) ShapeView {
+	ptr := _SUIViewTag(v.View.ptr, tag)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ID assigns a stable integer identity for ScrollViewReader scroll targets.
+func (v ShapeView) ID(id int) ShapeView {
+	ptr := _SUIViewID(v.View.ptr, int32(id))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// DefaultScrollAnchor sets the default anchor used when a scroll view chooses an initial target.
+func (v ShapeView) DefaultScrollAnchor(anchor ScrollAnchor) ShapeView {
+	ptr := _SUIViewDefaultScrollAnchor(v.View.ptr, int32(anchor))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScrollTargetBehavior sets how a scroll view snaps to its scroll targets.
+func (v ShapeView) ScrollTargetBehavior(behavior ScrollTargetBehaviorKind) ShapeView {
+	ptr := _SUIViewScrollTargetBehavior(v.View.ptr, int32(behavior))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScrollTargetLayout marks a layout container as providing scroll targets.
+func (v ShapeView) ScrollTargetLayout() ShapeView {
+	ptr := _SUIViewScrollTargetLayout(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScrollBounceBehavior sets the bounce policy for a scroll view along one axis.
+func (v ShapeView) ScrollBounceBehavior(behavior ScrollBounce, axis Axis) ShapeView {
+	ptr := _SUIViewScrollBounceBehavior(v.View.ptr, int32(behavior), int32(axis))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// OnAppear adds an action to perform when the view appears.
+func (v ShapeView) OnAppear(action func()) ShapeView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnAppear(v.View.ptr, actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// OnDisappear adds an action to perform when the view disappears.
+func (v ShapeView) OnDisappear(action func()) ShapeView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnDisappear(v.View.ptr, actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// Refreshable adds a native refresh action to the view.
+func (v ShapeView) Refreshable(action func()) ShapeView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewRefreshable(v.View.ptr, actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// DraggableText makes a view draggable with a string payload.
+func (v ShapeView) DraggableText(text string) ShapeView {
+	var ptr uintptr
+	withCString(text, func(textC *byte) {
+		ptr = _SUIViewDraggableText(v.View.ptr, textC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// DraggableURL makes a view draggable with a URL payload.
+func (v ShapeView) DraggableURL(url string) ShapeView {
+	var ptr uintptr
+	withCString(url, func(urlC *byte) {
+		ptr = _SUIViewDraggableURL(v.View.ptr, urlC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// DraggableFileURL makes a view draggable with a file URL payload.
+func (v ShapeView) DraggableFileURL(path string) ShapeView {
+	var ptr uintptr
+	withCString(path, func(pathC *byte) {
+		ptr = _SUIViewDraggableFileURL(v.View.ptr, pathC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// DropDestinationText accepts dropped text payloads.
+func (v ShapeView) DropDestinationText(action func(string) bool) ShapeView {
+	actionID := registerStringCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewDropDestinationText(v.View.ptr, actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// DropDestinationURL accepts dropped URL payloads.
+func (v ShapeView) DropDestinationURL(action func(string) bool) ShapeView {
+	actionID := registerStringCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewDropDestinationURL(v.View.ptr, actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// DropDestinationFileURL accepts dropped file URL payloads.
+func (v ShapeView) DropDestinationFileURL(action func(string) bool) ShapeView {
+	actionID := registerStringCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewDropDestinationFileURL(v.View.ptr, actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// OnHover adds a hover callback. The callback fires when hover state changes.
+func (v ShapeView) OnHover(action func()) ShapeView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnHover(v.View.ptr, actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// OnHoverPhase adds a hover callback that reports whether the pointer is inside the view.
+func (v ShapeView) OnHoverPhase(action func(bool)) ShapeView {
+	actionID := registerBoolCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnHoverPhase(v.View.ptr, actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// OnHoverLocation adds a hover callback that reports phase and local pointer coordinates.
+func (v ShapeView) OnHoverLocation(action func(bool, float64, float64)) ShapeView {
+	actionID := registerHoverCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnHoverLocation(v.View.ptr, actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// Tint applies a tint color to the view.
+func (v ShapeView) Tint(c Color) ShapeView {
+	ptr := _SUIViewTint(v.View.ptr, c.R, c.G, c.B, c.A)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// FixedSize prevents the view from expanding beyond its ideal size.
+func (v ShapeView) FixedSize() ShapeView {
+	ptr := _SUIViewFixedSize(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// FixedSizeAxis prevents expansion along specific axes.
+func (v ShapeView) FixedSizeAxis(horizontal bool, vertical bool) ShapeView {
+	var horizontalV int32
+	if horizontal {
+		horizontalV = 1
+	}
+	var verticalV int32
+	if vertical {
+		verticalV = 1
+	}
+	ptr := _SUIViewFixedSizeAxis(v.View.ptr, horizontalV, verticalV)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AspectRatio constrains the view to the given aspect ratio. ContentMode: 0=fit, 1=fill.
+func (v ShapeView) AspectRatio(ratio float64, contentMode ContentMode) ShapeView {
+	ptr := _SUIViewAspectRatio(v.View.ptr, ratio, int32(contentMode))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// SafeAreaInset attaches content to one edge of the safe area with explicit spacing.
+func (v ShapeView) SafeAreaInset(edge Edge, spacing float64, content Viewable) ShapeView {
+	ptr := _SUIViewSafeAreaInset(v.View.ptr, int32(edge), spacing, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Sheet presents a modal sheet when the IntState is nonzero.
+func (v ShapeView) Sheet(state *IntState, content Viewable) ShapeView {
+	ptr := _SUIViewSheet(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Alert presents an alert dialog when the IntState is nonzero.
+func (v ShapeView) Alert(title string, message string, state *IntState) ShapeView {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		withCString(message, func(messageC *byte) {
+			ptr = _SUIViewAlert(v.View.ptr, titleC, messageC, state.ptr)
+		})
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ConfirmationDialog presents a confirmation dialog with custom actions when the IntState is nonzero.
+func (v ShapeView) ConfirmationDialog(title string, state *IntState, actions Viewable) ShapeView {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		ptr = _SUIViewConfirmationDialog(v.View.ptr, titleC, state.ptr, actions.viewPtr())
+	})
+	runtime.KeepAlive(actions)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// SheetPresented presents a modal sheet while the BoolState is true.
+func (v ShapeView) SheetPresented(state *BoolState, content Viewable) ShapeView {
+	ptr := _SUIViewSheetBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AlertPresented presents an alert dialog while the BoolState is true.
+func (v ShapeView) AlertPresented(title string, message string, state *BoolState) ShapeView {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		withCString(message, func(messageC *byte) {
+			ptr = _SUIViewAlertBool(v.View.ptr, titleC, messageC, state.ptr)
+		})
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ConfirmationDialogPresented presents a confirmation dialog while the BoolState is true.
+func (v ShapeView) ConfirmationDialogPresented(title string, state *BoolState, actions Viewable) ShapeView {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		ptr = _SUIViewConfirmationDialogBool(v.View.ptr, titleC, state.ptr, actions.viewPtr())
+	})
+	runtime.KeepAlive(actions)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ContextMenu adds a right-click context menu to the view.
+func (v ShapeView) ContextMenu(content Viewable) ShapeView {
+	ptr := _SUIViewContextMenu(v.View.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ZIndex sets the front-to-back ordering of the view within a ZStack.
+func (v ShapeView) ZIndex(index float64) ShapeView {
+	ptr := _SUIViewZIndex(v.View.ptr, index)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// LayoutPriority sets the layout priority for this view.
+func (v ShapeView) LayoutPriority(priority float64) ShapeView {
+	ptr := _SUIViewLayoutPriority(v.View.ptr, priority)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Blur applies a Gaussian blur effect.
+func (v ShapeView) Blur(radius float64) ShapeView {
+	ptr := _SUIViewBlur(v.View.ptr, radius)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Clipped clips the view to its bounding frame.
+func (v ShapeView) Clipped() ShapeView {
+	ptr := _SUIViewClipped(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Mask clips the view using the given view as a mask.
+func (v ShapeView) Mask(mask Viewable) ShapeView {
+	ptr := _SUIViewMask(v.View.ptr, mask.viewPtr())
+	runtime.KeepAlive(mask)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityLabel sets the accessibility label for the view.
+func (v ShapeView) AccessibilityLabel(label string) ShapeView {
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIViewAccessibilityLabel(v.View.ptr, labelC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityHint sets the accessibility hint for the view.
+func (v ShapeView) AccessibilityHint(hint string) ShapeView {
+	var ptr uintptr
+	withCString(hint, func(hintC *byte) {
+		ptr = _SUIViewAccessibilityHint(v.View.ptr, hintC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityValue sets accessibility value text for the view.
+func (v ShapeView) AccessibilityValue(value string) ShapeView {
+	var ptr uintptr
+	withCString(value, func(valueC *byte) {
+		ptr = _SUIViewAccessibilityValue(v.View.ptr, valueC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityHidden hides the view from accessibility features.
+func (v ShapeView) AccessibilityHidden(hidden bool) ShapeView {
+	var hiddenV int32
+	if hidden {
+		hiddenV = 1
+	}
+	ptr := _SUIViewAccessibilityHidden(v.View.ptr, hiddenV)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityRotorJSON applies a normalized accessibility rotor payload.
+func (v ShapeView) AccessibilityRotorJSON(modelJSON string) ShapeView {
+	var ptr uintptr
+	withCString(modelJSON, func(modelJSONC *byte) {
+		ptr = _SUIViewAccessibilityRotor(v.View.ptr, modelJSONC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityIdentifier sets the accessibility identifier for the view.
+func (v ShapeView) AccessibilityIdentifier(identifier string) ShapeView {
+	if _SUIAccessibilityIdentifier == nil {
+		return v
+	}
+	var ptr uintptr
+	withCString(identifier, func(identifierC *byte) {
+		ptr = _SUIAccessibilityIdentifier(v.View.ptr, identifierC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ListStyle sets the list display style.
+func (v ShapeView) ListStyle(style ListStyleKind) ShapeView {
+	ptr := _SUIViewListStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ListRowBackground sets a custom background for a list row.
+func (v ShapeView) ListRowBackground(background Viewable) ShapeView {
+	ptr := _SUIViewListRowBackground(v.View.ptr, background.viewPtr())
+	runtime.KeepAlive(background)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewBackForwardNavigationGestures controls web view back/forward gesture behavior.
+func (v ShapeView) WebViewBackForwardNavigationGestures(behavior WebViewBehavior) ShapeView {
+	ptr := _SUIViewWebViewBackForwardNavigationGestures(v.View.ptr, int32(behavior))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewContentBackground controls visibility of the web view content background.
+func (v ShapeView) WebViewContentBackground(visibility WebViewContentBackgroundVisibility) ShapeView {
+	ptr := _SUIViewWebViewContentBackground(v.View.ptr, int32(visibility))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewElementFullscreenBehavior controls full-screen behavior for web page elements.
+func (v ShapeView) WebViewElementFullscreenBehavior(behavior WebViewBehavior) ShapeView {
+	ptr := _SUIViewWebViewElementFullscreenBehavior(v.View.ptr, int32(behavior))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewLinkPreviews controls whether link previews are shown.
+func (v ShapeView) WebViewLinkPreviews(behavior WebViewBehavior) ShapeView {
+	ptr := _SUIViewWebViewLinkPreviews(v.View.ptr, int32(behavior))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewMagnificationGestures controls magnification gesture behavior.
+func (v ShapeView) WebViewMagnificationGestures(behavior WebViewBehavior) ShapeView {
+	ptr := _SUIViewWebViewMagnificationGestures(v.View.ptr, int32(behavior))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewTextSelection enables or disables text selection in the web view.
+func (v ShapeView) WebViewTextSelection(enabled bool) ShapeView {
+	var enabledV int32
+	if enabled {
+		enabledV = 1
+	}
+	ptr := _SUIViewWebViewTextSelection(v.View.ptr, enabledV)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Popover presents a popover when the IntState is nonzero.
+func (v ShapeView) Popover(state *IntState, content Viewable) ShapeView {
+	ptr := _SUIViewPopover(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// PopoverPresented presents a popover while the BoolState is true.
+func (v ShapeView) PopoverPresented(state *BoolState, content Viewable) ShapeView {
+	ptr := _SUIViewPopoverBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// FullScreenCover presents a full-screen modal when the IntState is nonzero.
+func (v ShapeView) FullScreenCover(state *IntState, content Viewable) ShapeView {
+	ptr := _SUIViewFullScreenCover(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// FullScreenCoverPresented presents a full-screen modal while the BoolState is true.
+func (v ShapeView) FullScreenCoverPresented(state *BoolState, content Viewable) ShapeView {
+	ptr := _SUIViewFullScreenCoverBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -1090,7 +2386,7 @@ func (v TextView) MultilineTextAlignment(alignment TextAlignment) TextView {
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
 
-// LineLimit sets the maximum number of lines for text views. Pass 0 for unlimited.
+// LineLimit sets the maximum number of lines for text views. The sentinel n == 0 means unlimited (no line limit); any positive n caps the line count.
 func (v TextView) LineLimit(n int) TextView {
 	ptr := _SUIViewLineLimit(v.View.ptr, int32(n))
 	runtime.KeepAlive(v.View.retained)
@@ -1146,6 +2442,13 @@ func (v TextView) Padding(amount float64) TextView {
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
 
+// PaddingEdge applies padding to specific edges.
+func (v TextView) PaddingEdge(edges Edge, amount float64) TextView {
+	ptr := _SUIViewPaddingEdge(v.View.ptr, int32(edges), amount)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
 // Font sets the font for the view.
 func (v TextView) Font(f Font) TextView {
 	ptr := _SUIViewFont(v.View.ptr, f.ptr)
@@ -1160,9 +2463,16 @@ func (v TextView) Frame(width float64, height float64) TextView {
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
 
-// ForegroundStyle sets the foreground color using RGBA values.
-func (v TextView) ForegroundStyle(r float64, g float64, b float64, a float64) TextView {
-	ptr := _SUIViewForegroundStyle(v.View.ptr, r, g, b, a)
+// MaxFrame sets maximum width/height constraints. Use FrameInfinity (-1) for .infinity, FrameUnset (0) for nil.
+func (v TextView) MaxFrame(maxWidth float64, maxHeight float64) TextView {
+	ptr := _SUIViewMaxFrame(v.View.ptr, maxWidth, maxHeight)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ForegroundStyle sets the foreground color.
+func (v TextView) ForegroundStyle(c Color) TextView {
+	ptr := _SUIViewForegroundStyle(v.View.ptr, c.R, c.G, c.B, c.A)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -1173,6 +2483,34 @@ func (v TextView) ForegroundStyleNamed(name string) TextView {
 	withCString(name, func(nameC *byte) {
 		ptr = _SUIViewForegroundStyleName(v.View.ptr, nameC)
 	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ButtonStyle sets the button style for the view hierarchy.
+func (v TextView) ButtonStyle(style ButtonStyleKind) TextView {
+	ptr := _SUIViewButtonStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ToggleStyle sets the toggle style for the view hierarchy.
+func (v TextView) ToggleStyle(style ToggleStyleKind) TextView {
+	ptr := _SUIViewToggleStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ControlSize sets the control size for the view hierarchy.
+func (v TextView) ControlSize(size ControlSize) TextView {
+	ptr := _SUIViewControlSize(v.View.ptr, int32(size))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ImageScale sets the scale for SF Symbol images.
+func (v TextView) ImageScale(scale ImageScale) TextView {
+	ptr := _SUIViewImageScale(v.View.ptr, int32(scale))
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -1198,9 +2536,146 @@ func (v TextView) Opacity(opacity float64) TextView {
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
 
-// Background sets a background color using RGBA values.
-func (v TextView) Background(r float64, g float64, b float64, a float64) TextView {
-	ptr := _SUIViewBackground(v.View.ptr, r, g, b, a)
+// Disabled disables user interaction for the view.
+func (v TextView) Disabled(disabled bool) TextView {
+	var disabledV int32
+	if disabled {
+		disabledV = 1
+	}
+	ptr := _SUIViewDisabled(v.View.ptr, disabledV)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Help adds a tooltip to the view.
+func (v TextView) Help(text string) TextView {
+	var ptr uintptr
+	withCString(text, func(textC *byte) {
+		ptr = _SUIViewHelp(v.View.ptr, textC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Background sets a background color.
+func (v TextView) Background(c Color) TextView {
+	ptr := _SUIViewBackground(v.View.ptr, c.R, c.G, c.B, c.A)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// BackgroundRoundedRect sets a rounded rectangle background.
+func (v TextView) BackgroundRoundedRect(c Color, cornerRadius float64) TextView {
+	ptr := _SUIViewBackgroundRoundedRect(v.View.ptr, c.R, c.G, c.B, c.A, cornerRadius)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ClipRoundedRect clips the view to a rounded rectangle.
+func (v TextView) ClipRoundedRect(cornerRadius float64) TextView {
+	ptr := _SUIViewClipRoundedRect(v.View.ptr, cornerRadius)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Overlay places another view on top of this view.
+func (v TextView) Overlay(overlay Viewable) TextView {
+	ptr := _SUIViewOverlay(v.View.ptr, overlay.viewPtr())
+	runtime.KeepAlive(overlay)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Animation applies an animation curve to the view.
+func (v TextView) Animation(kind AnimationKind) TextView {
+	ptr := _SUIViewAnimation(v.View.ptr, int32(kind))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AnimationCurve applies a named animation curve with an explicit duration in seconds. Pass 0 to use SwiftUI's default duration. Duration is ignored for spring and bouncy curves.
+func (v TextView) AnimationCurve(kind AnimationKind, duration float64) TextView {
+	ptr := _SUIViewAnimationCurve(v.View.ptr, int32(kind), duration)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// BackgroundStyle sets a named background style (e.g. "regularMaterial", "windowBackground").
+func (v TextView) BackgroundStyle(name string) TextView {
+	var ptr uintptr
+	withCString(name, func(nameC *byte) {
+		ptr = _SUIViewBackgroundStyle(v.View.ptr, nameC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// LabelsHidden hides labels for controls that support label presentation.
+func (v TextView) LabelsHidden() TextView {
+	ptr := _SUIViewLabelsHidden(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ContentShapeRectangle makes the view hit-test as a rectangle.
+func (v TextView) ContentShapeRectangle() TextView {
+	ptr := _SUIViewContentShapeRectangle(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// TextFieldStyle sets the style for text fields.
+func (v TextView) TextFieldStyle(style TextFieldStyleKind) TextView {
+	ptr := _SUIViewTextFieldStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScrollContentBackgroundHidden hides the native scroll content background for scroll-backed controls such as TextEditor so callers can provide explicit chrome.
+func (v TextView) ScrollContentBackgroundHidden() TextView {
+	ptr := _SUIViewScrollContentBackgroundHidden(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Shadow adds a shadow effect to the view.
+func (v TextView) Shadow(c Color, radius float64, x float64, y float64) TextView {
+	ptr := _SUIViewShadow(v.View.ptr, c.R, c.G, c.B, c.A, radius, x, y)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Border adds a border to the view.
+func (v TextView) Border(c Color, width float64) TextView {
+	ptr := _SUIViewBorder(v.View.ptr, c.R, c.G, c.B, c.A, width)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// CornerRadius clips the view to a rounded rectangle.
+func (v TextView) CornerRadius(radius float64) TextView {
+	ptr := _SUIViewCornerRadius(v.View.ptr, radius)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScaleEffect scales the view uniformly.
+func (v TextView) ScaleEffect(scale float64) TextView {
+	ptr := _SUIViewScaleEffect(v.View.ptr, scale)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScaleEffectAt scales the view around a specific anchor point.
+func (v TextView) ScaleEffectAt(scale float64, anchor UnitPoint) TextView {
+	ptr := _SUIViewScaleEffectAnchor(v.View.ptr, scale, unitPointIndex(anchor))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// RotationEffect rotates the view by the given angle in degrees.
+func (v TextView) RotationEffect(degrees float64) TextView {
+	ptr := _SUIViewRotationEffect(v.View.ptr, degrees)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -1208,6 +2683,649 @@ func (v TextView) Background(r float64, g float64, b float64, a float64) TextVie
 // Offset moves the view by the given x and y distances.
 func (v TextView) Offset(x float64, y float64) TextView {
 	ptr := _SUIViewOffset(v.View.ptr, x, y)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AllowsHitTesting controls whether the view receives hit-test events.
+func (v TextView) AllowsHitTesting(enabled bool) TextView {
+	var enabledV int32
+	if enabled {
+		enabledV = 1
+	}
+	ptr := _SUIViewAllowsHitTesting(v.View.ptr, enabledV)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// OnTapGesture adds a tap gesture handler to the view.
+func (v TextView) OnTapGesture(action func()) TextView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnTapGesture(v.View.ptr, actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// OnTapGestureCount adds a tap gesture handler that requires the given number of taps. Use 1 for single-tap (equivalent to OnTapGesture), 2 for double-click.
+func (v TextView) OnTapGestureCount(count int, action func()) TextView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnTapGestureCount(v.View.ptr, int32(count), actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// Focusable controls whether the view can receive keyboard focus.
+func (v TextView) Focusable(focusable bool) TextView {
+	var focusableV int32
+	if focusable {
+		focusableV = 1
+	}
+	ptr := _SUIViewFocusable(v.View.ptr, focusableV)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Focused binds keyboard focus to a BoolState for explicit focus control.
+func (v TextView) Focused(state *BoolState) TextView {
+	ptr := _SUIViewFocused(v.View.ptr, state.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// NavigationTitle sets the navigation title for the view.
+func (v TextView) NavigationTitle(title string) TextView {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		ptr = _SUIViewNavigationTitle(v.View.ptr, titleC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// NavigationSplitViewStyle sets the split view column presentation style.
+func (v TextView) NavigationSplitViewStyle(style NavigationSplitViewStyleKind) TextView {
+	ptr := _SUIViewNavigationSplitViewStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// MenuButtonStyle sets the menu button style for the view hierarchy.
+func (v TextView) MenuButtonStyle(style MenuButtonStyleKind) TextView {
+	ptr := _SUIViewMenuButtonStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// NavigationViewStyle sets the legacy navigation view style.
+func (v TextView) NavigationViewStyle(style NavigationViewStyleKind) TextView {
+	ptr := _SUIViewNavigationViewStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Collapsible controls whether a section is collapsible.
+func (v TextView) Collapsible(collapsible bool) TextView {
+	var collapsibleV int32
+	if collapsible {
+		collapsibleV = 1
+	}
+	ptr := _SUISectionCollapsible(v.View.ptr, collapsibleV)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// IsDetailLink marks a navigation link as a detail link.
+func (v TextView) IsDetailLink(isDetailLink bool) TextView {
+	var isDetailLinkV int32
+	if isDetailLink {
+		isDetailLinkV = 1
+	}
+	ptr := _SUINavigationLinkIsDetailLink(v.View.ptr, isDetailLinkV)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// TabItem sets the tab label and icon for use inside a TabView.
+func (v TextView) TabItem(label string, systemImage string) TextView {
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		withCString(systemImage, func(systemImageC *byte) {
+			ptr = _SUIViewTabItem(v.View.ptr, labelC, systemImageC)
+		})
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ToolbarRole sets the semantic toolbar role for the view hierarchy.
+func (v TextView) ToolbarRole(role ToolbarRole) TextView {
+	ptr := _SUIViewToolbarRole(v.View.ptr, int32(role))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ToolbarItem adds a single toolbar item with the given placement.
+func (v TextView) ToolbarItem(placement ToolbarItemPlacement, content Viewable) TextView {
+	ptr := _SUIViewToolbarItem(v.View.ptr, int32(placement), content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// KeyboardShortcut binds a keyboard shortcut to a control.
+func (v TextView) KeyboardShortcut(key string, modifiers ShortcutModifier) TextView {
+	var ptr uintptr
+	withCString(key, func(keyC *byte) {
+		ptr = _SUIViewKeyboardShortcut(v.View.ptr, keyC, int32(modifiers))
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Searchable adds a search field bound to a StringState.
+func (v TextView) Searchable(query *StringState, prompt string) TextView {
+	var ptr uintptr
+	withCString(prompt, func(promptC *byte) {
+		ptr = _SUIViewSearchable(v.View.ptr, query.ptr, promptC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// PointerStyle sets the pointer cursor style for the view.
+func (v TextView) PointerStyle(style PointerStyleKind) TextView {
+	ptr := _SUIViewPointerStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// SubmitLabel sets the submit label for text input controls.
+func (v TextView) SubmitLabel(label SubmitLabelKind) TextView {
+	ptr := _SUIViewSubmitLabel(v.View.ptr, int32(label))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Tag assigns an integer tag for selection tracking.
+func (v TextView) Tag(tag int32) TextView {
+	ptr := _SUIViewTag(v.View.ptr, tag)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ID assigns a stable integer identity for ScrollViewReader scroll targets.
+func (v TextView) ID(id int) TextView {
+	ptr := _SUIViewID(v.View.ptr, int32(id))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// DefaultScrollAnchor sets the default anchor used when a scroll view chooses an initial target.
+func (v TextView) DefaultScrollAnchor(anchor ScrollAnchor) TextView {
+	ptr := _SUIViewDefaultScrollAnchor(v.View.ptr, int32(anchor))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScrollTargetBehavior sets how a scroll view snaps to its scroll targets.
+func (v TextView) ScrollTargetBehavior(behavior ScrollTargetBehaviorKind) TextView {
+	ptr := _SUIViewScrollTargetBehavior(v.View.ptr, int32(behavior))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScrollTargetLayout marks a layout container as providing scroll targets.
+func (v TextView) ScrollTargetLayout() TextView {
+	ptr := _SUIViewScrollTargetLayout(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ScrollBounceBehavior sets the bounce policy for a scroll view along one axis.
+func (v TextView) ScrollBounceBehavior(behavior ScrollBounce, axis Axis) TextView {
+	ptr := _SUIViewScrollBounceBehavior(v.View.ptr, int32(behavior), int32(axis))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// OnAppear adds an action to perform when the view appears.
+func (v TextView) OnAppear(action func()) TextView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnAppear(v.View.ptr, actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// OnDisappear adds an action to perform when the view disappears.
+func (v TextView) OnDisappear(action func()) TextView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnDisappear(v.View.ptr, actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// Refreshable adds a native refresh action to the view.
+func (v TextView) Refreshable(action func()) TextView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewRefreshable(v.View.ptr, actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// DraggableText makes a view draggable with a string payload.
+func (v TextView) DraggableText(text string) TextView {
+	var ptr uintptr
+	withCString(text, func(textC *byte) {
+		ptr = _SUIViewDraggableText(v.View.ptr, textC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// DraggableURL makes a view draggable with a URL payload.
+func (v TextView) DraggableURL(url string) TextView {
+	var ptr uintptr
+	withCString(url, func(urlC *byte) {
+		ptr = _SUIViewDraggableURL(v.View.ptr, urlC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// DraggableFileURL makes a view draggable with a file URL payload.
+func (v TextView) DraggableFileURL(path string) TextView {
+	var ptr uintptr
+	withCString(path, func(pathC *byte) {
+		ptr = _SUIViewDraggableFileURL(v.View.ptr, pathC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// DropDestinationText accepts dropped text payloads.
+func (v TextView) DropDestinationText(action func(string) bool) TextView {
+	actionID := registerStringCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewDropDestinationText(v.View.ptr, actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// DropDestinationURL accepts dropped URL payloads.
+func (v TextView) DropDestinationURL(action func(string) bool) TextView {
+	actionID := registerStringCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewDropDestinationURL(v.View.ptr, actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// DropDestinationFileURL accepts dropped file URL payloads.
+func (v TextView) DropDestinationFileURL(action func(string) bool) TextView {
+	actionID := registerStringCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewDropDestinationFileURL(v.View.ptr, actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// OnHover adds a hover callback. The callback fires when hover state changes.
+func (v TextView) OnHover(action func()) TextView {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnHover(v.View.ptr, actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// OnHoverPhase adds a hover callback that reports whether the pointer is inside the view.
+func (v TextView) OnHoverPhase(action func(bool)) TextView {
+	actionID := registerBoolCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnHoverPhase(v.View.ptr, actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// OnHoverLocation adds a hover callback that reports phase and local pointer coordinates.
+func (v TextView) OnHoverLocation(action func(bool, float64, float64)) TextView {
+	actionID := registerHoverCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnHoverLocation(v.View.ptr, actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
+// Tint applies a tint color to the view.
+func (v TextView) Tint(c Color) TextView {
+	ptr := _SUIViewTint(v.View.ptr, c.R, c.G, c.B, c.A)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// FixedSize prevents the view from expanding beyond its ideal size.
+func (v TextView) FixedSize() TextView {
+	ptr := _SUIViewFixedSize(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// FixedSizeAxis prevents expansion along specific axes.
+func (v TextView) FixedSizeAxis(horizontal bool, vertical bool) TextView {
+	var horizontalV int32
+	if horizontal {
+		horizontalV = 1
+	}
+	var verticalV int32
+	if vertical {
+		verticalV = 1
+	}
+	ptr := _SUIViewFixedSizeAxis(v.View.ptr, horizontalV, verticalV)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AspectRatio constrains the view to the given aspect ratio. ContentMode: 0=fit, 1=fill.
+func (v TextView) AspectRatio(ratio float64, contentMode ContentMode) TextView {
+	ptr := _SUIViewAspectRatio(v.View.ptr, ratio, int32(contentMode))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// SafeAreaInset attaches content to one edge of the safe area with explicit spacing.
+func (v TextView) SafeAreaInset(edge Edge, spacing float64, content Viewable) TextView {
+	ptr := _SUIViewSafeAreaInset(v.View.ptr, int32(edge), spacing, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Sheet presents a modal sheet when the IntState is nonzero.
+func (v TextView) Sheet(state *IntState, content Viewable) TextView {
+	ptr := _SUIViewSheet(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Alert presents an alert dialog when the IntState is nonzero.
+func (v TextView) Alert(title string, message string, state *IntState) TextView {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		withCString(message, func(messageC *byte) {
+			ptr = _SUIViewAlert(v.View.ptr, titleC, messageC, state.ptr)
+		})
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ConfirmationDialog presents a confirmation dialog with custom actions when the IntState is nonzero.
+func (v TextView) ConfirmationDialog(title string, state *IntState, actions Viewable) TextView {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		ptr = _SUIViewConfirmationDialog(v.View.ptr, titleC, state.ptr, actions.viewPtr())
+	})
+	runtime.KeepAlive(actions)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// SheetPresented presents a modal sheet while the BoolState is true.
+func (v TextView) SheetPresented(state *BoolState, content Viewable) TextView {
+	ptr := _SUIViewSheetBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AlertPresented presents an alert dialog while the BoolState is true.
+func (v TextView) AlertPresented(title string, message string, state *BoolState) TextView {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		withCString(message, func(messageC *byte) {
+			ptr = _SUIViewAlertBool(v.View.ptr, titleC, messageC, state.ptr)
+		})
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ConfirmationDialogPresented presents a confirmation dialog while the BoolState is true.
+func (v TextView) ConfirmationDialogPresented(title string, state *BoolState, actions Viewable) TextView {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		ptr = _SUIViewConfirmationDialogBool(v.View.ptr, titleC, state.ptr, actions.viewPtr())
+	})
+	runtime.KeepAlive(actions)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ContextMenu adds a right-click context menu to the view.
+func (v TextView) ContextMenu(content Viewable) TextView {
+	ptr := _SUIViewContextMenu(v.View.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ZIndex sets the front-to-back ordering of the view within a ZStack.
+func (v TextView) ZIndex(index float64) TextView {
+	ptr := _SUIViewZIndex(v.View.ptr, index)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// LayoutPriority sets the layout priority for this view.
+func (v TextView) LayoutPriority(priority float64) TextView {
+	ptr := _SUIViewLayoutPriority(v.View.ptr, priority)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Blur applies a Gaussian blur effect.
+func (v TextView) Blur(radius float64) TextView {
+	ptr := _SUIViewBlur(v.View.ptr, radius)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Clipped clips the view to its bounding frame.
+func (v TextView) Clipped() TextView {
+	ptr := _SUIViewClipped(v.View.ptr)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Mask clips the view using the given view as a mask.
+func (v TextView) Mask(mask Viewable) TextView {
+	ptr := _SUIViewMask(v.View.ptr, mask.viewPtr())
+	runtime.KeepAlive(mask)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityLabel sets the accessibility label for the view.
+func (v TextView) AccessibilityLabel(label string) TextView {
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIViewAccessibilityLabel(v.View.ptr, labelC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityHint sets the accessibility hint for the view.
+func (v TextView) AccessibilityHint(hint string) TextView {
+	var ptr uintptr
+	withCString(hint, func(hintC *byte) {
+		ptr = _SUIViewAccessibilityHint(v.View.ptr, hintC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityValue sets accessibility value text for the view.
+func (v TextView) AccessibilityValue(value string) TextView {
+	var ptr uintptr
+	withCString(value, func(valueC *byte) {
+		ptr = _SUIViewAccessibilityValue(v.View.ptr, valueC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityHidden hides the view from accessibility features.
+func (v TextView) AccessibilityHidden(hidden bool) TextView {
+	var hiddenV int32
+	if hidden {
+		hiddenV = 1
+	}
+	ptr := _SUIViewAccessibilityHidden(v.View.ptr, hiddenV)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityRotorJSON applies a normalized accessibility rotor payload.
+func (v TextView) AccessibilityRotorJSON(modelJSON string) TextView {
+	var ptr uintptr
+	withCString(modelJSON, func(modelJSONC *byte) {
+		ptr = _SUIViewAccessibilityRotor(v.View.ptr, modelJSONC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// AccessibilityIdentifier sets the accessibility identifier for the view.
+func (v TextView) AccessibilityIdentifier(identifier string) TextView {
+	if _SUIAccessibilityIdentifier == nil {
+		return v
+	}
+	var ptr uintptr
+	withCString(identifier, func(identifierC *byte) {
+		ptr = _SUIAccessibilityIdentifier(v.View.ptr, identifierC)
+	})
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ListStyle sets the list display style.
+func (v TextView) ListStyle(style ListStyleKind) TextView {
+	ptr := _SUIViewListStyle(v.View.ptr, int32(style))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// ListRowBackground sets a custom background for a list row.
+func (v TextView) ListRowBackground(background Viewable) TextView {
+	ptr := _SUIViewListRowBackground(v.View.ptr, background.viewPtr())
+	runtime.KeepAlive(background)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewBackForwardNavigationGestures controls web view back/forward gesture behavior.
+func (v TextView) WebViewBackForwardNavigationGestures(behavior WebViewBehavior) TextView {
+	ptr := _SUIViewWebViewBackForwardNavigationGestures(v.View.ptr, int32(behavior))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewContentBackground controls visibility of the web view content background.
+func (v TextView) WebViewContentBackground(visibility WebViewContentBackgroundVisibility) TextView {
+	ptr := _SUIViewWebViewContentBackground(v.View.ptr, int32(visibility))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewElementFullscreenBehavior controls full-screen behavior for web page elements.
+func (v TextView) WebViewElementFullscreenBehavior(behavior WebViewBehavior) TextView {
+	ptr := _SUIViewWebViewElementFullscreenBehavior(v.View.ptr, int32(behavior))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewLinkPreviews controls whether link previews are shown.
+func (v TextView) WebViewLinkPreviews(behavior WebViewBehavior) TextView {
+	ptr := _SUIViewWebViewLinkPreviews(v.View.ptr, int32(behavior))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewMagnificationGestures controls magnification gesture behavior.
+func (v TextView) WebViewMagnificationGestures(behavior WebViewBehavior) TextView {
+	ptr := _SUIViewWebViewMagnificationGestures(v.View.ptr, int32(behavior))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// WebViewTextSelection enables or disables text selection in the web view.
+func (v TextView) WebViewTextSelection(enabled bool) TextView {
+	var enabledV int32
+	if enabled {
+		enabledV = 1
+	}
+	ptr := _SUIViewWebViewTextSelection(v.View.ptr, enabledV)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// Popover presents a popover when the IntState is nonzero.
+func (v TextView) Popover(state *IntState, content Viewable) TextView {
+	ptr := _SUIViewPopover(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// PopoverPresented presents a popover while the BoolState is true.
+func (v TextView) PopoverPresented(state *BoolState, content Viewable) TextView {
+	ptr := _SUIViewPopoverBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// FullScreenCover presents a full-screen modal when the IntState is nonzero.
+func (v TextView) FullScreenCover(state *IntState, content Viewable) TextView {
+	ptr := _SUIViewFullScreenCover(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// FullScreenCoverPresented presents a full-screen modal while the BoolState is true.
+func (v TextView) FullScreenCoverPresented(state *BoolState, content Viewable) TextView {
+	ptr := _SUIViewFullScreenCoverBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }

@@ -3,6 +3,7 @@
 package swiftui
 
 import (
+	"fmt"
 	"runtime"
 	"unsafe"
 )
@@ -12,6 +13,33 @@ func Image(systemName string) View {
 	var ptr uintptr
 	withCString(systemName, func(systemNameC *byte) {
 		ptr = _SUIImage(systemNameC)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ImageNamed creates an image view from a named image resource in the asset catalog.
+func ImageNamed(name string) View {
+	var ptr uintptr
+	withCString(name, func(nameC *byte) {
+		ptr = _SUIImageNamed(nameC)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ImageFromFile creates an image view from a file path.
+func ImageFromFile(path string) View {
+	var ptr uintptr
+	withCString(path, func(pathC *byte) {
+		ptr = _SUIImageFromFile(pathC)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// AsyncImage loads and displays an image from a URL.
+func AsyncImage(url string) View {
+	var ptr uintptr
+	withCString(url, func(urlC *byte) {
+		ptr = _SUIAsyncImage(urlC)
 	})
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -47,8 +75,29 @@ func EmptyView() View {
 }
 
 // ColorView creates a color view filling available space.
-func ColorView(r float64, g float64, b float64, a float64) View {
-	ptr := _SUIColor(r, g, b, a)
+func ColorView(c Color) View {
+	ptr := _SUIColor(c.R, c.G, c.B, c.A)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// linearGradientRGBA creates a two-stop linear gradient view.
+func linearGradientRGBA(startR float64, startG float64, startB float64, startA float64, endR float64, endG float64, endB float64, endA float64, startX float64, startY float64, endX float64, endY float64) View {
+	ptr := _SUILinearGradient(startR, startG, startB, startA, endR, endG, endB, endA, startX, startY, endX, endY)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// radialGradientRGBA creates a two-stop radial gradient view.
+func radialGradientRGBA(innerR float64, innerG float64, innerB float64, innerA float64, outerR float64, outerG float64, outerB float64, outerA float64, centerX float64, centerY float64, startRadius float64, endRadius float64) View {
+	ptr := _SUIRadialGradient(innerR, innerG, innerB, innerA, outerR, outerG, outerB, outerA, centerX, centerY, startRadius, endRadius)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// meshGradient4Data creates a four-corner mesh gradient view from comma-separated RGBA values.
+func meshGradient4Data(data string) View {
+	var ptr uintptr
+	withCString(data, func(dataC *byte) {
+		ptr = _SUIMeshGradient4(dataC)
+	})
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -63,7 +112,7 @@ func Link(title string, url string) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
-// Gauge displays a value within a range.
+// Gauge displays a static value within a range. For a Gauge bound to reactive state, use FloatGauge. Naming rule: the Float* prefix marks the reactive (*FloatState-bound) variant of an otherwise static view; reactive variants take the label first followed by the bound state.
 func Gauge(value float64, label string) View {
 	var ptr uintptr
 	withCString(label, func(labelC *byte) {
@@ -100,6 +149,34 @@ func VStackSpaced(spacing float64, children ...Viewable) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// VStackAligned arranges child views in a vertical stack with explicit horizontal alignment.
+func VStackAligned(alignment HorizontalAlignment, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIVStackAligned(head, int32(len(ptrs)), int32(alignment))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// VStackAlignedSpaced arranges child views in a vertical stack with explicit alignment and spacing.
+func VStackAlignedSpaced(alignment HorizontalAlignment, spacing float64, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIVStackAlignedSpaced(head, int32(len(ptrs)), int32(alignment), spacing)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // HStack arranges child views in a horizontal stack.
 func HStack(children ...Viewable) View {
 	ptrs := make([]uintptr, len(children))
@@ -128,18 +205,55 @@ func HStackSpaced(spacing float64, children ...Viewable) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// HStackAligned arranges child views in a horizontal stack with explicit vertical alignment.
+func HStackAligned(alignment VerticalAlignment, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIHStackAligned(head, int32(len(ptrs)), int32(alignment))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// HStackAlignedSpaced arranges child views in a horizontal stack with explicit alignment and spacing.
+func HStackAlignedSpaced(alignment VerticalAlignment, spacing float64, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUIHStackAlignedSpaced(head, int32(len(ptrs)), int32(alignment), spacing)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // GroupBox creates a titled group box containing the given content.
-func GroupBox(label string, content View) View {
+func GroupBox(label string, content Viewable) View {
 	var ptr uintptr
 	withCString(label, func(labelC *byte) {
-		ptr = _SUIGroupBox(labelC, content.ptr)
+		ptr = _SUIGroupBox(labelC, content.viewPtr())
 	})
+	runtime.KeepAlive(content)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
 // ScrollView wraps content in a vertically scrollable container.
-func ScrollView(content View) View {
-	ptr := _SUIScrollView(content.ptr)
+func ScrollView(content Viewable) View {
+	ptr := _SUIScrollView(content.viewPtr())
+	runtime.KeepAlive(content)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScrollViewReader wraps content with IntState-backed programmatic scrolling. Tag descendants with ID; position 0 means no scroll target.
+func ScrollViewReader(position *IntState, anchor ScrollAnchor, content Viewable) View {
+	ptr := _SUIScrollViewReader(position.ptr, int32(anchor), content.viewPtr())
+	runtime.KeepAlive(content)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -199,6 +313,20 @@ func List(children ...Viewable) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// SelectableList displays tagged rows and binds the selected tag to an IntState. Use Tag on rows; 0 means no selection.
+func SelectableList(selection *IntState, children ...Viewable) View {
+	ptrs := make([]uintptr, len(children))
+	for i, c := range children {
+		ptrs[i] = c.viewPtr()
+	}
+	var head *uintptr
+	if len(ptrs) > 0 {
+		head = &ptrs[0]
+	}
+	ptr := _SUISelectableList(selection.ptr, head, int32(len(ptrs)))
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // Form groups controls for data entry.
 func Form(children ...Viewable) View {
 	ptrs := make([]uintptr, len(children))
@@ -214,11 +342,38 @@ func Form(children ...Viewable) View {
 }
 
 // Section groups content with a header label.
-func Section(header string, content View) View {
+func Section(header string, content Viewable) View {
 	var ptr uintptr
 	withCString(header, func(headerC *byte) {
-		ptr = _SUISection(headerC, content.ptr)
+		ptr = _SUISection(headerC, content.viewPtr())
 	})
+	runtime.KeepAlive(content)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// SectionExpanded groups content with a header label and a BoolState-backed disclosure state.
+func SectionExpanded(header string, expanded *BoolState, content Viewable) View {
+	var ptr uintptr
+	withCString(header, func(headerC *byte) {
+		ptr = _SUISectionExpanded(headerC, expanded.ptr, content.viewPtr())
+	})
+	runtime.KeepAlive(content)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// DisclosureGroupView creates a disclosure group with a custom label view and BoolState-backed expansion state.
+func DisclosureGroupView(label Viewable, expanded *BoolState, content Viewable) View {
+	ptr := _SUIDisclosureGroupView(label.viewPtr(), expanded.ptr, content.viewPtr())
+	runtime.KeepAlive(label)
+	runtime.KeepAlive(content)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// SectionExpandedView groups content with a custom header view and a BoolState-backed disclosure state.
+func SectionExpandedView(header Viewable, expanded *BoolState, content Viewable) View {
+	ptr := _SUISectionExpandedView(header.viewPtr(), expanded.ptr, content.viewPtr())
+	runtime.KeepAlive(header)
+	runtime.KeepAlive(content)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -248,6 +403,17 @@ func Button(label string, action func()) View {
 	return ret
 }
 
+// ButtonView creates a clickable button using a custom label view.
+func ButtonView(label Viewable, action func()) View {
+	actionID := registerCallback(action)
+	var ptr uintptr
+	ptr = _SUIButtonView(label.viewPtr(), actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(label)
+	return ret
+}
+
 // ButtonWithImage creates a clickable button with an SF Symbol icon.
 func ButtonWithImage(systemName string, action func()) View {
 	actionID := registerCallback(action)
@@ -274,6 +440,41 @@ func ButtonWithLabel(text string, systemImage string, action func()) View {
 	return ret
 }
 
+// PasteButton inserts the current plain-text clipboard string into a StringState when pressed.
+func PasteButton(label string, state *StringState) View {
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIPasteButton(labelC, state.ptr)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ShareLink creates a share button for a concrete URL.
+func ShareLink(title string, url string) View {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		withCString(url, func(urlC *byte) {
+			ptr = _SUIShareLinkURL(titleC, urlC)
+		})
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ShareLinkItemRaw creates a share button from a normalized payload kind and value.
+func ShareLinkItemRaw(title string, kind string, value string, filePath string) View {
+	var ptr uintptr
+	withCString(title, func(titleC *byte) {
+		withCString(kind, func(kindC *byte) {
+			withCString(value, func(valueC *byte) {
+				withCString(filePath, func(filePathC *byte) {
+					ptr = _SUIShareLinkItem(titleC, kindC, valueC, filePathC)
+				})
+			})
+		})
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // Toggle creates a toggle switch bound to an IntState (0=off, nonzero=on).
 func Toggle(label string, state *IntState, onChange func()) View {
 	onChangeID := registerCallback(onChange)
@@ -298,6 +499,46 @@ func TextField(placeholder string, state *StringState, onSubmit func()) View {
 	return ret
 }
 
+// TextFieldCallbacks creates a text input field bound to a StringState with change and submit callbacks.
+func TextFieldCallbacks(placeholder string, state *StringState, onChange func(), onSubmit func()) View {
+	onChangeID := registerCallback(onChange)
+	onSubmitID := registerCallback(onSubmit)
+	var ptr uintptr
+	withCString(placeholder, func(placeholderC *byte) {
+		ptr = _SUITextFieldCallbacks(placeholderC, state.ptr, onChangeID, onSubmitID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	ret.retained.addCallbackID(onSubmitID)
+	return ret
+}
+
+// TextFieldSelection creates a text input field bound to a StringState plus explicit UTF-16 selection state.
+func TextFieldSelection(placeholder string, state *StringState, selection *TextSelectionState, onSubmit func()) View {
+	onSubmitID := registerCallback(onSubmit)
+	var ptr uintptr
+	withCString(placeholder, func(placeholderC *byte) {
+		ptr = _SUITextFieldSelection(placeholderC, state.ptr, selection.ptr, onSubmitID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onSubmitID)
+	return ret
+}
+
+// TextFieldCallbacksSelection creates a text input field bound to a StringState plus explicit UTF-16 selection state with change and submit callbacks.
+func TextFieldCallbacksSelection(placeholder string, state *StringState, selection *TextSelectionState, onChange func(), onSubmit func()) View {
+	onChangeID := registerCallback(onChange)
+	onSubmitID := registerCallback(onSubmit)
+	var ptr uintptr
+	withCString(placeholder, func(placeholderC *byte) {
+		ptr = _SUITextFieldCallbacksSelection(placeholderC, state.ptr, selection.ptr, onChangeID, onSubmitID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	ret.retained.addCallbackID(onSubmitID)
+	return ret
+}
+
 // SecureField creates a password input field bound to a StringState.
 func SecureField(placeholder string, state *StringState, onSubmit func()) View {
 	onSubmitID := registerCallback(onSubmit)
@@ -310,10 +551,76 @@ func SecureField(placeholder string, state *StringState, onSubmit func()) View {
 	return ret
 }
 
+// SecureFieldCallbacks creates a password input field bound to a StringState with change and submit callbacks.
+func SecureFieldCallbacks(placeholder string, state *StringState, onChange func(), onSubmit func()) View {
+	onChangeID := registerCallback(onChange)
+	onSubmitID := registerCallback(onSubmit)
+	var ptr uintptr
+	withCString(placeholder, func(placeholderC *byte) {
+		ptr = _SUISecureFieldCallbacks(placeholderC, state.ptr, onChangeID, onSubmitID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	ret.retained.addCallbackID(onSubmitID)
+	return ret
+}
+
+// SecureFieldSelection creates a password input field bound to a StringState plus explicit UTF-16 selection state.
+func SecureFieldSelection(placeholder string, state *StringState, selection *TextSelectionState, onSubmit func()) View {
+	onSubmitID := registerCallback(onSubmit)
+	var ptr uintptr
+	withCString(placeholder, func(placeholderC *byte) {
+		ptr = _SUISecureFieldSelection(placeholderC, state.ptr, selection.ptr, onSubmitID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onSubmitID)
+	return ret
+}
+
+// SecureFieldCallbacksSelection creates a password input field bound to a StringState plus explicit UTF-16 selection state with change and submit callbacks.
+func SecureFieldCallbacksSelection(placeholder string, state *StringState, selection *TextSelectionState, onChange func(), onSubmit func()) View {
+	onChangeID := registerCallback(onChange)
+	onSubmitID := registerCallback(onSubmit)
+	var ptr uintptr
+	withCString(placeholder, func(placeholderC *byte) {
+		ptr = _SUISecureFieldCallbacksSelection(placeholderC, state.ptr, selection.ptr, onChangeID, onSubmitID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	ret.retained.addCallbackID(onSubmitID)
+	return ret
+}
+
 // TextEditor creates a multiline text editor bound to a StringState.
 func TextEditor(state *StringState) View {
 	ptr := _SUITextEditor(state.ptr)
 	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// TextEditorOnChange creates a multiline text editor bound to a StringState with a change callback.
+func TextEditorOnChange(state *StringState, onChange func()) View {
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	ptr = _SUITextEditorOnChange(state.ptr, onChangeID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
+}
+
+// TextEditorSelection creates a multiline text editor bound to a StringState plus explicit UTF-16 selection state.
+func TextEditorSelection(state *StringState, selection *TextSelectionState) View {
+	ptr := _SUITextEditorSelection(state.ptr, selection.ptr)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// TextEditorOnChangeSelection creates a multiline text editor bound to a StringState plus explicit UTF-16 selection state with a change callback.
+func TextEditorOnChangeSelection(state *StringState, selection *TextSelectionState, onChange func()) View {
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	ptr = _SUITextEditorOnChangeSelection(state.ptr, selection.ptr, onChangeID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
 }
 
 // Slider creates a slider bound to an IntState within a range.
@@ -328,24 +635,67 @@ func Slider(label string, state *IntState, min float64, max float64, onChange fu
 	return ret
 }
 
+// PhaseAnimator creates a phase-driven view sequence.
+func PhaseAnimator(phases []int32, content func(value int) View, animation AnimationKind) View {
+	contentID := registerViewBuilder(content)
+	vals := phases
+	var head *int32
+	if len(vals) > 0 {
+		head = &vals[0]
+	}
+	ptr := _SUIPhaseAnimator(head, int32(len(vals)), contentID, int32(animation))
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(contentID)
+	return ret
+}
+
+// PhaseAnimatorTrigger creates a phase-driven view sequence that restarts when trigger changes.
+func PhaseAnimatorTrigger(phases []int32, trigger int32, content func(value int) View, animation AnimationKind) View {
+	contentID := registerViewBuilder(content)
+	vals := phases
+	var head *int32
+	if len(vals) > 0 {
+		head = &vals[0]
+	}
+	ptr := _SUIPhaseAnimatorTriggered(head, int32(len(vals)), trigger, contentID, int32(animation))
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(contentID)
+	return ret
+}
+
+// SliderTickContentForEach creates slider tick content from integer values.
+func SliderTickContentForEach(values []int32, id int32, content func(value int) View) View {
+	contentID := registerViewBuilder(content)
+	vals := values
+	var head *int32
+	if len(vals) > 0 {
+		head = &vals[0]
+	}
+	ptr := _SUISliderTickContentForEach(head, int32(len(vals)), id, contentID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(contentID)
+	return ret
+}
+
 // PickerSegmented creates a segmented picker bound to an IntState.
-func PickerSegmented(label string, state *IntState, options View, onChange func()) View {
+func PickerSegmented(label string, state *IntState, options Viewable, onChange func()) View {
 	onChangeID := registerCallback(onChange)
 	var ptr uintptr
 	withCString(label, func(labelC *byte) {
-		ptr = _SUIPickerSegmented(labelC, state.ptr, options.ptr, onChangeID)
+		ptr = _SUIPickerSegmented(labelC, state.ptr, options.viewPtr(), onChangeID)
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(options)
 	return ret
 }
 
 // Stepper creates an increment/decrement control bound to an IntState.
-func Stepper(label string, state *IntState, min int32, max int32, onChange func()) View {
+func Stepper(label string, state *IntState, min int, max int, onChange func()) View {
 	onChangeID := registerCallback(onChange)
 	var ptr uintptr
 	withCString(label, func(labelC *byte) {
-		ptr = _SUIStepperInt(labelC, state.ptr, min, max, onChangeID)
+		ptr = _SUIStepperInt(labelC, state.ptr, int32(min), int32(max), onChangeID)
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
@@ -413,17 +763,61 @@ func AnimatedDynamicFloatView(state *FloatState, transition Transition, builder 
 }
 
 // NavigationStack wraps content in a navigation container.
-func NavigationStack(content View) View {
-	ptr := _SUINavigationStack(content.ptr)
+func NavigationStack(content Viewable) View {
+	ptr := _SUINavigationStack(content.viewPtr())
+	runtime.KeepAlive(content)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// NavigationSplitView presents sidebar and detail content in a split navigation interface.
+func NavigationSplitView(sidebar Viewable, detail Viewable) View {
+	ptr := _SUINavigationSplitView(sidebar.viewPtr(), detail.viewPtr())
+	runtime.KeepAlive(sidebar)
+	runtime.KeepAlive(detail)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// NavigationSplitViewTriple presents sidebar, content, and detail columns in a split navigation interface.
+func NavigationSplitViewTriple(sidebar Viewable, content Viewable, detail Viewable) View {
+	ptr := _SUINavigationSplitViewTriple(sidebar.viewPtr(), content.viewPtr(), detail.viewPtr())
+	runtime.KeepAlive(sidebar)
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(detail)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// NavigationSplitViewVisibility presents sidebar and detail content with IntState-backed column visibility.
+func NavigationSplitViewVisibility(visibility *IntState, sidebar Viewable, detail Viewable) View {
+	ptr := _SUINavigationSplitViewVisibility(visibility.ptr, sidebar.viewPtr(), detail.viewPtr())
+	runtime.KeepAlive(sidebar)
+	runtime.KeepAlive(detail)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// NavigationSplitViewTripleVisibility presents three columns with IntState-backed column visibility.
+func NavigationSplitViewTripleVisibility(visibility *IntState, sidebar Viewable, content Viewable, detail Viewable) View {
+	ptr := _SUINavigationSplitViewTripleVisibility(visibility.ptr, sidebar.viewPtr(), content.viewPtr(), detail.viewPtr())
+	runtime.KeepAlive(sidebar)
+	runtime.KeepAlive(content)
+	runtime.KeepAlive(detail)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
 // Menu creates a dropdown menu with the given label and content.
-func Menu(label string, content View) View {
+func Menu(label string, content Viewable) View {
 	var ptr uintptr
 	withCString(label, func(labelC *byte) {
-		ptr = _SUIMenu(labelC, content.ptr)
+		ptr = _SUIMenu(labelC, content.viewPtr())
 	})
+	runtime.KeepAlive(content)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// MenuView creates a dropdown menu with a custom label view and content.
+func MenuView(label Viewable, content Viewable) View {
+	ptr := _SUIMenuView(label.viewPtr(), content.viewPtr())
+	runtime.KeepAlive(label)
+	runtime.KeepAlive(content)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -438,23 +832,25 @@ func GeometryReader(builder func(width, height float64) View) View {
 }
 
 // PickerMenu creates a dropdown menu picker bound to an IntState.
-func PickerMenu(label string, state *IntState, options View, onChange func()) View {
+func PickerMenu(label string, state *IntState, options Viewable, onChange func()) View {
 	onChangeID := registerCallback(onChange)
 	var ptr uintptr
 	withCString(label, func(labelC *byte) {
-		ptr = _SUIPickerMenu(labelC, state.ptr, options.ptr, onChangeID)
+		ptr = _SUIPickerMenu(labelC, state.ptr, options.viewPtr(), onChangeID)
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(options)
 	return ret
 }
 
 // NavigationLink creates a link to a destination view within a NavigationStack.
-func NavigationLink(label string, destination View) View {
+func NavigationLink(label string, destination Viewable) View {
 	var ptr uintptr
 	withCString(label, func(labelC *byte) {
-		ptr = _SUINavigationLink(labelC, destination.ptr)
+		ptr = _SUINavigationLink(labelC, destination.viewPtr())
 	})
+	runtime.KeepAlive(destination)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -494,7 +890,7 @@ func FloatSlider(label string, state *FloatState, min float64, max float64, onCh
 	return ret
 }
 
-// FloatGauge displays a gauge bound to a FloatState.
+// FloatGauge displays a gauge bound to a FloatState. As a reactive Float* variant the arguments are label first, then the bound state and range; the static Gauge takes value first because it has no bound state.
 func FloatGauge(label string, state *FloatState, min float64, max float64) View {
 	var ptr uintptr
 	withCString(label, func(labelC *byte) {
@@ -542,6 +938,20 @@ func Text(s string) TextView {
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
 
+// TextTimerInterval creates a timer text view from Unix epoch seconds; pass 0 for pauseTime to omit it.
+func TextTimerInterval(start float64, end float64, pauseTime float64, countsDown bool, showsHours bool) TextView {
+	var countsDownV int32
+	if countsDown {
+		countsDownV = 1
+	}
+	var showsHoursV int32
+	if showsHours {
+		showsHoursV = 1
+	}
+	ptr := _SUITextTimerInterval(start, end, pauseTime, countsDownV, showsHoursV)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
 // Label creates a label with text and an SF Symbol icon.
 func Label(text string, systemImage string) TextView {
 	var ptr uintptr
@@ -563,6 +973,251 @@ func TextFrom(state *IntState) TextView {
 func TextFromString(state *StringState) TextView {
 	ptr := _SUITextFromStringState(state.ptr)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// UnitPoint identifies a normalized point in a view rectangle.
+type UnitPoint struct {
+	X, Y float64
+}
+
+var (
+	// UnitPointTopLeading is the upper leading corner.
+	UnitPointTopLeading = UnitPoint{X: 0, Y: 0}
+	// UnitPointTop is the upper edge midpoint.
+	UnitPointTop = UnitPoint{X: 0.5, Y: 0}
+	// UnitPointTopTrailing is the upper trailing corner.
+	UnitPointTopTrailing = UnitPoint{X: 1, Y: 0}
+	// UnitPointLeading is the leading edge midpoint.
+	UnitPointLeading = UnitPoint{X: 0, Y: 0.5}
+	// UnitPointCenter is the rectangle center.
+	UnitPointCenter = UnitPoint{X: 0.5, Y: 0.5}
+	// UnitPointTrailing is the trailing edge midpoint.
+	UnitPointTrailing = UnitPoint{X: 1, Y: 0.5}
+	// UnitPointBottomLeading is the lower leading corner.
+	UnitPointBottomLeading = UnitPoint{X: 0, Y: 1}
+	// UnitPointBottom is the lower edge midpoint.
+	UnitPointBottom = UnitPoint{X: 0.5, Y: 1}
+	// UnitPointBottomTrailing is the lower trailing corner.
+	UnitPointBottomTrailing = UnitPoint{X: 1, Y: 1}
+)
+
+func unitPointIndex(p UnitPoint) int32 {
+	switch p {
+	case UnitPointTop:
+		return 1
+	case UnitPointBottom:
+		return 2
+	case UnitPointLeading:
+		return 3
+	case UnitPointTrailing:
+		return 4
+	case UnitPointTopLeading:
+		return 5
+	case UnitPointTopTrailing:
+		return 6
+	case UnitPointBottomLeading:
+		return 7
+	case UnitPointBottomTrailing:
+		return 8
+	default:
+		return 0
+	}
+}
+
+// LinearGradient creates a two-stop linear gradient view.
+func LinearGradient(start, end Color, startPoint, endPoint UnitPoint) View {
+	return linearGradientRGBA(
+		start.R, start.G, start.B, start.A,
+		end.R, end.G, end.B, end.A,
+		startPoint.X, startPoint.Y,
+		endPoint.X, endPoint.Y,
+	)
+}
+
+// LinearGradientVertical creates a top-to-bottom two-stop linear gradient view.
+func LinearGradientVertical(top, bottom Color) View {
+	return LinearGradient(top, bottom, UnitPointTop, UnitPointBottom)
+}
+
+// LinearGradientHorizontal creates a leading-to-trailing two-stop linear gradient view.
+func LinearGradientHorizontal(leading, trailing Color) View {
+	return LinearGradient(leading, trailing, UnitPointLeading, UnitPointTrailing)
+}
+
+// RadialGradient creates a two-stop radial gradient view.
+func RadialGradient(inner, outer Color, center UnitPoint, startRadius, endRadius float64) View {
+	return radialGradientRGBA(
+		inner.R, inner.G, inner.B, inner.A,
+		outer.R, outer.G, outer.B, outer.A,
+		center.X, center.Y,
+		startRadius, endRadius,
+	)
+}
+
+// MeshGradient4 creates a four-corner mesh gradient view.
+func MeshGradient4(topLeading, topTrailing, bottomLeading, bottomTrailing Color) View {
+	return meshGradient4Data(fmt.Sprintf(
+		"%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g,%.17g",
+		topLeading.R, topLeading.G, topLeading.B, topLeading.A,
+		topTrailing.R, topTrailing.G, topTrailing.B, topTrailing.A,
+		bottomLeading.R, bottomLeading.G, bottomLeading.B, bottomLeading.A,
+		bottomTrailing.R, bottomTrailing.G, bottomTrailing.B, bottomTrailing.A,
+	))
+}
+
+// OutlineNode describes one node in a hierarchical outline.
+// If Expanded is nil, child nodes are always shown.
+type OutlineNode struct {
+	Label    View
+	Children []OutlineNode
+	Expanded *BoolState
+}
+
+// OutlineGroup builds a hierarchical outline from custom label views.
+func OutlineGroup(nodes ...OutlineNode) View {
+	return outlineGroupNodes(nodes)
+}
+
+func outlineGroupNodes(nodes []OutlineNode) View {
+	children := make([]Viewable, 0, len(nodes))
+	for i := range nodes {
+		children = append(children, outlineGroupNode(nodes[i]))
+	}
+	return VStackAligned(HorizontalAlignmentLeading, children...)
+}
+
+func outlineGroupNode(node OutlineNode) View {
+	if len(node.Children) == 0 {
+		return node.Label
+	}
+	content := outlineGroupNodes(node.Children)
+	if node.Expanded == nil {
+		return VStackAligned(HorizontalAlignmentLeading,
+			node.Label,
+			content.PaddingEdge(EdgeLeading, 14),
+		)
+	}
+	return DisclosureGroupView(node.Label, node.Expanded, content)
+}
+
+// TableColumnSpec describes one column in a table-style layout.
+type TableColumnSpec struct {
+	Header View
+	Cell   func(row int) View
+}
+
+// TableColumn constructs a table column specification.
+func TableColumn(header View, cell func(row int) View) TableColumnSpec {
+	return TableColumnSpec{Header: header, Cell: cell}
+}
+
+// Table arranges rows and columns using equal-width cells.
+// This is a curated bridge helper, not SwiftUI's native Table container.
+func Table(rows int, columns ...TableColumnSpec) View {
+	if rows < 0 {
+		rows = 0
+	}
+	children := make([]Viewable, 0, rows+2)
+	if len(columns) > 0 {
+		children = append(children, tableHeaderRow(columns), Divider())
+	}
+	for row := 0; row < rows; row++ {
+		children = append(children, tableBodyRow(row, columns))
+	}
+	return VStackSpaced(0, children...)
+}
+
+func tableHeaderRow(columns []TableColumnSpec) View {
+	cells := make([]Viewable, 0, len(columns))
+	for _, column := range columns {
+		cells = append(cells, tableStretchCell(column.Header))
+	}
+	return HStackSpaced(12, cells...)
+}
+
+func tableBodyRow(row int, columns []TableColumnSpec) View {
+	cells := make([]Viewable, 0, len(columns))
+	for _, column := range columns {
+		cell := EmptyView()
+		if column.Cell != nil {
+			cell = column.Cell(row)
+		}
+		cells = append(cells, tableStretchCell(cell))
+	}
+	return HStackSpaced(12, cells...)
+}
+
+func tableStretchCell(cell View) View {
+	return cell.MaxFrame(-1, 0)
+}
+
+// GridItemKind identifies curated grid track sizing strategies.
+type GridItemKind int
+
+const (
+	GridItemFixed GridItemKind = iota
+	GridItemFlexible
+	GridItemAdaptive
+)
+
+// GridItem describes one curated grid track.
+//
+// Current grid helpers use the number of items as the track count and preserve
+// the size fields for forward-compatible API growth.
+type GridItem struct {
+	Kind    GridItemKind
+	Size    float64
+	Maximum float64
+}
+
+// FixedGridItem creates a fixed-width or fixed-height grid track.
+func FixedGridItem(size float64) GridItem {
+	return GridItem{Kind: GridItemFixed, Size: size, Maximum: size}
+}
+
+// FlexibleGridItem creates a flexible grid track with minimum and maximum sizes.
+func FlexibleGridItem(minimum, maximum float64) GridItem {
+	return GridItem{Kind: GridItemFlexible, Size: minimum, Maximum: maximum}
+}
+
+// AdaptiveGridItem creates an adaptive grid track.
+func AdaptiveGridItem(minimum, maximum float64) GridItem {
+	return GridItem{Kind: GridItemAdaptive, Size: minimum, Maximum: maximum}
+}
+
+// LazyVGrid arranges child views into a vertical grid using the provided column count.
+func LazyVGrid(columns []GridItem, spacing float64, children ...Viewable) View {
+	columnCount := gridTrackCount(columns)
+	rows := make([]Viewable, 0, (len(children)+columnCount-1)/columnCount)
+	for start := 0; start < len(children); start += columnCount {
+		end := start + columnCount
+		if end > len(children) {
+			end = len(children)
+		}
+		rows = append(rows, HStackSpaced(spacing, children[start:end]...))
+	}
+	return LazyVStack(rows...)
+}
+
+// LazyHGrid arranges child views into a horizontal grid using the provided row count.
+func LazyHGrid(rows []GridItem, spacing float64, children ...Viewable) View {
+	rowCount := gridTrackCount(rows)
+	columns := make([]Viewable, 0, (len(children)+rowCount-1)/rowCount)
+	for start := 0; start < len(children); start += rowCount {
+		end := start + rowCount
+		if end > len(children) {
+			end = len(children)
+		}
+		columns = append(columns, VStackSpaced(spacing, children[start:end]...))
+	}
+	return LazyHStack(columns...)
+}
+
+func gridTrackCount(items []GridItem) int {
+	if len(items) == 0 {
+		return 1
+	}
+	return len(items)
 }
 
 // withCString converts a Go string to a pinned null-terminated C string pointer,

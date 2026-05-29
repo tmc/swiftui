@@ -730,6 +730,12 @@ type chartBuilder struct {
 	backgrounds     []proxyLayer
 	gesture         *ProxyGesture
 
+	memo *chartMemo
+}
+
+// chartMemo caches the built view. It is kept behind a pointer so the value
+// chartBuilder copied by cloneBuilder never copies a sync.Once lock.
+type chartMemo struct {
 	once sync.Once
 	view swiftui.View
 }
@@ -834,8 +840,7 @@ func (c ChartView) cloneBuilder() *chartBuilder {
 		gesture := *c.builder.gesture
 		out.gesture = &gesture
 	}
-	out.once = sync.Once{}
-	out.view = swiftui.View{}
+	out.memo = nil
 	return &out
 }
 
@@ -1054,15 +1059,18 @@ func (c ChartView) build() swiftui.View {
 	if c.builder == nil {
 		return swiftui.ViewFromPointer(0)
 	}
-	c.builder.once.Do(func() {
+	if c.builder.memo == nil {
+		c.builder.memo = &chartMemo{}
+	}
+	c.builder.memo.once.Do(func() {
 		data, err := json.Marshal(c.builder.toSpec())
 		if err != nil || len(data) == 0 {
 			return
 		}
 		ptr := _CHBuildChart((*byte)(&data[0]), int32(len(data)))
-		c.builder.view = swiftui.ViewFromPointer(ptr)
+		c.builder.memo.view = swiftui.ViewFromPointer(ptr)
 	})
-	return c.builder.view
+	return c.builder.memo.view
 }
 
 func (c ChartView) viewPtr() uintptr { return c.build().Pointer() }

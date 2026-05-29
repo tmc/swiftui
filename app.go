@@ -2,6 +2,27 @@
 
 package swiftui
 
+import "runtime"
+
+// Main locks the calling goroutine to its OS thread and runs body. The AppKit
+// run loop must own the main OS thread, so any goroutine that calls Run,
+// RunMenuBar, or RunWithMenuBar must be pinned to a single thread for the
+// lifetime of the process. Calling Main from main (or from a goroutine started
+// with an explicit runtime.LockOSThread) satisfies that requirement:
+//
+//	func main() {
+//		swiftui.Main(func() {
+//			swiftui.Run(cfg, root)
+//		})
+//	}
+//
+// The Run functions also lock the thread themselves, so Main is a convenience
+// for programs that perform setup before the run loop starts.
+func Main(body func()) {
+	runtime.LockOSThread()
+	body()
+}
+
 // AppConfig configures the application window.
 type AppConfig struct {
 	Title  string
@@ -25,17 +46,29 @@ type MenuBarLabelStyle struct {
 }
 
 // Run starts the application event loop with the given root view.
-// This blocks until the application exits.
-func Run(config AppConfig, root View) {
+// This blocks until the application exits, then returns nil. It returns a
+// non-nil error if the bridge dylib failed to load.
+func Run(config AppConfig, root View) error {
+	if loadErr != nil {
+		return loadErr
+	}
+	runtime.LockOSThread()
 	withCString(config.Title, func(title *byte) {
 		_SUIRun(root.ptr, title, config.Width, config.Height)
 	})
+	runtime.KeepAlive(root.retained)
+	return nil
 }
 
 // RunMenuBar starts a menu-bar-only app with no dock icon.
 // The content View is shown in a popover when the status item is clicked.
-// This blocks until the application exits.
-func RunMenuBar(config MenuBarConfig, content View) {
+// This blocks until the application exits, then returns nil. It returns a
+// non-nil error if the bridge dylib failed to load.
+func RunMenuBar(config MenuBarConfig, content View) error {
+	if loadErr != nil {
+		return loadErr
+	}
+	runtime.LockOSThread()
 	var openOnLaunch int32
 	if config.OpenOnLaunch {
 		openOnLaunch = 1
@@ -49,12 +82,19 @@ func RunMenuBar(config MenuBarConfig, content View) {
 			_SUIRunMenuBar(label, img, content.ptr, config.Width, config.Height)
 		})
 	})
+	runtime.KeepAlive(content.retained)
+	return nil
 }
 
 // RunWithMenuBar starts a windowed app that also has a menu bar item.
 // The menuContent View is shown in a popover when the status item is clicked.
-// This blocks until the application exits.
-func RunWithMenuBar(appConfig AppConfig, content View, menuConfig MenuBarConfig, menuContent View) {
+// This blocks until the application exits, then returns nil. It returns a
+// non-nil error if the bridge dylib failed to load.
+func RunWithMenuBar(appConfig AppConfig, content View, menuConfig MenuBarConfig, menuContent View) error {
+	if loadErr != nil {
+		return loadErr
+	}
+	runtime.LockOSThread()
 	withCString(appConfig.Title, func(title *byte) {
 		withCString(menuConfig.Label, func(menuLabel *byte) {
 			withCString(menuConfig.SystemImage, func(menuImg *byte) {
@@ -63,6 +103,44 @@ func RunWithMenuBar(appConfig AppConfig, content View, menuConfig MenuBarConfig,
 			})
 		})
 	})
+	runtime.KeepAlive(content.retained)
+	runtime.KeepAlive(menuContent.retained)
+	return nil
+}
+
+// runScenePlan starts the current scene-aware runner from a serialized scene plan.
+//
+// The current runner is AppKit-owned rather than a direct SwiftUI App/Scene
+// graph. It manages NSWindow, main-menu, and menu-bar presentation directly,
+// owns document-session file workflows, persists per-instance frame and
+// visibility state, tracks WindowInstanceCount for multi-instance WindowGroup
+// families while singleton Window scenes remain explicit, installs standard
+// system-backed and custom command menus even for menu-bar-only scene plans,
+// presents runner-owned OpenPanel-backed document panels, revert,
+// dirty-close confirmation, approved close callbacks, recent-document
+// registration, persistent recent-document restoration, last-path restoration,
+// explicit recent-document command menus, and wires scene availability into
+// borrowed SceneActions through the bridge callback path.
+func runScenePlan(planJSON string, views []uintptr) {
+	var head *uintptr
+	if len(views) > 0 {
+		head = &views[0]
+	}
+	withCString(planJSON, func(plan *byte) {
+		_SUIRunScenePlan(plan, head, int32(len(views)))
+	})
+}
+
+// openSceneWindow focuses or opens one AppKit-owned scene window by identifier.
+//
+// This is the current OpenWindowAction implementation used by the scene runner.
+// It is runner-backed today, not direct SwiftUI environment parity.
+func openSceneWindow(id string) bool {
+	var ok int32
+	withCString(id, func(sceneID *byte) {
+		ok = _SUIOpenSceneWindow(sceneID)
+	})
+	return ok != 0
 }
 
 // UpdateMenuBarLabel changes the status item text at runtime.

@@ -2,8 +2,6 @@
 
 package swiftui
 
-import "unsafe"
-
 // IntState is a reactive integer state that bridges Go and SwiftUI.
 // When the value changes via Set, any SwiftUI views observing this
 // state update automatically.
@@ -55,19 +53,9 @@ func NewStringState(initial string) *StringState {
 
 // Get returns the current string value.
 func (s *StringState) Get() string {
-	p := _SUIStateGetString(s.ptr)
-	if p == nil {
-		return ""
-	}
-	var buf []byte
-	for i := uintptr(0); ; i++ {
-		b := *(*byte)(unsafe.Pointer(uintptr(unsafe.Pointer(p)) + i))
-		if b == 0 {
-			break
-		}
-		buf = append(buf, b)
-	}
-	return string(buf)
+	// cStringToGoString is the shared NUL-terminated C string decoder defined
+	// in callback.go (N9).
+	return cStringToGoString(_SUIStateGetString(s.ptr))
 }
 
 // Set updates the string value, triggering SwiftUI view updates.
@@ -75,6 +63,33 @@ func (s *StringState) Set(v string) {
 	withCString(v, func(cs *byte) {
 		_SUIStateSetString(s.ptr, cs)
 	})
+}
+
+// TextSelectionState is a reactive UTF-16 text selection range.
+type TextSelectionState struct {
+	ptr      uintptr
+	retained *retained
+}
+
+// NewTextSelectionState creates a new reactive UTF-16 text selection range.
+func NewTextSelectionState(start, end int) *TextSelectionState {
+	ptr := _SUIStateCreateTextSelection(int32(start), int32(end))
+	return &TextSelectionState{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// Start returns the current UTF-16 selection start offset.
+func (s *TextSelectionState) Start() int {
+	return int(_SUIStateGetTextSelectionStart(s.ptr))
+}
+
+// End returns the current UTF-16 selection end offset.
+func (s *TextSelectionState) End() int {
+	return int(_SUIStateGetTextSelectionEnd(s.ptr))
+}
+
+// Set updates the UTF-16 selection range.
+func (s *TextSelectionState) Set(start, end int) {
+	_SUIStateSetTextSelection(s.ptr, int32(start), int32(end))
 }
 
 // ColorState is a reactive RGBA color state that bridges Go and SwiftUI.
@@ -205,62 +220,99 @@ func (s *BoolState) SetAnimatedWith(v bool, kind AnimationKind) {
 	_SUIStateSetBoolAnimatedWith(s.ptr, vv, int32(kind))
 }
 
+// releaseState decrements the Swift retain count behind a reactive state value
+// and clears the handle. It is the shared body of every *State.Release method
+// (N4). retained and ptr are the addresses of the state's two fields so the
+// caller is reset in place.
+func releaseState(retained **retained, ptr *uintptr) {
+	if retained == nil || *retained == nil {
+		return
+	}
+	(*retained).release()
+	*retained = nil
+	*ptr = 0
+}
+
 // Release decrements the underlying Swift retain count.
+//
+// After Release the state must not be used or passed to a view again, and a
+// state that is currently bound into a live view must not be released; doing
+// either leaves the view referencing a freed handle.
 func (s *IntState) Release() {
-	if s == nil || s.retained == nil {
+	if s == nil {
 		return
 	}
-	s.retained.release()
-	s.retained = nil
-	s.ptr = 0
+	releaseState(&s.retained, &s.ptr)
 }
 
 // Release decrements the underlying Swift retain count.
+//
+// After Release the state must not be used or passed to a view again, and a
+// state that is currently bound into a live view must not be released; doing
+// either leaves the view referencing a freed handle.
 func (s *StringState) Release() {
-	if s == nil || s.retained == nil {
+	if s == nil {
 		return
 	}
-	s.retained.release()
-	s.retained = nil
-	s.ptr = 0
+	releaseState(&s.retained, &s.ptr)
 }
 
 // Release decrements the underlying Swift retain count.
+//
+// After Release the state must not be used or passed to a view again, and a
+// state that is currently bound into a live view must not be released; doing
+// either leaves the view referencing a freed handle.
+func (s *TextSelectionState) Release() {
+	if s == nil {
+		return
+	}
+	releaseState(&s.retained, &s.ptr)
+}
+
+// Release decrements the underlying Swift retain count.
+//
+// After Release the state must not be used or passed to a view again, and a
+// state that is currently bound into a live view must not be released; doing
+// either leaves the view referencing a freed handle.
 func (s *ColorState) Release() {
-	if s == nil || s.retained == nil {
+	if s == nil {
 		return
 	}
-	s.retained.release()
-	s.retained = nil
-	s.ptr = 0
+	releaseState(&s.retained, &s.ptr)
 }
 
 // Release decrements the underlying Swift retain count.
+//
+// After Release the state must not be used or passed to a view again, and a
+// state that is currently bound into a live view must not be released; doing
+// either leaves the view referencing a freed handle.
 func (s *DateState) Release() {
-	if s == nil || s.retained == nil {
+	if s == nil {
 		return
 	}
-	s.retained.release()
-	s.retained = nil
-	s.ptr = 0
+	releaseState(&s.retained, &s.ptr)
 }
 
 // Release decrements the underlying Swift retain count.
+//
+// After Release the state must not be used or passed to a view again, and a
+// state that is currently bound into a live view must not be released; doing
+// either leaves the view referencing a freed handle.
 func (s *FloatState) Release() {
-	if s == nil || s.retained == nil {
+	if s == nil {
 		return
 	}
-	s.retained.release()
-	s.retained = nil
-	s.ptr = 0
+	releaseState(&s.retained, &s.ptr)
 }
 
 // Release decrements the underlying Swift retain count.
+//
+// After Release the state must not be used or passed to a view again, and a
+// state that is currently bound into a live view must not be released; doing
+// either leaves the view referencing a freed handle.
 func (s *BoolState) Release() {
-	if s == nil || s.retained == nil {
+	if s == nil {
 		return
 	}
-	s.retained.release()
-	s.retained = nil
-	s.ptr = 0
+	releaseState(&s.retained, &s.ptr)
 }

@@ -3,19 +3,26 @@
 package swiftui
 
 import (
-	"runtime"
 	"sync"
+	"unsafe"
 
 	"github.com/ebitengine/purego"
 )
 
 var (
-	callbackMu   sync.Mutex
-	callbackMap  = map[uintptr]func(){}
-	callbackNext uintptr
+	callbackMu         sync.Mutex
+	callbackMap        = map[uintptr]func(){}
+	boolCallbackMap    = map[uintptr]func(bool){}
+	stringCallbackMap  = map[uintptr]func(string) bool{}
+	hoverCallbackMap   = map[uintptr]func(bool, float64, float64){}
+	commandCallbackMap = map[uintptr]func() int32{}
+	callbackNext       uintptr
 )
 
 func registerCallback(fn func()) uintptr {
+	if fn == nil {
+		return 0
+	}
 	callbackMu.Lock()
 	defer callbackMu.Unlock()
 	callbackNext++
@@ -23,12 +30,75 @@ func registerCallback(fn func()) uintptr {
 	return callbackNext
 }
 
+func registerBoolCallback(fn func(bool)) uintptr {
+	if fn == nil {
+		return 0
+	}
+	callbackMu.Lock()
+	defer callbackMu.Unlock()
+	callbackNext++
+	boolCallbackMap[callbackNext] = fn
+	return callbackNext
+}
+
+func registerStringCallback(fn func(string) bool) uintptr {
+	if fn == nil {
+		return 0
+	}
+	callbackMu.Lock()
+	defer callbackMu.Unlock()
+	callbackNext++
+	stringCallbackMap[callbackNext] = fn
+	return callbackNext
+}
+
+func registerHoverCallback(fn func(bool, float64, float64)) uintptr {
+	if fn == nil {
+		return 0
+	}
+	callbackMu.Lock()
+	defer callbackMu.Unlock()
+	callbackNext++
+	hoverCallbackMap[callbackNext] = fn
+	return callbackNext
+}
+
+func registerCommandCallback(fn func() int32) uintptr {
+	if fn == nil {
+		return 0
+	}
+	callbackMu.Lock()
+	defer callbackMu.Unlock()
+	callbackNext++
+	commandCallbackMap[callbackNext] = fn
+	return callbackNext
+}
+
+// commandCallbackTrampoline is called from Swift for command actions and
+// enabled-check queries. It returns an int32 status (1 = success/enabled,
+// 0 = failure/disabled).
+func commandCallbackTrampoline(id uintptr) int32 {
+	callbackMu.Lock()
+	fn := commandCallbackMap[id]
+	callbackMu.Unlock()
+	if fn != nil {
+		return fn()
+	}
+	return 1 // default: allow / enabled
+}
+
+var commandCallbackPtr = purego.NewCallback(commandCallbackTrampoline)
+
 // unregisterCallback removes a callback from the callback map.
-// Also checks viewBuilder, floatViewBuilder, and geometryBuilder maps since retained
-// tracks all callback types with a single list.
+// Also checks viewBuilder, floatViewBuilder, and geometryBuilder maps since
+// retained tracks all callback types with a single list.
 func unregisterCallback(id uintptr) {
 	callbackMu.Lock()
 	delete(callbackMap, id)
+	delete(boolCallbackMap, id)
+	delete(stringCallbackMap, id)
+	delete(hoverCallbackMap, id)
+	delete(commandCallbackMap, id)
 	callbackMu.Unlock()
 	viewBuilderMu.Lock()
 	delete(viewBuilderMap, id)
@@ -54,6 +124,55 @@ func buttonCallbackTrampoline(id uintptr) {
 // buttonCallbackPtr is the purego callback pointer for buttonCallbackTrampoline.
 var buttonCallbackPtr = purego.NewCallback(buttonCallbackTrampoline)
 
+func boolCallbackTrampoline(id uintptr, value int32) {
+	callbackMu.Lock()
+	fn := boolCallbackMap[id]
+	callbackMu.Unlock()
+	if fn != nil {
+		fn(value != 0)
+	}
+}
+
+var boolCallbackPtr = purego.NewCallback(boolCallbackTrampoline)
+
+func stringCallbackTrampoline(id uintptr, value *byte) int32 {
+	callbackMu.Lock()
+	fn := stringCallbackMap[id]
+	callbackMu.Unlock()
+	if fn != nil && fn(cStringToGoString(value)) {
+		return 1
+	}
+	return 0
+}
+
+var stringCallbackPtr = purego.NewCallback(stringCallbackTrampoline)
+
+func hoverCallbackTrampoline(id uintptr, inside int32, x, y float64) {
+	callbackMu.Lock()
+	fn := hoverCallbackMap[id]
+	callbackMu.Unlock()
+	if fn != nil {
+		fn(inside != 0, x, y)
+	}
+}
+
+var hoverCallbackPtr = purego.NewCallback(hoverCallbackTrampoline)
+
+func cStringToGoString(ptr *byte) string {
+	if ptr == nil {
+		return ""
+	}
+	var buf []byte
+	for i := uintptr(0); ; i++ {
+		b := *(*byte)(unsafe.Pointer(uintptr(unsafe.Pointer(ptr)) + i))
+		if b == 0 {
+			break
+		}
+		buf = append(buf, b)
+	}
+	return string(buf)
+}
+
 // View builder callbacks: Go functions that return a View given a state value.
 var (
 	viewBuilderMu   sync.Mutex
@@ -69,13 +188,6 @@ func registerViewBuilder(fn func(int) View) uintptr {
 	return viewBuilderNext
 }
 
-func transferView(v View) uintptr {
-	if v.retained != nil {
-		runtime.SetFinalizer(v.retained, nil)
-	}
-	return v.ptr
-}
-
 // viewBuilderCallbackTrampoline is called from Swift to rebuild a dynamic view.
 // It returns a View pointer (uintptr) that Swift takes ownership of.
 func viewBuilderCallbackTrampoline(id uintptr, value int) uintptr {
@@ -83,7 +195,7 @@ func viewBuilderCallbackTrampoline(id uintptr, value int) uintptr {
 	fn := viewBuilderMap[id]
 	viewBuilderMu.Unlock()
 	if fn != nil {
-		return transferView(fn(int(value)))
+		return fn(int(value)).ptr
 	}
 	return _SUIEmptyView()
 }
@@ -110,7 +222,7 @@ func viewBuilderCallbackTrampolineFloat(id uintptr, value float64) uintptr {
 	fn := floatViewBuilderMap[id]
 	floatViewBuilderMu.Unlock()
 	if fn != nil {
-		return transferView(fn(value))
+		return fn(value).ptr
 	}
 	return _SUIEmptyView()
 }
@@ -144,7 +256,7 @@ func geometryBuilderTrampoline(id uintptr, width, height float64) uintptr {
 	fn := geometryBuilderMap[id]
 	geometryBuilderMu.Unlock()
 	if fn != nil {
-		return transferView(fn(width, height))
+		return fn(width, height).ptr
 	}
 	return _SUIEmptyView()
 }

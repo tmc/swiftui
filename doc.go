@@ -7,13 +7,48 @@
 // Swift bridge (under internal/swift/) that is automatically built on first use.
 // No external dependencies or manual setup required — just go run.
 //
+// # View types
+//
+// Three concrete view types model SwiftUI's view hierarchy:
+//
+//   - [View] is the universal opaque handle. Every constructor and universal
+//     modifier returns a View.
+//   - [ShapeView] is returned by shape constructors (Circle, Rectangle, ...).
+//     It adds shape-specific modifiers such as Fill and Stroke and keeps the
+//     ShapeView type through universal modifier chains.
+//   - [TextView] is returned by text constructors (Text, Label, ...). It adds
+//     text-specific modifiers such as Bold, Italic, and Font and likewise keeps
+//     the TextView type through universal modifier chains.
+//
+// ShapeView and TextView embed View, so a shape or text view is usable anywhere
+// a View is. Call AsView to drop the specialized type explicitly. The
+// [Viewable] interface is satisfied by all three; functions and modifiers that
+// take a child view accept Viewable, so any view type can be passed directly
+// without conversion.
+//
+// # Function families
+//
+// The exported surface groups into three families:
+//
+//   - Building views: the View/ShapeView/TextView constructors and modifiers
+//     described above.
+//   - Reactive state: the *State types ([IntState], [StringState],
+//     [FloatState], [BoolState], [ColorState], [DateState],
+//     [TextSelectionState]). Construct one with NewXState, bind it into a view,
+//     and call Set (or SetAnimated) to drive automatic SwiftUI updates.
+//   - Dynamic content: helpers that rebuild views from state, such as
+//     DynamicView and ForEach-style builders, plus the callback-driven controls
+//     (Button, Stepper, ...) that invoke Go closures from SwiftUI.
+//
 // # Threading
 //
 // All View construction and modifier calls must happen on the main thread.
 // Call runtime.LockOSThread() in init() or TestMain to pin the main
-// goroutine. State.Set() is safe from any goroutine — the Swift bridge
-// dispatches updates to the MainActor automatically. For view operations
-// from background goroutines, use dispatch.MainQueue().Async().
+// goroutine. The *State Set methods (for example [IntState.Set] and
+// [IntState.SetAnimated]) are safe to call from any goroutine — the Swift
+// bridge dispatches the update to the MainActor automatically. To change what
+// a running UI displays from a background goroutine, mutate the reactive state
+// it is bound to rather than building views off the main thread.
 //
 // # Environment
 //
@@ -21,4 +56,63 @@
 // under $HOME/Library/Caches/swiftui/bridge-cache.
 //
 // To override the dylib path, set $LIBSWIFTUI_BRIDGE_PATH.
+//
+// Curated media helpers include PhotosPickerLazyFileHandle for deterministic
+// lazy file-backed assets used by sample selection state.
+//
+// Curated file-picking helpers include OpenPanel for concrete
+// NSOpenPanel-driven path selection.
+//
+// # Scenes
+//
+// RunScenes lowers immutable Window, DocumentGroup, Settings, MenuBarExtra,
+// and runner-owned command dispatch into the current AppKit-owned scene runner.
+// Today that runner owns NSWindow, main-menu, NSPopover, and document-session
+// lifecycle directly, persists per-instance window frames and visibility,
+// supports multi-instance WindowGroup families with explicit restoration IDs
+// and WindowInstanceCount tracking while singleton Window scenes remain
+// explicit, exposes a concrete Settings window through the app menu, installs
+// standard system-backed File/Edit/Window commands plus custom command menus
+// for both windowed and menu-bar-only scene plans, presents runner-owned
+// OpenPanel-backed document open/save panels and
+// open/save/save-as/export/import/revert flows with dirty-close confirmation,
+// approved close callbacks, recent-document registration, persistent
+// recent-document restoration, last-path restoration, explicit recent-document
+// command menus, and injects scene availability into borrowed SceneActions
+// through the bridge callback channel.
+//
+// The package also includes additive Go-native helpers such as OpenPanel,
+// TableColumnLayoutSnapshot, PlacementHint/TaggedWithPlacement, and
+// PhotosPickerLazyFileHandle. Those are explicit curated utilities rather than
+// claims of one-for-one SwiftUI API parity.
+//
+// This is intentionally narrower than SwiftUI's full App/Scene environment
+// model. OpenWindowAction, app command menus, and document-session file
+// workflows are runner-backed today, while refresh actions remain borrowed
+// runtime capabilities rather than direct SwiftUI environment parity or a
+// native Scene graph.
+//
+// # Current Parity Boundaries
+//
+// The current bridge is intentionally explicit about three remaining parity
+// boundaries:
+//
+//   - scene/app structure: scene descriptors, multi-instance WindowGroup
+//     restoration, singleton Window scenes, WindowInstanceCount tracking, and
+//     borrowed SceneActions are supported, but the runtime is still
+//     AppKit-owned rather than a direct SwiftUI App/Scene graph
+//   - table/outline data surfaces: the public API combines curated Go models
+//     with a native-backed additive table/outline layer, including ordered
+//     selection state, row-state summaries, and TableColumnLayoutSnapshot
+//     capture/restore, but native SwiftUI Table and OutlineGroup parity is
+//     still incomplete
+//   - custom layout: the supported surface is the constrained Go-side layout
+//     model with PlacementHint/TaggedWithPlacement fixed-key placement metadata
+//     and placement presets rather than SwiftUI's protocol-heavy Layout and
+//     LayoutValueKey
+//   - curated additive helpers: OpenPanel and PhotosPickerLazyFileHandle are
+//     explicit Go-native utilities rather than direct SwiftUI equivalents
+//
+// Those limits are intentional source-of-truth boundaries, not accidental
+// omissions in the generated catalog.
 package swiftui

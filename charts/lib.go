@@ -12,7 +12,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/tmc/swiftui/internal/bridgeutil"
+	"github.com/tmc/swiftui/charts/internal/bridgeutil"
 
 	embeddedbridge "github.com/tmc/swiftui/charts/internal/embeddedbridge"
 

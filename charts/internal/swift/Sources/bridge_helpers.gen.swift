@@ -9,6 +9,8 @@ final class Box<T>: @unchecked Sendable {
     init(_ value: T) { self.value = value }
 }
 
+nonisolated(unsafe) var _CHHoverCallback: (@convention(c) (UInt, Int32, Double, Double, Double, Double, Double, Double, Int32, Double, Double, Int32, Double, Double) -> Void)?
+
 func emptyChartContent() -> AnyChartContent {
     AnyChartContent(Plot {})
 }
@@ -67,5 +69,20 @@ public func CHRetain(_ ref: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer 
 
 @_cdecl("CHRelease")
 public func CHRelease(_ ref: UnsafeMutableRawPointer) {
-    Unmanaged<AnyObject>.fromOpaque(ref).release()
+    if Thread.isMainThread {
+        Unmanaged<AnyObject>.fromOpaque(ref).release()
+        return
+    }
+    let address = UInt(bitPattern: ref)
+    DispatchQueue.main.async {
+        guard let ref = UnsafeMutableRawPointer(bitPattern: address) else {
+            return
+        }
+        Unmanaged<AnyObject>.fromOpaque(ref).release()
+    }
+}
+
+@_cdecl("CHSetHoverCallback")
+public func CHSetHoverCallback(_ fn: @convention(c) (UInt, Int32, Double, Double, Double, Double, Double, Double, Int32, Double, Double, Int32, Double, Double) -> Void) {
+    _CHHoverCallback = fn
 }
