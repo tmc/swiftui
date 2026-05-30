@@ -7,8 +7,7 @@ core SwiftUI views, modifiers, and app lifecycle APIs, and subpackages such as
 `avkit`, `quicklook`, and `spritekit` expose framework
 overlays that return view pointers compatible with `swiftui.ViewFromPointer`.
 
-Auto-generated from Apple developer documentation via
-[applegen](https://github.com/tmc/appledocs/cmd/applegen).
+Auto-generated from Apple developer documentation via an internal tool called applegen.
 
 ## Requirements
 
