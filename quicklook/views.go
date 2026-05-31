@@ -2,7 +2,11 @@
 
 package quicklook
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/tmc/swiftui"
+)
 
 // withCString calls fn with a null-terminated C string pointer.
 func withCString(s string, fn func(*byte)) {
@@ -32,17 +36,11 @@ func gostringFree(p *byte) string {
 	return s
 }
 
-// Retain increments the reference count of a bridge object.
-func Retain(ptr uintptr) uintptr { return _QLS_Retain(ptr) }
-
-// Release decrements the reference count of a bridge object.
-func Release(ptr uintptr) { _QLS_Release(ptr) }
-
 // QuickLookPreview applies a quickLookPreview modifier for the given file URL.
-func QuickLookPreview(view uintptr, urlStr string) uintptr {
-	var result uintptr
+func QuickLookPreview(view uintptr, urlStr string) swiftui.View {
+	var result swiftui.View
 	withCString(urlStr, func(cUrlStr *byte) {
-		result = _QLS_QuickLookPreview(view, cUrlStr)
+		result = swiftui.ViewFromPointer(_QLS_QuickLookPreview(view, cUrlStr))
 	})
 	return result
 }

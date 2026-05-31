@@ -2,7 +2,11 @@
 
 package localauth
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/tmc/swiftui"
+)
 
 // withCString calls fn with a null-terminated C string pointer.
 func withCString(s string, fn func(*byte)) {
@@ -32,17 +36,11 @@ func gostringFree(p *byte) string {
 	return s
 }
 
-// Retain increments the reference count of a bridge object.
-func Retain(ptr uintptr) uintptr { return _LAS_Retain(ptr) }
-
-// Release decrements the reference count of a bridge object.
-func Release(ptr uintptr) { _LAS_Release(ptr) }
-
 // NewLocalAuthView creates a LocalAuthenticationView with the given reason string.
-func NewLocalAuthView(reason string) uintptr {
-	var result uintptr
+func NewLocalAuthView(reason string) swiftui.View {
+	var result swiftui.View
 	withCString(reason, func(cReason *byte) {
-		result = _LAS_LocalAuthViewCreate(cReason)
+		result = swiftui.ViewFromPointer(_LAS_LocalAuthViewCreate(cReason))
 	})
 	return result
 }

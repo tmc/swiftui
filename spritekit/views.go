@@ -2,7 +2,11 @@
 
 package spritekit
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/tmc/swiftui"
+)
 
 // withCString calls fn with a null-terminated C string pointer.
 func withCString(s string, fn func(*byte)) {
@@ -32,23 +36,17 @@ func gostringFree(p *byte) string {
 	return s
 }
 
-// Retain increments the reference count of a bridge object.
-func Retain(ptr uintptr) uintptr { return _SPS_Retain(ptr) }
-
-// Release decrements the reference count of a bridge object.
-func Release(ptr uintptr) { _SPS_Release(ptr) }
-
 // NewSpriteView creates a SpriteView for an SKScene pointer.
-func NewSpriteView(scene uintptr) uintptr {
-	return _SPS_SpriteViewCreate(scene)
+func NewSpriteView(scene uintptr) swiftui.View {
+	return swiftui.ViewFromPointer(_SPS_SpriteViewCreate(scene))
 }
 
 // NewSpriteViewWithTransition creates a SpriteView with a scene transition.
-func NewSpriteViewWithTransition(scene uintptr, transition uintptr) uintptr {
-	return _SPS_SpriteViewCreateWithTransition(scene, transition)
+func NewSpriteViewWithTransition(scene uintptr, transition uintptr) swiftui.View {
+	return swiftui.ViewFromPointer(_SPS_SpriteViewCreateWithTransition(scene, transition))
 }
 
 // NewSpriteViewWithOptions creates a SpriteView with paused state and FPS.
-func NewSpriteViewWithOptions(scene uintptr, isPaused bool, preferredFramesPerSecond int32) uintptr {
-	return _SPS_SpriteViewCreateWithOptions(scene, isPaused, preferredFramesPerSecond)
+func NewSpriteViewWithOptions(scene uintptr, isPaused bool, preferredFramesPerSecond int32) swiftui.View {
+	return swiftui.ViewFromPointer(_SPS_SpriteViewCreateWithOptions(scene, isPaused, preferredFramesPerSecond))
 }

@@ -2,7 +2,11 @@
 
 package workoutkit
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/tmc/swiftui"
+)
 
 // withCString calls fn with a null-terminated C string pointer.
 func withCString(s string, fn func(*byte)) {
@@ -32,13 +36,7 @@ func gostringFree(p *byte) string {
 	return s
 }
 
-// Retain increments the reference count of a bridge object.
-func Retain(ptr uintptr) uintptr { return _WKS_Retain(ptr) }
-
-// Release decrements the reference count of a bridge object.
-func Release(ptr uintptr) { _WKS_Release(ptr) }
-
 // NewWorkoutPreview creates a WorkoutPreview view for a workout composition.
-func NewWorkoutPreview(workout uintptr) uintptr {
-	return _WKS_WorkoutPreview(workout)
+func NewWorkoutPreview(workout uintptr) swiftui.View {
+	return swiftui.ViewFromPointer(_WKS_WorkoutPreview(workout))
 }

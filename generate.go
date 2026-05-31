@@ -2,11 +2,7 @@
 
 package swiftui
 
-// Regenerate the root swiftui package from the local appledocs checkout after package-wide go:generate.
-// Canonical sequence:
-//   1. (cd /Users/tmc/go/src/github.com/tmc/swiftui; go generate ./...)
-//   2. (cd /Volumes/tmc/go/src/github.com/tmc/appledocs; go run ./cmd/applegen swift-bridge SwiftUI --output /Users/tmc/go/src/github.com/tmc/swiftui --module github.com/tmc/swiftui --profile swiftui)
+// Set SWIFTUI_GENERATE_DYLIBS=1 to build a local Swift bridge dylib during generation.
 
 //go:generate applegen swift-bridge SwiftUI --output . --module github.com/tmc/swiftui --profile swiftui
-//go:generate bash -lc "set -euo pipefail; cd internal/swift; swift build -c release --quiet --product SwiftUIBridge"
-//go:generate bash -lc "cp internal/swift/.build/release/libSwiftUIBridge.dylib internal/embeddedbridge/libSwiftUIBridge.dylib"
+//go:generate bash -lc "set -euo pipefail; if [ \"${SWIFTUI_GENERATE_DYLIBS:-}\" = 1 ]; then cd internal/swift; swift build -c release --quiet --product SwiftUIBridge; fi"

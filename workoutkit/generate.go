@@ -2,4 +2,7 @@
 
 package workoutkit
 
+// Set SWIFTUI_GENERATE_DYLIBS=1 to build a local Swift bridge dylib during generation.
+
 //go:generate applegen swift-bridge WorkoutKit --output . --module github.com/tmc/swiftui --profile swiftui
+//go:generate bash -lc "set -euo pipefail; if [ \"${SWIFTUI_GENERATE_DYLIBS:-}\" = 1 ]; then cd internal/swift; swift build -c release --quiet --product WorkoutKitSwiftUIBridge; fi"

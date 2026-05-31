@@ -2,7 +2,11 @@
 
 package scenekit
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/tmc/swiftui"
+)
 
 // withCString calls fn with a null-terminated C string pointer.
 func withCString(s string, fn func(*byte)) {
@@ -32,18 +36,12 @@ func gostringFree(p *byte) string {
 	return s
 }
 
-// Retain increments the reference count of a bridge object.
-func Retain(ptr uintptr) uintptr { return _SKS_Retain(ptr) }
-
-// Release decrements the reference count of a bridge object.
-func Release(ptr uintptr) { _SKS_Release(ptr) }
-
 // NewSceneView creates a SceneView for an SCNScene pointer.
-func NewSceneView(scene uintptr) uintptr {
-	return _SKS_SceneViewCreate(scene)
+func NewSceneView(scene uintptr) swiftui.View {
+	return swiftui.ViewFromPointer(_SKS_SceneViewCreate(scene))
 }
 
 // NewSceneViewWithOptions creates a SceneView with rendering options.
-func NewSceneViewWithOptions(scene uintptr, options int32) uintptr {
-	return _SKS_SceneViewCreateWithOptions(scene, options)
+func NewSceneViewWithOptions(scene uintptr, options int32) swiftui.View {
+	return swiftui.ViewFromPointer(_SKS_SceneViewCreateWithOptions(scene, options))
 }

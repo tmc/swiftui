@@ -2,7 +2,11 @@
 
 package avkit
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/tmc/swiftui"
+)
 
 // withCString calls fn with a null-terminated C string pointer.
 func withCString(s string, fn func(*byte)) {
@@ -32,18 +36,12 @@ func gostringFree(p *byte) string {
 	return s
 }
 
-// Retain increments the reference count of a bridge object.
-func Retain(ptr uintptr) uintptr { return _AVS_Retain(ptr) }
-
-// Release decrements the reference count of a bridge object.
-func Release(ptr uintptr) { _AVS_Release(ptr) }
-
 // NewVideoPlayer creates a VideoPlayer view for an AVPlayer pointer.
-func NewVideoPlayer(player uintptr) uintptr {
-	return _AVS_VideoPlayerCreate(player)
+func NewVideoPlayer(player uintptr) swiftui.View {
+	return swiftui.ViewFromPointer(_AVS_VideoPlayerCreate(player))
 }
 
 // NewVideoPlayerWithOverlay creates a VideoPlayer with a SwiftUI overlay view.
-func NewVideoPlayerWithOverlay(player uintptr, overlay uintptr) uintptr {
-	return _AVS_VideoPlayerWithOverlayCreate(player, overlay)
+func NewVideoPlayerWithOverlay(player uintptr, overlay uintptr) swiftui.View {
+	return swiftui.ViewFromPointer(_AVS_VideoPlayerWithOverlayCreate(player, overlay))
 }

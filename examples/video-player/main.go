@@ -48,8 +48,7 @@ func main() {
 	player.Send(objc.RegisterName("play"))
 
 	// Wrap in VideoPlayer SwiftUI view via the overlay bridge.
-	viewPtr := avkit.NewVideoPlayer(uintptr(player))
-	videoView := swiftui.ViewFromPointer(viewPtr)
+	videoView := avkit.NewVideoPlayer(uintptr(player))
 	sourceName := urlStr
 	if i := strings.LastIndex(sourceName, "/"); i >= 0 && i < len(sourceName)-1 {
 		sourceName = sourceName[i+1:]

@@ -2,7 +2,11 @@
 
 package translation
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/tmc/swiftui"
+)
 
 // withCString calls fn with a null-terminated C string pointer.
 func withCString(s string, fn func(*byte)) {
@@ -32,17 +36,11 @@ func gostringFree(p *byte) string {
 	return s
 }
 
-// Retain increments the reference count of a bridge object.
-func Retain(ptr uintptr) uintptr { return _TRS_Retain(ptr) }
-
-// Release decrements the reference count of a bridge object.
-func Release(ptr uintptr) { _TRS_Release(ptr) }
-
 // TranslationPresentation applies a translationPresentation modifier to present the system translation overlay.
-func TranslationPresentation(view uintptr, text string) uintptr {
-	var result uintptr
+func TranslationPresentation(view uintptr, text string) swiftui.View {
+	var result swiftui.View
 	withCString(text, func(cText *byte) {
-		result = _TRS_TranslationPresentation(view, cText)
+		result = swiftui.ViewFromPointer(_TRS_TranslationPresentation(view, cText))
 	})
 	return result
 }

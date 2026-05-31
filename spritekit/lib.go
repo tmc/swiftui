@@ -23,6 +23,13 @@ import (
 var libHandle uintptr
 var loadErr error
 
+// Err reports the error encountered while loading the SpriteKit bridge, or
+// nil if the bridge loaded successfully.
+func Err() error { return loadErr }
+
+// Available reports whether the SpriteKit bridge dylib loaded successfully.
+func Available() bool { return libHandle != 0 && loadErr == nil }
+
 // swiftBridgeDir returns the path to the vendored Swift bridge source directory.
 func swiftBridgeDir() string {
 	_, file, _, _ := runtime.Caller(0)

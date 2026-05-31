@@ -64,8 +64,7 @@ func main() {
 			ForegroundStyleNamed("tertiary"),
 	).Padding(32)
 
-	previewPtr := quicklook.QuickLookPreview(previewCard.Pointer(), file)
-	preview := swiftui.ViewFromPointer(previewPtr)
+	preview := quicklook.QuickLookPreview(previewCard.Pointer(), file)
 	if err :=
 
 		// Display in a window.

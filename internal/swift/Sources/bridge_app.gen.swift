@@ -27,35 +27,47 @@ func suiOnMainSync<T>(_ body: () -> T) -> T {
     return DispatchQueue.main.sync(execute: body)
 }
 
+@MainActor
+func suiToggleMenuBarPopover() {
+    guard let popover = _popover, let button = _statusItem?.button else { return }
+    if popover.isShown {
+        popover.performClose(nil)
+    } else {
+        // Activate the app before showing so the popover's window can
+        // become key; otherwise (accessory activation policy + transient
+        // popover) the window never becomes key and SwiftUI swallows the
+        // Button mouse-up, so taps render but never fire into Go.
+        NSApp.activate(ignoringOtherApps: true)
+        // .minY anchors the popover below the status-bar button, which is
+        // correct for the top menu bar.
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.makeKey()
+    }
+}
+
+@MainActor
+func suiOpenMenuBarPopover() {
+    guard let popover = _popover, let button = _statusItem?.button else { return }
+    if !popover.isShown {
+        NSApp.activate(ignoringOtherApps: true)
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+        popover.contentViewController?.view.window?.makeKey()
+    }
+}
+
 class SUIMenuBarAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
     }
 
-    @MainActor @objc func togglePopover(_ sender: AnyObject?) {
-        guard let popover = _popover, let button = _statusItem?.button else { return }
-        if popover.isShown {
-            popover.performClose(sender)
-        } else {
-            // Activate the app before showing so the popover's window can
-            // become key; otherwise (accessory activation policy + transient
-            // popover) the window never becomes key and SwiftUI swallows the
-            // Button mouse-up, so taps render but never fire into Go.
-            NSApp.activate(ignoringOtherApps: true)
-            // .minY anchors the popover below the status-bar button, which is
-            // correct for the top menu bar.
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
+    @objc func togglePopover(_ sender: AnyObject?) {
+        MainActor.assumeIsolated {
+            suiToggleMenuBarPopover()
         }
     }
 
     @MainActor func openPopoverOnLaunch() {
-        guard let popover = _popover, let button = _statusItem?.button else { return }
-        if !popover.isShown {
-            NSApp.activate(ignoringOtherApps: true)
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
-        }
+        suiOpenMenuBarPopover()
     }
 }
 
@@ -94,6 +106,7 @@ func suiBuildStatusItem(delegate: SUIMenuBarAppDelegate, label: String, systemIm
     item.button?.title = " " + label
     item.button?.target = delegate
     item.button?.action = #selector(SUIMenuBarAppDelegate.togglePopover(_:))
+    item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
     _statusItem = item
 
     guard let content = content else { return }
@@ -277,7 +290,6 @@ public func SUIPlaySystemSound(_ name: UnsafePointer<CChar>) {
         NSSound(named: NSSound.Name(soundName))?.play()
     }
 }
-
 nonisolated(unsafe) var _sceneRunnerDelegate: SUISceneRunnerDelegate?
 nonisolated(unsafe) var _sceneWindows: [String: NSWindow] = [:]
 nonisolated(unsafe) var _sceneWindowSpecs: [String: SUIScenePlanScene] = [:]
@@ -377,30 +389,14 @@ class SUISceneRunnerDelegate: NSObject, NSApplicationDelegate {
         return result != 0 ? .terminateNow : .terminateCancel
     }
 
-    @MainActor @objc func togglePopover(_ sender: AnyObject?) {
-        guard let popover = _popover, let button = _statusItem?.button else { return }
-        if popover.isShown {
-            popover.performClose(sender)
-        } else {
-            // Activate the app before showing so the popover's window can
-            // become key; otherwise (accessory activation policy + transient
-            // popover) the window never becomes key and SwiftUI swallows the
-            // Button mouse-up, so taps render but never fire into Go.
-            NSApp.activate(ignoringOtherApps: true)
-            // .minY anchors the popover below the status-bar button, which is
-            // correct for the top menu bar.
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
+    @objc func togglePopover(_ sender: AnyObject?) {
+        MainActor.assumeIsolated {
+            suiToggleMenuBarPopover()
         }
     }
 
     @MainActor func openPopoverOnLaunch() {
-        guard let popover = _popover, let button = _statusItem?.button else { return }
-        if !popover.isShown {
-            NSApp.activate(ignoringOtherApps: true)
-            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-            popover.contentViewController?.view.window?.makeKey()
-        }
+        suiOpenMenuBarPopover()
     }
 
     @MainActor @objc func openSettings(_ sender: AnyObject?) {
@@ -1014,6 +1010,7 @@ private func SUIConfigureSceneMenuBar(_ scene: SUIScenePlanScene, _ view: AnyVie
     item.button?.title = " " + labelStr
     item.button?.target = delegate
     item.button?.action = #selector(SUISceneRunnerDelegate.togglePopover(_:))
+    item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
     _statusItem = item
 
     let popover = NSPopover()

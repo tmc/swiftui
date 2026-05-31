@@ -2,7 +2,11 @@
 
 package arkit
 
-import "unsafe"
+import (
+	"unsafe"
+
+	"github.com/tmc/swiftui"
+)
 
 // withCString calls fn with a null-terminated C string pointer.
 func withCString(s string, fn func(*byte)) {
@@ -32,13 +36,7 @@ func gostringFree(p *byte) string {
 	return s
 }
 
-// Retain increments the reference count of a bridge object.
-func Retain(ptr uintptr) uintptr { return _ARS_Retain(ptr) }
-
-// Release decrements the reference count of a bridge object.
-func Release(ptr uintptr) { _ARS_Release(ptr) }
-
 // NewARView creates an ARView wrapped as a SwiftUI view.
-func NewARView() uintptr {
-	return _ARS_ARViewCreate()
+func NewARView() swiftui.View {
+	return swiftui.ViewFromPointer(_ARS_ARViewCreate())
 }
