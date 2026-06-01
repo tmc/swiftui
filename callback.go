@@ -3,6 +3,7 @@
 package swiftui
 
 import (
+	"runtime"
 	"sync"
 	"unsafe"
 
@@ -188,6 +189,19 @@ func registerViewBuilder(fn func(int) View) uintptr {
 	return viewBuilderNext
 }
 
+// transferViewToSwift returns v's retained Swift pointer to Swift code that
+// consumes it with takeRetainedValue. Go must forget its finalizer ownership or
+// the same Swift object can be released twice while SwiftUI is rendering.
+func transferViewToSwift(v View) uintptr {
+	ptr := v.ptr
+	if v.retained != nil {
+		runtime.SetFinalizer(v.retained, nil)
+		v.retained.ptr = 0
+	}
+	runtime.KeepAlive(v.retained)
+	return ptr
+}
+
 // viewBuilderCallbackTrampoline is called from Swift to rebuild a dynamic view.
 // It returns a View pointer (uintptr) that Swift takes ownership of.
 func viewBuilderCallbackTrampoline(id uintptr, value int) uintptr {
@@ -195,7 +209,7 @@ func viewBuilderCallbackTrampoline(id uintptr, value int) uintptr {
 	fn := viewBuilderMap[id]
 	viewBuilderMu.Unlock()
 	if fn != nil {
-		return fn(int(value)).ptr
+		return transferViewToSwift(fn(int(value)))
 	}
 	return _SUIEmptyView()
 }
@@ -222,7 +236,7 @@ func viewBuilderCallbackTrampolineFloat(id uintptr, value float64) uintptr {
 	fn := floatViewBuilderMap[id]
 	floatViewBuilderMu.Unlock()
 	if fn != nil {
-		return fn(value).ptr
+		return transferViewToSwift(fn(value))
 	}
 	return _SUIEmptyView()
 }
@@ -256,7 +270,7 @@ func geometryBuilderTrampoline(id uintptr, width, height float64) uintptr {
 	fn := geometryBuilderMap[id]
 	geometryBuilderMu.Unlock()
 	if fn != nil {
-		return fn(width, height).ptr
+		return transferViewToSwift(fn(width, height))
 	}
 	return _SUIEmptyView()
 }

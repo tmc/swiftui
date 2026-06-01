@@ -55,14 +55,29 @@ func suiOpenMenuBarPopover() {
     }
 }
 
+@MainActor
+func suiSetMenuBarPopoverShown(_ shown: Bool) {
+    guard let popover = _popover else { return }
+    if shown {
+        suiOpenMenuBarPopover()
+    } else if popover.isShown {
+        popover.performClose(nil)
+    }
+}
+
 class SUIMenuBarAppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
         return false
     }
 
     @objc func togglePopover(_ sender: AnyObject?) {
-        MainActor.assumeIsolated {
-            suiToggleMenuBarPopover()
+        let shouldOpen = MainActor.assumeIsolated {
+            !(_popover?.isShown ?? false)
+        }
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                suiSetMenuBarPopoverShown(shouldOpen)
+            }
         }
     }
 
@@ -128,7 +143,7 @@ func suiBuildStatusItem(delegate: SUIMenuBarAppDelegate, label: String, systemIm
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     item.button?.target = delegate
     item.button?.action = #selector(SUIMenuBarAppDelegate.togglePopover(_:))
-    item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+    item.button?.sendAction(on: [.leftMouseDown, .rightMouseDown])
     _statusItem = item
     suiApplyStatusItemButton(label: label, systemImage: systemImage, monospacedDigits: false)
 
@@ -436,8 +451,13 @@ class SUISceneRunnerDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func togglePopover(_ sender: AnyObject?) {
-        MainActor.assumeIsolated {
-            suiToggleMenuBarPopover()
+        let shouldOpen = MainActor.assumeIsolated {
+            !(_popover?.isShown ?? false)
+        }
+        DispatchQueue.main.async {
+            MainActor.assumeIsolated {
+                suiSetMenuBarPopoverShown(shouldOpen)
+            }
         }
     }
 
@@ -1052,7 +1072,7 @@ private func SUIConfigureSceneMenuBar(_ scene: SUIScenePlanScene, _ view: AnyVie
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     item.button?.target = delegate
     item.button?.action = #selector(SUISceneRunnerDelegate.togglePopover(_:))
-    item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
+    item.button?.sendAction(on: [.leftMouseDown, .rightMouseDown])
     _statusItem = item
     suiApplyStatusItemButton(label: labelStr, systemImage: imageStr, monospacedDigits: false)
 
