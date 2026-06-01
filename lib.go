@@ -220,6 +220,19 @@ func tryRegisterLibFunc(fptr any, handle uintptr, name string) bool {
 	return true
 }
 
+// tryRegisterOptionalLibFunc attempts to register an optional C function from
+// the dylib. Missing optional symbols leave the function nil without marking the
+// loaded dylib stale.
+func tryRegisterOptionalLibFunc(fptr any, handle uintptr, name string) (ok bool) {
+	defer func() {
+		if recover() != nil {
+			ok = false
+		}
+	}()
+	purego.RegisterLibFunc(fptr, handle, name)
+	return true
+}
+
 // C function variables registered via purego.RegisterLibFunc.
 var (
 	// Views.
@@ -862,13 +875,13 @@ func init() {
 	tryRegisterLibFunc(&_SUIRunApp, libHandle, "SUIRunApp")
 	tryRegisterLibFunc(&_SUIRun, libHandle, "SUIRun")
 	tryRegisterLibFunc(&_SUIRunMenuBar, libHandle, "SUIRunMenuBar")
-	tryRegisterLibFunc(&_SUIRunMenuBarEx, libHandle, "SUIRunMenuBarEx")
+	tryRegisterOptionalLibFunc(&_SUIRunMenuBarEx, libHandle, "SUIRunMenuBarEx")
 	tryRegisterLibFunc(&_SUIRunWithMenuBar, libHandle, "SUIRunWithMenuBar")
 	tryRegisterLibFunc(&_SUIRunScenePlan, libHandle, "SUIRunScenePlan")
 	tryRegisterLibFunc(&_SUIOpenSceneWindow, libHandle, "SUIOpenSceneWindow")
 	tryRegisterLibFunc(&_SUIUpdateMenuBarLabel, libHandle, "SUIUpdateMenuBarLabel")
-	tryRegisterLibFunc(&_SUIUpdateMenuBarLabelStyled, libHandle, "SUIUpdateMenuBarLabelStyled")
-	tryRegisterLibFunc(&_SUIUpdateMenuBarStatus, libHandle, "SUIUpdateMenuBarStatus")
+	tryRegisterOptionalLibFunc(&_SUIUpdateMenuBarLabelStyled, libHandle, "SUIUpdateMenuBarLabelStyled")
+	tryRegisterOptionalLibFunc(&_SUIUpdateMenuBarStatus, libHandle, "SUIUpdateMenuBarStatus")
 	tryRegisterLibFunc(&_SUIPlaySystemSound, libHandle, "SUIPlaySystemSound")
 
 	// Callbacks.
