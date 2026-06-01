@@ -93,6 +93,32 @@ func suiBuildWindow(_ view: AnyView, title: String, width: Double, height: Doubl
     window.makeKeyAndOrderFront(nil)
 }
 
+@MainActor
+func suiMenuBarImage(systemImage: String, label: String) -> NSImage? {
+    guard !systemImage.isEmpty else { return nil }
+    guard let image = NSImage(systemSymbolName: systemImage, accessibilityDescription: label) else {
+        return nil
+    }
+    image.isTemplate = true
+    return image
+}
+
+@MainActor
+func suiApplyStatusItemButton(label: String, systemImage: String?, monospacedDigits: Bool) {
+    guard let button = _statusItem?.button else { return }
+    if let systemImage = systemImage {
+        button.image = suiMenuBarImage(systemImage: systemImage, label: label)
+        button.imagePosition = .imageLeft
+    }
+    if monospacedDigits {
+        let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        button.attributedTitle = NSAttributedString(string: " " + label, attributes: [.font: font])
+        return
+    }
+    button.attributedTitle = NSAttributedString(string: "")
+    button.title = " " + label
+}
+
 // suiBuildStatusItem installs the menu bar (status bar) item wired to toggle the
 // popover. If content is nil the status item has no popover (a bare menu bar
 // item; an NSMenu can be attached later).
@@ -100,14 +126,11 @@ func suiBuildWindow(_ view: AnyView, title: String, width: Double, height: Doubl
 func suiBuildStatusItem(delegate: SUIMenuBarAppDelegate, label: String, systemImage: String,
                         content: AnyView?, width: Double, height: Double, openOnLaunch: Bool) {
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    if let img = NSImage(systemSymbolName: systemImage, accessibilityDescription: label) {
-        item.button?.image = img
-    }
-    item.button?.title = " " + label
     item.button?.target = delegate
     item.button?.action = #selector(SUIMenuBarAppDelegate.togglePopover(_:))
     item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
     _statusItem = item
+    suiApplyStatusItemButton(label: label, systemImage: systemImage, monospacedDigits: false)
 
     guard let content = content else { return }
 
@@ -244,7 +267,7 @@ public func SUIRunWithMenuBar(_ rootView: UnsafeMutableRawPointer,
 public func SUIUpdateMenuBarLabel(_ label: UnsafePointer<CChar>) {
 	let str = String(cString: label)
     DispatchQueue.main.async {
-        _statusItem?.button?.title = " " + str
+        suiApplyStatusItemButton(label: str, systemImage: nil, monospacedDigits: false)
     }
 }
 
@@ -257,14 +280,7 @@ public func SUIUpdateMenuBarLabelStyled(_ label: UnsafePointer<CChar>,
         guard let button = _statusItem?.button else { return }
 
         let applyLabel = {
-            if monospacedDigits != 0 {
-                let font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
-                let attr = NSAttributedString(string: " " + str, attributes: [.font: font])
-                button.attributedTitle = attr
-            } else {
-                button.attributedTitle = NSAttributedString(string: "")
-                button.title = " " + str
-            }
+            suiApplyStatusItemButton(label: str, systemImage: nil, monospacedDigits: monospacedDigits != 0)
         }
 
         if animated != 0 {
@@ -279,6 +295,36 @@ public func SUIUpdateMenuBarLabelStyled(_ label: UnsafePointer<CChar>,
             })
         } else {
             applyLabel()
+        }
+    }
+}
+
+@_cdecl("SUIUpdateMenuBarStatus")
+public func SUIUpdateMenuBarStatus(_ label: UnsafePointer<CChar>,
+                                   _ systemImage: UnsafePointer<CChar>,
+                                   _ monospacedDigits: Int32,
+                                   _ animated: Int32) {
+    let str = String(cString: label)
+    let img = String(cString: systemImage)
+    DispatchQueue.main.async {
+        guard let button = _statusItem?.button else { return }
+
+        let applyStatus = {
+            suiApplyStatusItemButton(label: str, systemImage: img, monospacedDigits: monospacedDigits != 0)
+        }
+
+        if animated != 0 {
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.08
+                button.animator().alphaValue = 0.65
+            })
+            applyStatus()
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.12
+                button.animator().alphaValue = 1.0
+            })
+        } else {
+            applyStatus()
         }
     }
 }
@@ -1004,14 +1050,11 @@ private func SUIConfigureSceneMenuBar(_ scene: SUIScenePlanScene, _ view: AnyVie
     let height = scene.height ?? 220
 
     let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-    if let img = NSImage(systemSymbolName: imageStr, accessibilityDescription: labelStr) {
-        item.button?.image = img
-    }
-    item.button?.title = " " + labelStr
     item.button?.target = delegate
     item.button?.action = #selector(SUISceneRunnerDelegate.togglePopover(_:))
     item.button?.sendAction(on: [.leftMouseUp, .rightMouseUp])
     _statusItem = item
+    suiApplyStatusItemButton(label: labelStr, systemImage: imageStr, monospacedDigits: false)
 
     let popover = NSPopover()
     popover.contentSize = NSSize(width: width, height: height)

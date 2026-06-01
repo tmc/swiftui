@@ -418,6 +418,16 @@ func OpenWindow(id string) error {
 	return nil
 }
 
+func menuBarStyleBits(style MenuBarLabelStyle) (monospacedDigits, animate int32) {
+	if style.MonospacedDigits {
+		monospacedDigits = 1
+	}
+	if style.Animate {
+		animate = 1
+	}
+	return monospacedDigits, animate
+}
+
 // UpdateMenuBarLabel changes the status item text at runtime.
 func UpdateMenuBarLabel(label string) {
 	withCString(label, func(l *byte) {
@@ -432,16 +442,25 @@ func UpdateMenuBarLabelStyled(label string, style MenuBarLabelStyle) {
 		UpdateMenuBarLabel(label)
 		return
 	}
-	var monospacedDigits int32
-	var animate int32
-	if style.MonospacedDigits {
-		monospacedDigits = 1
-	}
-	if style.Animate {
-		animate = 1
-	}
+	monospacedDigits, animate := menuBarStyleBits(style)
 	withCString(label, func(l *byte) {
 		_SUIUpdateMenuBarLabelStyled(l, monospacedDigits, animate)
+	})
+}
+
+// UpdateMenuBarStatus updates the status item text and SF Symbol at runtime.
+// If the running bridge is too old to update the symbol, it falls back to
+// UpdateMenuBarLabelStyled.
+func UpdateMenuBarStatus(label, systemImage string, style MenuBarLabelStyle) {
+	if _SUIUpdateMenuBarStatus == nil {
+		UpdateMenuBarLabelStyled(label, style)
+		return
+	}
+	monospacedDigits, animate := menuBarStyleBits(style)
+	withCString(label, func(l *byte) {
+		withCString(systemImage, func(img *byte) {
+			_SUIUpdateMenuBarStatus(l, img, monospacedDigits, animate)
+		})
 	})
 }
 

@@ -497,6 +497,7 @@ var (
 	_SUIOpenSceneWindow          func(*byte) int32
 	_SUIUpdateMenuBarLabel       func(*byte)
 	_SUIUpdateMenuBarLabelStyled func(*byte, int32, int32)
+	_SUIUpdateMenuBarStatus      func(*byte, *byte, int32, int32)
 	_SUIPlaySystemSound          func(*byte)
 
 	// Callbacks.
@@ -867,6 +868,7 @@ func init() {
 	tryRegisterLibFunc(&_SUIOpenSceneWindow, libHandle, "SUIOpenSceneWindow")
 	tryRegisterLibFunc(&_SUIUpdateMenuBarLabel, libHandle, "SUIUpdateMenuBarLabel")
 	tryRegisterLibFunc(&_SUIUpdateMenuBarLabelStyled, libHandle, "SUIUpdateMenuBarLabelStyled")
+	tryRegisterLibFunc(&_SUIUpdateMenuBarStatus, libHandle, "SUIUpdateMenuBarStatus")
 	tryRegisterLibFunc(&_SUIPlaySystemSound, libHandle, "SUIPlaySystemSound")
 
 	// Callbacks.
