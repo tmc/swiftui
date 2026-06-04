@@ -5,4 +5,4 @@ package avkit
 // Set SWIFTUI_GENERATE_DYLIBS=1 to build a local Swift bridge dylib during generation.
 
 //go:generate applegen swift-bridge AVKit --output . --module github.com/tmc/swiftui --profile swiftui
-//go:generate bash -lc "set -euo pipefail; if [ \"${SWIFTUI_GENERATE_DYLIBS:-}\" = 1 ]; then cd internal/swift; swift build -c release --quiet --product AVKitSwiftUIBridge; fi"
+//go:generate bash -lc "set -euo pipefail; if [ \"${DOLLAR}{SWIFTUI_GENERATE_DYLIBS:-}\" = 1 ]; then cd internal/swift; swift build -c release --quiet --product AVKitSwiftUIBridge; dylib=${DOLLAR}(find .build -path '*/release/libAVKitSwiftUIBridge.dylib' -type f | sort | tail -n 1); test -n \"${DOLLAR}dylib\"; cp \"${DOLLAR}dylib\" ../embeddedbridge/libAVKitSwiftUIBridge.dylib; fi"

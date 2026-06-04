@@ -1,0 +1,2 @@
+This package directory is embedded by payload.go.
+CI may place libWorkoutKitSwiftUIBridge.dylib here for vendored runtime loading.

@@ -81,26 +81,27 @@ jobs:
       - name: Collect artifacts
         run: |
           set -euo pipefail
-          rm -rf dist
-          mkdir -p dist/universal-dylibs
+          artifact_dir="${RUNNER_TEMP:?}/universal-dylibs-artifact"
+          rm -rf "$artifact_dir"
+          mkdir -p "$artifact_dir/universal-dylibs"
           while IFS= read -r dylib; do
-            dest="dist/universal-dylibs/${dylib#./}"
+            dest="$artifact_dir/universal-dylibs/${dylib#./}"
             mkdir -p "$(dirname "$dest")"
             cp "$dylib" "$dest"
           done < <(find . -path '*/.build/universal/release/*.dylib' -type f | sort)
-          if [ -z "$(find dist/universal-dylibs -type f -name '*.dylib' -print -quit)" ]; then
+          if [ -z "$(find "$artifact_dir/universal-dylibs" -type f -name '*.dylib' -print -quit)" ]; then
             echo "no universal dylibs were produced" >&2
             exit 1
           fi
-          tar -C dist -czf dist/universal-dylibs.tar.gz universal-dylibs
+          tar -C "$artifact_dir" -czf "$artifact_dir/universal-dylibs.tar.gz" universal-dylibs
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v6
         with:
           name: universal-dylibs
           path: |
-            dist/universal-dylibs
-            dist/universal-dylibs.tar.gz
+            ${{ runner.temp }}/universal-dylibs-artifact/universal-dylibs
+            ${{ runner.temp }}/universal-dylibs-artifact/universal-dylibs.tar.gz
 
       - name: Place dylibs into embeddedbridge dirs
         if: github.ref == 'refs/heads/main'
@@ -116,21 +117,6 @@ jobs:
             mkdir -p "$embed_dir"
             dylib_name=$(basename "$dylib")
             cp "$dylib" "$embed_dir/$dylib_name"
-            # Rewrite payload.go stub to unconditional go:embed
-            cat > "$embed_dir/payload.go" <<GOEOF
-          package embeddedbridge
-
-          import _ "embed"
-
-          //go:embed $dylib_name
-          var bridge []byte
-
-          // Payload returns the embedded bridge dylib payload.
-          func Payload() ([]byte, string) {
-          	return bridge, "$dylib_name"
-          }
-          GOEOF
-            gofmt -w "$embed_dir/payload.go"
             echo "  $embed_dir/$dylib_name"
           done < <(find . -path '*/.build/universal/release/*.dylib' -type f | sort)
 
@@ -138,7 +124,7 @@ jobs:
         if: github.ref == 'refs/heads/main'
         run: |
           set -euo pipefail
-          git add 'internal/embeddedbridge/*.dylib' 'internal/embeddedbridge/payload.go' '**/internal/embeddedbridge/*.dylib' '**/internal/embeddedbridge/payload.go'
+          git add 'internal/embeddedbridge/*.dylib' '**/internal/embeddedbridge/*.dylib'
           if git diff --cached --quiet; then
             echo "no dylib changes to commit"
           else
@@ -170,7 +156,7 @@ jobs:
           fi
           git tag -f main-snapshot "$snapshot_sha"
           git push --force origin refs/tags/main-snapshot
-          gh release create main-snapshot dist/universal-dylibs.tar.gz \
+          gh release create main-snapshot "$RUNNER_TEMP/universal-dylibs-artifact/universal-dylibs.tar.gz" \
             --verify-tag \
             --title "Main Snapshot" \
             --notes "$notes" \
@@ -183,9 +169,9 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
-            gh release upload "${GITHUB_REF_NAME}" dist/universal-dylibs.tar.gz --clobber
+            gh release upload "${GITHUB_REF_NAME}" "$RUNNER_TEMP/universal-dylibs-artifact/universal-dylibs.tar.gz" --clobber
           else
-            gh release create "${GITHUB_REF_NAME}" dist/universal-dylibs.tar.gz \
+            gh release create "${GITHUB_REF_NAME}" "$RUNNER_TEMP/universal-dylibs-artifact/universal-dylibs.tar.gz" \
               --verify-tag \
               --generate-notes
           fi
