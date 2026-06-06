@@ -50,13 +50,19 @@ public func SUIImageFromFile(_ path: UnsafePointer<CChar>) -> UnsafeMutableRawPo
 
 @_cdecl("SUIAsyncImage")
 public func SUIAsyncImage(_ urlStr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    return SUIAsyncImageContentMode(urlStr, 0)
+}
+
+@_cdecl("SUIAsyncImageContentMode")
+public func SUIAsyncImageContentMode(_ urlStr: UnsafePointer<CChar>, _ contentMode: Int32) -> UnsafeMutableRawPointer {
     let str = String(cString: urlStr)
+    let mode: ContentMode = contentMode == 1 ? .fill : .fit
     let view: AnyView
     if let url = URL(string: str) {
         view = AnyView(AsyncImage(url: url) { phase in
             switch phase {
             case .success(let image):
-                image.resizable().aspectRatio(contentMode: .fit)
+                image.resizable().aspectRatio(contentMode: mode)
             case .failure:
                 Image(systemName: "exclamationmark.triangle")
             case .empty:

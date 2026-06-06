@@ -44,6 +44,15 @@ func AsyncImage(url string) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// AsyncImageContentMode loads and displays an image from a URL with the given content mode.
+func AsyncImageContentMode(url string, mode ContentMode) View {
+	var ptr uintptr
+	withCString(url, func(urlC *byte) {
+		ptr = _SUIAsyncImageContentMode(urlC, int32(mode))
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // Spacer creates a flexible space that expands along the major axis.
 func Spacer() View {
 	ptr := _SUISpacer()
@@ -872,6 +881,26 @@ func DatePicker(label string, state *DateState, onChange func()) View {
 	var ptr uintptr
 	withCString(label, func(labelC *byte) {
 		ptr = _SUIDatePicker(labelC, state.ptr, onChangeID)
+	})
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(onChangeID)
+	return ret
+}
+
+// DatePickerOptions creates a date picker with min/max epoch-second bounds and component flags.
+func DatePickerOptions(label string, state *DateState, min float64, max float64, enableDate bool, enableTime bool, onChange func()) View {
+	var enableDateV int32
+	if enableDate {
+		enableDateV = 1
+	}
+	var enableTimeV int32
+	if enableTime {
+		enableTimeV = 1
+	}
+	onChangeID := registerCallback(onChange)
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		ptr = _SUIDatePickerOptions(labelC, state.ptr, min, max, enableDateV, enableTimeV, onChangeID)
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)

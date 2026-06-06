@@ -299,7 +299,28 @@ public func SUIStateSetDate(_ ref: UnsafeMutableRawPointer, _ epochSeconds: Doub
 public func SUIDatePicker(_ labelPtr: UnsafePointer<CChar>, _ stateRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
     let label = String(cString: labelPtr)
     let state = Unmanaged<BridgedDateState>.fromOpaque(stateRef).takeUnretainedValue()
-    let view = AnyView(BridgedDatePicker(label: label, state: state, callbackID: callbackID))
+    let view = AnyView(BridgedDatePicker(label: label, state: state, min: nil, max: nil, displayedComponents: [.date, .hourAndMinute], callbackID: callbackID))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIDatePickerOptions")
+@MainActor
+public func SUIDatePickerOptions(_ labelPtr: UnsafePointer<CChar>, _ stateRef: UnsafeMutableRawPointer, _ minEpoch: Double, _ maxEpoch: Double, _ enableDate: Int32, _ enableTime: Int32, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let label = String(cString: labelPtr)
+    let state = Unmanaged<BridgedDateState>.fromOpaque(stateRef).takeUnretainedValue()
+    let minDate = minEpoch > 0 ? Date(timeIntervalSince1970: minEpoch) : nil
+    let maxDate = maxEpoch > 0 ? Date(timeIntervalSince1970: maxEpoch) : nil
+    var components: DatePickerComponents = []
+    if enableDate != 0 {
+        components.insert(.date)
+    }
+    if enableTime != 0 {
+        components.insert(.hourAndMinute)
+    }
+    if components.isEmpty {
+        components = [.date, .hourAndMinute]
+    }
+    let view = AnyView(BridgedDatePicker(label: label, state: state, min: minDate, max: maxDate, displayedComponents: components, callbackID: callbackID))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
@@ -307,16 +328,38 @@ public func SUIDatePicker(_ labelPtr: UnsafePointer<CChar>, _ stateRef: UnsafeMu
 struct BridgedDatePicker: View {
     let label: String
     var state: BridgedDateState
+    let min: Date?
+    let max: Date?
+    let displayedComponents: DatePickerComponents
     let callbackID: UInt
 
     var body: some View {
-        DatePicker(label, selection: Binding(
+        let selection = Binding(
             get: { state.value },
             set: { newValue in
-                state.setAndBump(newValue)
+                state.setAndBump(clamp(newValue))
                 _SUIButtonCallback?(callbackID)
             }
-        ))
+        )
+        if let min, let max {
+            DatePicker(label, selection: selection, in: min...max, displayedComponents: displayedComponents)
+        } else if let min {
+            DatePicker(label, selection: selection, in: min..., displayedComponents: displayedComponents)
+        } else if let max {
+            DatePicker(label, selection: selection, in: ...max, displayedComponents: displayedComponents)
+        } else {
+            DatePicker(label, selection: selection, displayedComponents: displayedComponents)
+        }
+    }
+
+    private func clamp(_ date: Date) -> Date {
+        if let min, date < min {
+            return min
+        }
+        if let max, date > max {
+            return max
+        }
+        return date
     }
 }
 

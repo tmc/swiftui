@@ -242,6 +242,7 @@ var (
 	_SUIImageNamed                          func(*byte) uintptr
 	_SUIImageFromFile                       func(*byte) uintptr
 	_SUIAsyncImage                          func(*byte) uintptr
+	_SUIAsyncImageContentMode               func(*byte, int32) uintptr
 	_SUISpacer                              func() uintptr
 	_SUIDivider                             func() uintptr
 	_SUILabel                               func(*byte, *byte) uintptr
@@ -326,6 +327,7 @@ var (
 	_SUINavigationLink                      func(*byte, uintptr) uintptr
 	_SUIColorPicker                         func(*byte, uintptr, uintptr) uintptr
 	_SUIDatePicker                          func(*byte, uintptr, uintptr) uintptr
+	_SUIDatePickerOptions                   func(*byte, uintptr, float64, float64, int32, int32, uintptr) uintptr
 	_SUIFloatSlider                         func(*byte, uintptr, float64, float64, uintptr) uintptr
 	_SUIFloatGauge                          func(*byte, uintptr, float64, float64) uintptr
 	_SUIFloatProgressView                   func(uintptr, float64) uintptr
@@ -613,6 +615,7 @@ func init() {
 	tryRegisterLibFunc(&_SUIImageNamed, libHandle, "SUIImageNamed")
 	tryRegisterLibFunc(&_SUIImageFromFile, libHandle, "SUIImageFromFile")
 	tryRegisterLibFunc(&_SUIAsyncImage, libHandle, "SUIAsyncImage")
+	tryRegisterLibFunc(&_SUIAsyncImageContentMode, libHandle, "SUIAsyncImageContentMode")
 	tryRegisterLibFunc(&_SUISpacer, libHandle, "SUISpacer")
 	tryRegisterLibFunc(&_SUIDivider, libHandle, "SUIDivider")
 	tryRegisterLibFunc(&_SUILabel, libHandle, "SUILabel")
@@ -697,6 +700,7 @@ func init() {
 	tryRegisterLibFunc(&_SUINavigationLink, libHandle, "SUINavigationLink")
 	tryRegisterLibFunc(&_SUIColorPicker, libHandle, "SUIColorPicker")
 	tryRegisterLibFunc(&_SUIDatePicker, libHandle, "SUIDatePicker")
+	tryRegisterLibFunc(&_SUIDatePickerOptions, libHandle, "SUIDatePickerOptions")
 	tryRegisterLibFunc(&_SUIFloatSlider, libHandle, "SUIFloatSlider")
 	tryRegisterLibFunc(&_SUIFloatGauge, libHandle, "SUIFloatGauge")
 	tryRegisterLibFunc(&_SUIFloatProgressView, libHandle, "SUIFloatProgressView")
@@ -1752,6 +1756,16 @@ func setUnavailableStubs() {
 	}
 	if _SUIFreeString == nil {
 		_SUIFreeString = func(*byte) { stub("SUIFreeString") }
+	}
+	if _SUIAsyncImageContentMode == nil {
+		_SUIAsyncImageContentMode = func(url *byte, _ int32) uintptr {
+			return _SUIAsyncImage(url)
+		}
+	}
+	if _SUIDatePickerOptions == nil {
+		_SUIDatePickerOptions = func(label *byte, state uintptr, _, _ float64, _, _ int32, callback uintptr) uintptr {
+			return _SUIDatePicker(label, state, callback)
+		}
 	}
 	if _SUINamespaceCreate == nil {
 		_SUINamespaceCreate = func() uintptr { stub("SUINamespaceCreate"); return 0 }
