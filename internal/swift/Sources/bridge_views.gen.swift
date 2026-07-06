@@ -570,6 +570,7 @@ private struct BridgedNativeTableView: NSViewRepresentable {
             self.sortAscending = sortAscending
         }
 
+        @MainActor
         func configure(_ table: NSTableView, spec: NativeTableSpec) {
             rows = spec.rows
             while table.tableColumns.count > spec.columns.count {
