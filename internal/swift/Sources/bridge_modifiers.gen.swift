@@ -493,6 +493,7 @@ public func SUIViewOnTapGestureCount(_ viewRef: UnsafeMutableRawPointer,
 }
 
 @_cdecl("SUIViewOnDragGesture")
+@MainActor
 public func SUIViewOnDragGesture(_ viewRef: UnsafeMutableRawPointer,
                                  _ minimumDistance: Double,
                                  _ callbackID: UInt) -> UnsafeMutableRawPointer {
@@ -511,6 +512,7 @@ public func SUIViewOnDragGesture(_ viewRef: UnsafeMutableRawPointer,
 }
 
 @_cdecl("SUIViewOnMagnifyGesture")
+@MainActor
 public func SUIViewOnMagnifyGesture(_ viewRef: UnsafeMutableRawPointer,
                                     _ minimumScaleDelta: Double,
                                     _ callbackID: UInt) -> UnsafeMutableRawPointer {
@@ -536,6 +538,7 @@ private struct SUIScrollGeometryValue: Equatable {
 }
 
 @_cdecl("SUIViewOnScrollGeometryChange")
+@MainActor
 public func SUIViewOnScrollGeometryChange(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
     let id = callbackID

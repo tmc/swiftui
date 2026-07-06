@@ -356,6 +356,7 @@ public func SUIShareLinkItem(_ titlePtr: UnsafePointer<CChar>, _ kindPtr: Unsafe
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@MainActor
 private func suiRunPanel(_ body: @escaping () -> String?) -> UnsafeMutablePointer<CChar>? {
     if Thread.isMainThread {
         return body().flatMap { strdup($0) }
@@ -371,6 +372,7 @@ private func suiRunPanel(_ body: @escaping () -> String?) -> UnsafeMutablePointe
 }
 
 @_cdecl("SUIOpenPanel")
+@MainActor
 public func SUIOpenPanel(
     _ titlePtr: UnsafePointer<CChar>,
     _ messagePtr: UnsafePointer<CChar>,
@@ -399,6 +401,7 @@ public func SUIOpenPanel(
 }
 
 @_cdecl("SUISavePanel")
+@MainActor
 public func SUISavePanel(
     _ titlePtr: UnsafePointer<CChar>,
     _ messagePtr: UnsafePointer<CChar>,
