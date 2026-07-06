@@ -382,6 +382,7 @@ var (
 	_SUIViewOnTapGestureCount                    func(uintptr, int32, uintptr) uintptr
 	_SUIViewOnDragGesture                        func(uintptr, float64, uintptr) uintptr
 	_SUIViewOnMagnifyGesture                     func(uintptr, float64, uintptr) uintptr
+	_SUIViewOnScrollGeometryChange               func(uintptr, uintptr) uintptr
 	_SUIViewFocusable                            func(uintptr, int32) uintptr
 	_SUIViewFocused                              func(uintptr, uintptr) uintptr
 	_SUIViewNavigationTitle                      func(uintptr, *byte) uintptr
@@ -531,6 +532,7 @@ var (
 	_SUISetHoverCallback            func(uintptr)
 	_SUISetDragCallback             func(uintptr)
 	_SUISetMagnifyCallback          func(uintptr)
+	_SUISetScrollGeometryCallback   func(uintptr)
 	_SUISetStringCallback           func(uintptr)
 	_SUIRegisterCommandCallback     func(uintptr)
 	_SUIUpdateMenuItemEnabled       func(int32, int32)
@@ -764,6 +766,7 @@ func init() {
 	tryRegisterLibFunc(&_SUIViewOnTapGestureCount, libHandle, "SUIViewOnTapGestureCount")
 	tryRegisterLibFunc(&_SUIViewOnDragGesture, libHandle, "SUIViewOnDragGesture")
 	tryRegisterLibFunc(&_SUIViewOnMagnifyGesture, libHandle, "SUIViewOnMagnifyGesture")
+	tryRegisterLibFunc(&_SUIViewOnScrollGeometryChange, libHandle, "SUIViewOnScrollGeometryChange")
 	tryRegisterLibFunc(&_SUIViewFocusable, libHandle, "SUIViewFocusable")
 	tryRegisterLibFunc(&_SUIViewFocused, libHandle, "SUIViewFocused")
 	tryRegisterLibFunc(&_SUIViewNavigationTitle, libHandle, "SUIViewNavigationTitle")
@@ -913,11 +916,13 @@ func init() {
 	tryRegisterLibFunc(&_SUISetHoverCallback, libHandle, "SUISetHoverCallback")
 	tryRegisterLibFunc(&_SUISetDragCallback, libHandle, "SUISetDragCallback")
 	tryRegisterLibFunc(&_SUISetMagnifyCallback, libHandle, "SUISetMagnifyCallback")
+	tryRegisterLibFunc(&_SUISetScrollGeometryCallback, libHandle, "SUISetScrollGeometryCallback")
 	tryRegisterLibFunc(&_SUISetStringCallback, libHandle, "SUISetStringCallback")
 	tryRegisterLibFunc(&_SUIRegisterCommandCallback, libHandle, "SUIRegisterCommandCallback")
 	tryRegisterLibFunc(&_SUIUpdateMenuItemEnabled, libHandle, "SUIUpdateMenuItemEnabled")
 	hasDragCallback := _SUISetDragCallback != nil
 	hasMagnifyCallback := _SUISetMagnifyCallback != nil
+	hasScrollGeometryCallback := _SUISetScrollGeometryCallback != nil
 	hasStringCallback := _SUISetStringCallback != nil
 	hasCommandCallback := _SUIRegisterCommandCallback != nil
 	tryRegisterLibFunc(&_SUIRenderPNG, libHandle, "SUIRenderPNG")
@@ -940,6 +945,9 @@ func init() {
 	}
 	if hasMagnifyCallback {
 		_SUISetMagnifyCallback(magnifyCallbackPtr)
+	}
+	if hasScrollGeometryCallback {
+		_SUISetScrollGeometryCallback(scrollGeometryCallbackPtr)
 	}
 	if hasStringCallback {
 		_SUISetStringCallback(stringCallbackPtr)
@@ -1349,6 +1357,9 @@ func setUnavailableStubs() {
 	}
 	if _SUIViewOnMagnifyGesture == nil {
 		_SUIViewOnMagnifyGesture = func(uintptr, float64, uintptr) uintptr { stub("SUIViewOnMagnifyGesture"); return 0 }
+	}
+	if _SUIViewOnScrollGeometryChange == nil {
+		_SUIViewOnScrollGeometryChange = func(uintptr, uintptr) uintptr { stub("SUIViewOnScrollGeometryChange"); return 0 }
 	}
 	if _SUIViewFocusable == nil {
 		_SUIViewFocusable = func(uintptr, int32) uintptr { stub("SUIViewFocusable"); return 0 }
@@ -1788,6 +1799,9 @@ func setUnavailableStubs() {
 	}
 	if _SUISetMagnifyCallback == nil {
 		_SUISetMagnifyCallback = func(uintptr) { stub("SUISetMagnifyCallback") }
+	}
+	if _SUISetScrollGeometryCallback == nil {
+		_SUISetScrollGeometryCallback = func(uintptr) { stub("SUISetScrollGeometryCallback") }
 	}
 	if _SUISetStringCallback == nil {
 		_SUISetStringCallback = func(uintptr) { stub("SUISetStringCallback") }

@@ -118,6 +118,9 @@
 //   - curated additive helpers: OpenPanel and PhotosPickerLazyFileHandle are
 //     explicit Go-native utilities rather than direct SwiftUI equivalents
 //
+// Plain ScrollView offset observation is exposed through
+// View.OnScrollGeometryChange on macOS 15 or later.
+//
 // Those limits are intentional source-of-truth boundaries, not accidental
 // omissions in the generated catalog.
 package swiftui

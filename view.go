@@ -846,6 +846,30 @@ func (v View) OnMagnifyGesture(minimumScaleDelta float64, action func(float64, G
 	return ret
 }
 
+// ScrollGeometry reports a scroll view's visible offset and content size.
+type ScrollGeometry struct {
+	OffsetX  float64
+	OffsetY  float64
+	ContentW float64
+	ContentH float64
+}
+
+// OnScrollGeometryChange reports scroll offset and content size changes on macOS 15 or later.
+func (v View) OnScrollGeometryChange(action func(ScrollGeometry)) View {
+	var actionID uintptr
+	if action != nil {
+		actionID = registerScrollGeometryCallback(func(offsetX, offsetY, contentW, contentH float64) {
+			action(ScrollGeometry{OffsetX: offsetX, OffsetY: offsetY, ContentW: contentW, ContentH: contentH})
+		})
+	}
+	var ptr uintptr
+	ptr = _SUIViewOnScrollGeometryChange(v.ptr, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
 // Focusable controls whether the view can receive keyboard focus.
 func (v View) Focusable(focusable bool) View {
 	var focusableV int32
@@ -1806,6 +1830,11 @@ func (v ShapeView) OnDragGesture(minimumDistance float64, action func(DragValue)
 // OnMagnifyGesture adds a magnification handler to the view.
 func (v ShapeView) OnMagnifyGesture(minimumScaleDelta float64, action func(float64, GesturePhase)) ShapeView {
 	return ShapeView{View: v.View.OnMagnifyGesture(minimumScaleDelta, action)}
+}
+
+// OnScrollGeometryChange reports scroll offset and content size changes on macOS 15 or later.
+func (v ShapeView) OnScrollGeometryChange(action func(ScrollGeometry)) ShapeView {
+	return ShapeView{View: v.View.OnScrollGeometryChange(action)}
 }
 
 // Focusable controls whether the view can receive keyboard focus.
@@ -2786,6 +2815,11 @@ func (v TextView) OnDragGesture(minimumDistance float64, action func(DragValue))
 // OnMagnifyGesture adds a magnification handler to the view.
 func (v TextView) OnMagnifyGesture(minimumScaleDelta float64, action func(float64, GesturePhase)) TextView {
 	return TextView{View: v.View.OnMagnifyGesture(minimumScaleDelta, action)}
+}
+
+// OnScrollGeometryChange reports scroll offset and content size changes on macOS 15 or later.
+func (v TextView) OnScrollGeometryChange(action func(ScrollGeometry)) TextView {
+	return TextView{View: v.View.OnScrollGeometryChange(action)}
 }
 
 // Focusable controls whether the view can receive keyboard focus.

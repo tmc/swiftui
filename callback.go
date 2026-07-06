@@ -18,6 +18,7 @@ var (
 	hoverCallbackMap   = map[uintptr]func(bool, float64, float64){}
 	dragCallbackMap    = map[uintptr]func(float64, float64, float64, float64, int32){}
 	magnifyCallbackMap = map[uintptr]func(float64, int32){}
+	scrollCallbackMap  = map[uintptr]func(float64, float64, float64, float64){}
 	commandCallbackMap = map[uintptr]func() int32{}
 	callbackNext       uintptr
 )
@@ -88,6 +89,17 @@ func registerMagnifyCallback(fn func(float64, int32)) uintptr {
 	return callbackNext
 }
 
+func registerScrollGeometryCallback(fn func(float64, float64, float64, float64)) uintptr {
+	if fn == nil {
+		return 0
+	}
+	callbackMu.Lock()
+	defer callbackMu.Unlock()
+	callbackNext++
+	scrollCallbackMap[callbackNext] = fn
+	return callbackNext
+}
+
 func registerCommandCallback(fn func() int32) uintptr {
 	if fn == nil {
 		return 0
@@ -125,6 +137,7 @@ func unregisterCallback(id uintptr) {
 	delete(hoverCallbackMap, id)
 	delete(dragCallbackMap, id)
 	delete(magnifyCallbackMap, id)
+	delete(scrollCallbackMap, id)
 	delete(commandCallbackMap, id)
 	callbackMu.Unlock()
 	viewBuilderMu.Lock()
@@ -206,6 +219,17 @@ func magnifyCallbackTrampoline(id uintptr, magnification float64, phase int32) {
 }
 
 var magnifyCallbackPtr = purego.NewCallback(magnifyCallbackTrampoline)
+
+func scrollGeometryCallbackTrampoline(id uintptr, offsetX, offsetY, contentW, contentH float64) {
+	callbackMu.Lock()
+	fn := scrollCallbackMap[id]
+	callbackMu.Unlock()
+	if fn != nil {
+		fn(offsetX, offsetY, contentW, contentH)
+	}
+}
+
+var scrollGeometryCallbackPtr = purego.NewCallback(scrollGeometryCallbackTrampoline)
 
 func cStringToGoString(ptr *byte) string {
 	if ptr == nil {

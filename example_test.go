@@ -92,3 +92,16 @@ func ExampleView_OnDragGesture() {
 		})
 	_, _ = view, position
 }
+
+func ExampleView_OnScrollGeometryChange() {
+	offset := swiftui.NewStringState("")
+	content := swiftui.VStack(
+		swiftui.Text("Top"),
+		swiftui.Spacer().Frame(0, 400),
+		swiftui.Text("Bottom"),
+	)
+	view := swiftui.ScrollView(content).OnScrollGeometryChange(func(g swiftui.ScrollGeometry) {
+		offset.Set(fmt.Sprintf("%.0f", g.OffsetY))
+	})
+	_, _ = view, offset
+}

@@ -60,6 +60,7 @@ nonisolated(unsafe) var _SUIBoolCallback: (@convention(c) (UInt, Int32) -> Void)
 nonisolated(unsafe) var _SUIHoverCallback: (@convention(c) (UInt, Int32, Double, Double) -> Void)?
 nonisolated(unsafe) var _SUIDragCallback: (@convention(c) (UInt, Double, Double, Double, Double, Int32) -> Void)?
 nonisolated(unsafe) var _SUIMagnifyCallback: (@convention(c) (UInt, Double, Int32) -> Void)?
+nonisolated(unsafe) var _SUIScrollGeometryCallback: (@convention(c) (UInt, Double, Double, Double, Double) -> Void)?
 
 @_cdecl("SUISetButtonCallback")
 public func SUISetButtonCallback(_ fn: @convention(c) (UInt) -> Void) {
@@ -84,6 +85,11 @@ public func SUISetDragCallback(_ fn: @convention(c) (UInt, Double, Double, Doubl
 @_cdecl("SUISetMagnifyCallback")
 public func SUISetMagnifyCallback(_ fn: @convention(c) (UInt, Double, Int32) -> Void) {
     _SUIMagnifyCallback = fn
+}
+
+@_cdecl("SUISetScrollGeometryCallback")
+public func SUISetScrollGeometryCallback(_ fn: @convention(c) (UInt, Double, Double, Double, Double) -> Void) {
+    _SUIScrollGeometryCallback = fn
 }
 
 // String callback function pointer, set by Go at init time. Used by drop

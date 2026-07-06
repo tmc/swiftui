@@ -528,6 +528,33 @@ public func SUIViewOnMagnifyGesture(_ viewRef: UnsafeMutableRawPointer,
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+private struct SUIScrollGeometryValue: Equatable {
+    let offsetX: Double
+    let offsetY: Double
+    let contentW: Double
+    let contentH: Double
+}
+
+@_cdecl("SUIViewOnScrollGeometryChange")
+public func SUIViewOnScrollGeometryChange(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = callbackID
+    if #available(macOS 15.0, *) {
+        let view = AnyView(base.onScrollGeometryChange(for: SUIScrollGeometryValue.self) { geo in
+            SUIScrollGeometryValue(
+                offsetX: geo.contentOffset.x,
+                offsetY: geo.contentOffset.y,
+                contentW: geo.contentSize.width,
+                contentH: geo.contentSize.height
+            )
+        } action: { _, value in
+            _SUIScrollGeometryCallback?(id, value.offsetX, value.offsetY, value.contentW, value.contentH)
+        })
+        return Unmanaged.passRetained(Box(view)).toOpaque()
+    }
+    return Unmanaged.passRetained(Box(base)).toOpaque()
+}
+
 @_cdecl("SUIViewFocusable")
 public func SUIViewFocusable(_ viewRef: UnsafeMutableRawPointer, _ focusable: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
