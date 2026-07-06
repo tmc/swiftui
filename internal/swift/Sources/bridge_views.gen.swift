@@ -956,6 +956,7 @@ private let suiCanvasOpRotate: UInt8 = 0x15
 private let suiCanvasOpSave: UInt8 = 0x16
 private let suiCanvasOpRestore: UInt8 = 0x17
 private let suiCanvasOpOpacity: UInt8 = 0x18
+private let suiCanvasOpText: UInt8 = 0x19
 
 // suiDecodePath consumes len opcode-bytes starting at offset and builds a
 // SwiftUI Path. On decode error (truncated operand or unknown opcode) it
@@ -1065,6 +1066,29 @@ private struct BridgedCanvasView: View {
         .frame(width: width, height: height)
     }
 
+    static func textAnchor(_ raw: UInt8) -> UnitPoint {
+        switch raw {
+        case 1:
+            return .top
+        case 2:
+            return .bottom
+        case 3:
+            return .leading
+        case 4:
+            return .trailing
+        case 5:
+            return .topLeading
+        case 6:
+            return .topTrailing
+        case 7:
+            return .bottomLeading
+        case 8:
+            return .bottomTrailing
+        default:
+            return .center
+        }
+    }
+
     static func render(ctx: inout GraphicsContext, blob: Data) {
         blob.withUnsafeBytes { raw in
             let base = raw.baseAddress?.assumingMemoryBound(to: UInt8.self)
@@ -1122,6 +1146,20 @@ private struct BridgedCanvasView: View {
                 case suiCanvasOpOpacity:
                     guard let a = reader.readF64() else { return }
                     ctx.opacity = a
+                case suiCanvasOpText:
+                    guard let textLen = reader.readU32(),
+                          let x = reader.readF64(), let y = reader.readF64(),
+                          let r = reader.readF64(), let g = reader.readF64(),
+                          let b = reader.readF64(), let a = reader.readF64(),
+                          let size = reader.readF64(),
+                          let anchor = reader.readU8(),
+                          reader.remaining >= Int(textLen) else { return }
+                    let start = reader.offset
+                    reader.offset += Int(textLen)
+                    let data = blob.subdata(in: start..<reader.offset)
+                    guard let s = String(data: data, encoding: .utf8) else { return }
+                    let resolved = ctx.resolve(Text(s).font(.system(size: size)).foregroundStyle(Color(red: r, green: g, blue: b, opacity: a)))
+                    ctx.draw(resolved, at: CGPoint(x: x, y: y), anchor: textAnchor(anchor))
                 default:
                     return
                 }

@@ -45,3 +45,18 @@ func ExampleSavePanel() {
 	})
 	_, _ = path, ok
 }
+
+func ExampleCanvasOps_Text() {
+	ops := swiftui.NewCanvasOps()
+	for row := 0; row < 2; row++ {
+		for col := 0; col < 2; col++ {
+			x, y := float64(col*32), float64(row*24)
+			cell := swiftui.NewPath().Rect(x, y, 32, 24)
+			ops.Fill(cell, swiftui.RGB(0.90, 0.94, 1.0))
+			ops.Text("7", x+16, y+12, swiftui.RGB(0.1, 0.1, 0.1), 11, swiftui.TextAnchorCenter)
+		}
+	}
+	state := swiftui.NewCanvasState(ops)
+	view := swiftui.Canvas(state, 64, 48)
+	_ = view
+}

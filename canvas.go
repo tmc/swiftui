@@ -35,6 +35,7 @@ import (
 //	0x16 Save      : reserved (v1 decoder no-op)
 //	0x17 Restore   : reserved (v1 decoder no-op)
 //	0x18 Opacity   : f64 a
+//	0x19 Text      : u32 utf8Len, f64 x,y, f64 r,g,b,a, f64 size, u8 anchor, utf8 bytes
 //
 // All integers are little-endian; f64 is IEEE-754.
 
@@ -57,6 +58,22 @@ const (
 	canvasOpSave      byte = 0x16
 	canvasOpRestore   byte = 0x17
 	canvasOpOpacity   byte = 0x18
+	canvasOpText      byte = 0x19
+)
+
+// TextAnchor identifies the point in a Canvas text label placed at (x, y).
+type TextAnchor byte
+
+const (
+	TextAnchorCenter TextAnchor = iota
+	TextAnchorTop
+	TextAnchorBottom
+	TextAnchorLeading
+	TextAnchorTrailing
+	TextAnchorTopLeading
+	TextAnchorTopTrailing
+	TextAnchorBottomLeading
+	TextAnchorBottomTrailing
 )
 
 // Path is a mutable opcode builder for SwiftUI Path shapes. A Path is
@@ -302,6 +319,22 @@ func (c *CanvasOps) Rotate(radians float64) *CanvasOps {
 func (c *CanvasOps) Opacity(a float64) *CanvasOps {
 	c.buf = append(c.buf, canvasOpOpacity)
 	c.writeF64(a)
+	return c
+}
+
+// Text draws s at (x, y) using the given color, font size, and anchor.
+func (c *CanvasOps) Text(s string, x, y float64, col Color, size float64, anchor TextAnchor) *CanvasOps {
+	c.buf = append(c.buf, canvasOpText)
+	c.writeU32(uint32(len(s)))
+	c.writeF64(x)
+	c.writeF64(y)
+	c.writeF64(col.R)
+	c.writeF64(col.G)
+	c.writeF64(col.B)
+	c.writeF64(col.A)
+	c.writeF64(size)
+	c.buf = append(c.buf, byte(anchor))
+	c.buf = append(c.buf, s...)
 	return c
 }
 
