@@ -458,6 +458,39 @@ func PasteButton(label string, state *StringState) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// ClipboardWriteString writes s to the plain-text clipboard.
+func ClipboardWriteString(s string) error {
+	if !Available() {
+		return fmt.Errorf("clipboard write string: bridge not available")
+	}
+	var ok int32
+	withCString(s, func(textC *byte) {
+		ok = _SUIClipboardWriteString(textC)
+	})
+	if ok == 0 {
+		return fmt.Errorf("clipboard write string: pasteboard rejected string")
+	}
+	return nil
+}
+
+// CopyText writes text to the plain-text clipboard.
+func CopyText(text string) {
+	withCString(text, func(textC *byte) {
+		_SUIClipboardWriteString(textC)
+	})
+}
+
+// CopyButton creates a button that writes text to the plain-text clipboard.
+func CopyButton(label, text string) View {
+	var ptr uintptr
+	withCString(label, func(labelC *byte) {
+		withCString(text, func(textC *byte) {
+			ptr = _SUICopyButton(labelC, textC)
+		})
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // ShareLink creates a share button for a concrete URL.
 func ShareLink(title string, url string) View {
 	var ptr uintptr

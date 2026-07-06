@@ -286,6 +286,8 @@ var (
 	_SUIButtonWithImage                     func(*byte, uintptr) uintptr
 	_SUIButtonWithLabel                     func(*byte, *byte, uintptr) uintptr
 	_SUIPasteButton                         func(*byte, uintptr) uintptr
+	_SUIClipboardWriteString                func(*byte) int32
+	_SUICopyButton                          func(*byte, *byte) uintptr
 	_SUIShareLinkURL                        func(*byte, *byte) uintptr
 	_SUIShareLinkItem                       func(*byte, *byte, *byte, *byte) uintptr
 	_SUITextFromState                       func(uintptr) uintptr
@@ -659,6 +661,8 @@ func init() {
 	tryRegisterLibFunc(&_SUIButtonWithImage, libHandle, "SUIButtonWithImage")
 	tryRegisterLibFunc(&_SUIButtonWithLabel, libHandle, "SUIButtonWithLabel")
 	tryRegisterLibFunc(&_SUIPasteButton, libHandle, "SUIPasteButton")
+	tryRegisterLibFunc(&_SUIClipboardWriteString, libHandle, "SUIClipboardWriteString")
+	tryRegisterLibFunc(&_SUICopyButton, libHandle, "SUICopyButton")
 	tryRegisterLibFunc(&_SUIShareLinkURL, libHandle, "SUIShareLinkURL")
 	tryRegisterLibFunc(&_SUIShareLinkItem, libHandle, "SUIShareLinkItem")
 	tryRegisterLibFunc(&_SUITextFromState, libHandle, "SUITextFromState")
@@ -1089,6 +1093,12 @@ func setUnavailableStubs() {
 	}
 	if _SUIPasteButton == nil {
 		_SUIPasteButton = func(*byte, uintptr) uintptr { stub("SUIPasteButton"); return 0 }
+	}
+	if _SUIClipboardWriteString == nil {
+		_SUIClipboardWriteString = func(*byte) int32 { stub("SUIClipboardWriteString"); return 0 }
+	}
+	if _SUICopyButton == nil {
+		_SUICopyButton = func(*byte, *byte) uintptr { stub("SUICopyButton"); return 0 }
 	}
 	if _SUIShareLinkURL == nil {
 		_SUIShareLinkURL = func(*byte, *byte) uintptr { stub("SUIShareLinkURL"); return 0 }

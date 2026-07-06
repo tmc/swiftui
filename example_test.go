@@ -25,3 +25,7 @@ func Example() {
 
 	_ = view
 }
+
+func ExampleClipboardWriteString() {
+	_ = swiftui.ClipboardWriteString("token")
+}

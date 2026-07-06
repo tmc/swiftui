@@ -85,10 +85,11 @@
 // command menus, and injects scene availability into borrowed SceneActions
 // through the bridge callback channel.
 //
-// The package also includes additive Go-native helpers such as OpenPanel,
-// TableColumnLayoutSnapshot, PlacementHint/TaggedWithPlacement, and
-// PhotosPickerLazyFileHandle. Those are explicit curated utilities rather than
-// claims of one-for-one SwiftUI API parity.
+// The package also includes additive Go-native helpers such as
+// ClipboardWriteString, OpenPanel, TableColumnLayoutSnapshot,
+// PlacementHint/TaggedWithPlacement, and PhotosPickerLazyFileHandle. Those are
+// explicit curated utilities rather than claims of one-for-one SwiftUI API
+// parity.
 //
 // This is intentionally narrower than SwiftUI's full App/Scene environment
 // model. OpenWindowAction, app command menus, and document-session file

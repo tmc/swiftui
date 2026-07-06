@@ -285,6 +285,27 @@ public func SUIPasteButton(_ labelPtr: UnsafePointer<CChar>, _ stateRef: UnsafeM
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIClipboardWriteString")
+public func SUIClipboardWriteString(_ textPtr: UnsafePointer<CChar>) -> Int32 {
+    let text = String(cString: textPtr)
+    let pasteboard = NSPasteboard.general
+    pasteboard.clearContents()
+    return pasteboard.setString(text, forType: .string) ? 1 : 0
+}
+
+@_cdecl("SUICopyButton")
+@MainActor
+public func SUICopyButton(_ labelPtr: UnsafePointer<CChar>, _ textPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let label = String(cString: labelPtr)
+    let text = String(cString: textPtr)
+    let view = AnyView(Button(label) {
+        _ = text.withCString { ptr in
+            SUIClipboardWriteString(ptr)
+        }
+    })
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIShareLinkURL")
 public func SUIShareLinkURL(_ titlePtr: UnsafePointer<CChar>, _ urlPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
     let title = String(cString: titlePtr)
