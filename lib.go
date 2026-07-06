@@ -335,6 +335,8 @@ var (
 	_SUIFloatProgressView                   func(uintptr, float64) uintptr
 	_SUINamespaceCreate                     func() uintptr
 	_SUIGlassEffectContainer                func(uintptr, float64) uintptr
+	_SUIOpenPanel                           func(*byte, *byte, *byte, *byte, int32, int32, int32) *byte
+	_SUISavePanel                           func(*byte, *byte, *byte, *byte, *byte) *byte
 
 	// Modifiers.
 	_SUIViewPadding                              func(uintptr, float64) uintptr
@@ -710,6 +712,8 @@ func init() {
 	tryRegisterLibFunc(&_SUIFloatProgressView, libHandle, "SUIFloatProgressView")
 	tryRegisterLibFunc(&_SUINamespaceCreate, libHandle, "SUINamespaceCreate")
 	tryRegisterLibFunc(&_SUIGlassEffectContainer, libHandle, "SUIGlassEffectContainer")
+	tryRegisterLibFunc(&_SUIOpenPanel, libHandle, "SUIOpenPanel")
+	tryRegisterLibFunc(&_SUISavePanel, libHandle, "SUISavePanel")
 
 	// Modifiers.
 	tryRegisterLibFunc(&_SUIViewPadding, libHandle, "SUIViewPadding")
@@ -1766,6 +1770,18 @@ func setUnavailableStubs() {
 	}
 	if _SUIFreeString == nil {
 		_SUIFreeString = func(*byte) { stub("SUIFreeString") }
+	}
+	if _SUIOpenPanel == nil {
+		_SUIOpenPanel = func(*byte, *byte, *byte, *byte, int32, int32, int32) *byte {
+			stub("SUIOpenPanel")
+			return nil
+		}
+	}
+	if _SUISavePanel == nil {
+		_SUISavePanel = func(*byte, *byte, *byte, *byte, *byte) *byte {
+			stub("SUISavePanel")
+			return nil
+		}
 	}
 	if _SUIAsyncImageContentMode == nil {
 		_SUIAsyncImageContentMode = func(url *byte, _ int32) uintptr {

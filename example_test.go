@@ -29,3 +29,19 @@ func Example() {
 func ExampleClipboardWriteString() {
 	_ = swiftui.ClipboardWriteString("token")
 }
+
+func ExampleOpenPanel() {
+	paths, ok := swiftui.OpenPanel(swiftui.OpenPanelOptions{
+		Title:          "Open Data",
+		AllowsMultiple: true,
+	})
+	_, _ = paths, ok
+}
+
+func ExampleSavePanel() {
+	path, ok := swiftui.SavePanel(swiftui.SavePanelOptions{
+		Title: "Export Data",
+		Name:  "data.json",
+	})
+	_, _ = path, ok
+}

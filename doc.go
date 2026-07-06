@@ -60,8 +60,8 @@
 // Curated media helpers include PhotosPickerLazyFileHandle for deterministic
 // lazy file-backed assets used by sample selection state.
 //
-// Curated file-picking helpers include OpenPanel for concrete
-// NSOpenPanel-driven path selection.
+// Curated file-picking helpers include OpenPanel and SavePanel for concrete
+// NSOpenPanel/NSSavePanel-driven path selection.
 //
 // # Scenes
 //
@@ -86,7 +86,7 @@
 // through the bridge callback channel.
 //
 // The package also includes additive Go-native helpers such as
-// ClipboardWriteString, OpenPanel, TableColumnLayoutSnapshot,
+// ClipboardWriteString, OpenPanel, SavePanel, TableColumnLayoutSnapshot,
 // PlacementHint/TaggedWithPlacement, and PhotosPickerLazyFileHandle. Those are
 // explicit curated utilities rather than claims of one-for-one SwiftUI API
 // parity.

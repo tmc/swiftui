@@ -356,6 +356,73 @@ public func SUIShareLinkItem(_ titlePtr: UnsafePointer<CChar>, _ kindPtr: Unsafe
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+private func suiRunPanel(_ body: @escaping () -> String?) -> UnsafeMutablePointer<CChar>? {
+    if Thread.isMainThread {
+        return body().flatMap { strdup($0) }
+    }
+    let sem = DispatchSemaphore(value: 0)
+    nonisolated(unsafe) var out: String?
+    DispatchQueue.main.async {
+        out = body()
+        sem.signal()
+    }
+    sem.wait()
+    return out.flatMap { strdup($0) }
+}
+
+@_cdecl("SUIOpenPanel")
+public func SUIOpenPanel(
+    _ titlePtr: UnsafePointer<CChar>,
+    _ messagePtr: UnsafePointer<CChar>,
+    _ promptPtr: UnsafePointer<CChar>,
+    _ directoryPtr: UnsafePointer<CChar>,
+    _ allowsMultiple: Int32,
+    _ canChooseFiles: Int32,
+    _ canChooseDirectories: Int32
+) -> UnsafeMutablePointer<CChar>? {
+    let title = String(cString: titlePtr)
+    let message = String(cString: messagePtr)
+    let prompt = String(cString: promptPtr)
+    let directory = String(cString: directoryPtr)
+    return suiRunPanel {
+        let panel = NSOpenPanel()
+        if !title.isEmpty { panel.title = title }
+        if !message.isEmpty { panel.message = message }
+        if !prompt.isEmpty { panel.prompt = prompt }
+        if !directory.isEmpty { panel.directoryURL = URL(fileURLWithPath: directory) }
+        panel.allowsMultipleSelection = allowsMultiple != 0
+        panel.canChooseFiles = canChooseFiles != 0
+        panel.canChooseDirectories = canChooseDirectories != 0
+        guard panel.runModal() == .OK else { return nil }
+        return panel.urls.map { $0.path }.joined(separator: "\n")
+    }
+}
+
+@_cdecl("SUISavePanel")
+public func SUISavePanel(
+    _ titlePtr: UnsafePointer<CChar>,
+    _ messagePtr: UnsafePointer<CChar>,
+    _ promptPtr: UnsafePointer<CChar>,
+    _ directoryPtr: UnsafePointer<CChar>,
+    _ namePtr: UnsafePointer<CChar>
+) -> UnsafeMutablePointer<CChar>? {
+    let title = String(cString: titlePtr)
+    let message = String(cString: messagePtr)
+    let prompt = String(cString: promptPtr)
+    let directory = String(cString: directoryPtr)
+    let name = String(cString: namePtr)
+    return suiRunPanel {
+        let panel = NSSavePanel()
+        if !title.isEmpty { panel.title = title }
+        if !message.isEmpty { panel.message = message }
+        if !prompt.isEmpty { panel.prompt = prompt }
+        if !directory.isEmpty { panel.directoryURL = URL(fileURLWithPath: directory) }
+        if !name.isEmpty { panel.nameFieldStringValue = name }
+        guard panel.runModal() == .OK else { return nil }
+        return panel.url?.path
+    }
+}
+
 @_cdecl("SUISpacer")
 public func SUISpacer() -> UnsafeMutableRawPointer {
     let view = AnyView(Spacer())
