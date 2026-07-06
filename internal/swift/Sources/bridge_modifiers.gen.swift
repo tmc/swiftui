@@ -492,6 +492,42 @@ public func SUIViewOnTapGestureCount(_ viewRef: UnsafeMutableRawPointer,
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIViewOnDragGesture")
+public func SUIViewOnDragGesture(_ viewRef: UnsafeMutableRawPointer,
+                                 _ minimumDistance: Double,
+                                 _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = callbackID
+    let view = AnyView(base.gesture(
+        DragGesture(minimumDistance: minimumDistance)
+            .onChanged { value in
+                _SUIDragCallback?(id, value.location.x, value.location.y, value.translation.width, value.translation.height, 0)
+            }
+            .onEnded { value in
+                _SUIDragCallback?(id, value.location.x, value.location.y, value.translation.width, value.translation.height, 1)
+            }
+    ))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewOnMagnifyGesture")
+public func SUIViewOnMagnifyGesture(_ viewRef: UnsafeMutableRawPointer,
+                                    _ minimumScaleDelta: Double,
+                                    _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = callbackID
+    let view = AnyView(base.gesture(
+        MagnifyGesture(minimumScaleDelta: minimumScaleDelta)
+            .onChanged { value in
+                _SUIMagnifyCallback?(id, value.magnification, 0)
+            }
+            .onEnded { value in
+                _SUIMagnifyCallback?(id, value.magnification, 1)
+            }
+    ))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIViewFocusable")
 public func SUIViewFocusable(_ viewRef: UnsafeMutableRawPointer, _ focusable: Int32) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value

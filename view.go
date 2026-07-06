@@ -798,6 +798,54 @@ func (v View) OnTapGestureCount(count int, action func()) View {
 	return ret
 }
 
+// GesturePhase identifies whether a gesture changed or ended.
+type GesturePhase int
+
+const (
+	GesturePhaseChanged GesturePhase = iota
+	GesturePhaseEnded
+)
+
+// DragValue reports the local pointer location, translation, and phase during a drag.
+type DragValue struct {
+	X, Y  float64
+	DX    float64
+	DY    float64
+	Phase GesturePhase
+}
+
+// OnDragGesture adds a drag handler to the view.
+func (v View) OnDragGesture(minimumDistance float64, action func(DragValue)) View {
+	var actionID uintptr
+	if action != nil {
+		actionID = registerDragCallback(func(x, y, dx, dy float64, phase int32) {
+			action(DragValue{X: x, Y: y, DX: dx, DY: dy, Phase: GesturePhase(phase)})
+		})
+	}
+	var ptr uintptr
+	ptr = _SUIViewOnDragGesture(v.ptr, minimumDistance, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
+// OnMagnifyGesture adds a magnification handler to the view.
+func (v View) OnMagnifyGesture(minimumScaleDelta float64, action func(float64, GesturePhase)) View {
+	var actionID uintptr
+	if action != nil {
+		actionID = registerMagnifyCallback(func(scale float64, phase int32) {
+			action(scale, GesturePhase(phase))
+		})
+	}
+	var ptr uintptr
+	ptr = _SUIViewOnMagnifyGesture(v.ptr, minimumScaleDelta, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
 // Focusable controls whether the view can receive keyboard focus.
 func (v View) Focusable(focusable bool) View {
 	var focusableV int32
@@ -1748,6 +1796,16 @@ func (v ShapeView) OnTapGestureCount(count int, action func()) ShapeView {
 	ret.retained.addCallbackID(actionID)
 	runtime.KeepAlive(v.View.retained)
 	return ret
+}
+
+// OnDragGesture adds a drag-change handler to the view.
+func (v ShapeView) OnDragGesture(minimumDistance float64, action func(DragValue)) ShapeView {
+	return ShapeView{View: v.View.OnDragGesture(minimumDistance, action)}
+}
+
+// OnMagnifyGesture adds a magnification handler to the view.
+func (v ShapeView) OnMagnifyGesture(minimumScaleDelta float64, action func(float64, GesturePhase)) ShapeView {
+	return ShapeView{View: v.View.OnMagnifyGesture(minimumScaleDelta, action)}
 }
 
 // Focusable controls whether the view can receive keyboard focus.
@@ -2718,6 +2776,16 @@ func (v TextView) OnTapGestureCount(count int, action func()) TextView {
 	ret.retained.addCallbackID(actionID)
 	runtime.KeepAlive(v.View.retained)
 	return ret
+}
+
+// OnDragGesture adds a drag-change handler to the view.
+func (v TextView) OnDragGesture(minimumDistance float64, action func(DragValue)) TextView {
+	return TextView{View: v.View.OnDragGesture(minimumDistance, action)}
+}
+
+// OnMagnifyGesture adds a magnification handler to the view.
+func (v TextView) OnMagnifyGesture(minimumScaleDelta float64, action func(float64, GesturePhase)) TextView {
+	return TextView{View: v.View.OnMagnifyGesture(minimumScaleDelta, action)}
 }
 
 // Focusable controls whether the view can receive keyboard focus.

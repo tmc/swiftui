@@ -75,3 +75,20 @@ func ExampleNativeTable() {
 	)
 	_ = view
 }
+
+func ExampleView_OnDragGesture() {
+	position := swiftui.NewStringState("")
+	view := swiftui.Rectangle().
+		Frame(200, 120).
+		AsView().
+		OnDragGesture(2, func(v swiftui.DragValue) {
+			if v.Phase == swiftui.GesturePhaseChanged {
+				position.Set("dragging")
+			}
+		}).
+		OnMagnifyGesture(0.01, func(scale float64, phase swiftui.GesturePhase) {
+			_ = scale
+			_ = phase
+		})
+	_, _ = view, position
+}

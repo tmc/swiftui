@@ -58,6 +58,8 @@ public func SUIFreeString(_ s: UnsafeMutablePointer<CChar>) {
 nonisolated(unsafe) var _SUIButtonCallback: (@convention(c) (UInt) -> Void)?
 nonisolated(unsafe) var _SUIBoolCallback: (@convention(c) (UInt, Int32) -> Void)?
 nonisolated(unsafe) var _SUIHoverCallback: (@convention(c) (UInt, Int32, Double, Double) -> Void)?
+nonisolated(unsafe) var _SUIDragCallback: (@convention(c) (UInt, Double, Double, Double, Double, Int32) -> Void)?
+nonisolated(unsafe) var _SUIMagnifyCallback: (@convention(c) (UInt, Double, Int32) -> Void)?
 
 @_cdecl("SUISetButtonCallback")
 public func SUISetButtonCallback(_ fn: @convention(c) (UInt) -> Void) {
@@ -72,6 +74,16 @@ public func SUISetBoolCallback(_ fn: @convention(c) (UInt, Int32) -> Void) {
 @_cdecl("SUISetHoverCallback")
 public func SUISetHoverCallback(_ fn: @convention(c) (UInt, Int32, Double, Double) -> Void) {
     _SUIHoverCallback = fn
+}
+
+@_cdecl("SUISetDragCallback")
+public func SUISetDragCallback(_ fn: @convention(c) (UInt, Double, Double, Double, Double, Int32) -> Void) {
+    _SUIDragCallback = fn
+}
+
+@_cdecl("SUISetMagnifyCallback")
+public func SUISetMagnifyCallback(_ fn: @convention(c) (UInt, Double, Int32) -> Void) {
+    _SUIMagnifyCallback = fn
 }
 
 // String callback function pointer, set by Go at init time. Used by drop

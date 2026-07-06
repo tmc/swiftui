@@ -16,6 +16,8 @@ var (
 	boolCallbackMap    = map[uintptr]func(bool){}
 	stringCallbackMap  = map[uintptr]func(string) bool{}
 	hoverCallbackMap   = map[uintptr]func(bool, float64, float64){}
+	dragCallbackMap    = map[uintptr]func(float64, float64, float64, float64, int32){}
+	magnifyCallbackMap = map[uintptr]func(float64, int32){}
 	commandCallbackMap = map[uintptr]func() int32{}
 	callbackNext       uintptr
 )
@@ -64,6 +66,28 @@ func registerHoverCallback(fn func(bool, float64, float64)) uintptr {
 	return callbackNext
 }
 
+func registerDragCallback(fn func(float64, float64, float64, float64, int32)) uintptr {
+	if fn == nil {
+		return 0
+	}
+	callbackMu.Lock()
+	defer callbackMu.Unlock()
+	callbackNext++
+	dragCallbackMap[callbackNext] = fn
+	return callbackNext
+}
+
+func registerMagnifyCallback(fn func(float64, int32)) uintptr {
+	if fn == nil {
+		return 0
+	}
+	callbackMu.Lock()
+	defer callbackMu.Unlock()
+	callbackNext++
+	magnifyCallbackMap[callbackNext] = fn
+	return callbackNext
+}
+
 func registerCommandCallback(fn func() int32) uintptr {
 	if fn == nil {
 		return 0
@@ -99,6 +123,8 @@ func unregisterCallback(id uintptr) {
 	delete(boolCallbackMap, id)
 	delete(stringCallbackMap, id)
 	delete(hoverCallbackMap, id)
+	delete(dragCallbackMap, id)
+	delete(magnifyCallbackMap, id)
 	delete(commandCallbackMap, id)
 	callbackMu.Unlock()
 	viewBuilderMu.Lock()
@@ -158,6 +184,28 @@ func hoverCallbackTrampoline(id uintptr, inside int32, x, y float64) {
 }
 
 var hoverCallbackPtr = purego.NewCallback(hoverCallbackTrampoline)
+
+func dragCallbackTrampoline(id uintptr, x, y, dx, dy float64, phase int32) {
+	callbackMu.Lock()
+	fn := dragCallbackMap[id]
+	callbackMu.Unlock()
+	if fn != nil {
+		fn(x, y, dx, dy, phase)
+	}
+}
+
+var dragCallbackPtr = purego.NewCallback(dragCallbackTrampoline)
+
+func magnifyCallbackTrampoline(id uintptr, magnification float64, phase int32) {
+	callbackMu.Lock()
+	fn := magnifyCallbackMap[id]
+	callbackMu.Unlock()
+	if fn != nil {
+		fn(magnification, phase)
+	}
+}
+
+var magnifyCallbackPtr = purego.NewCallback(magnifyCallbackTrampoline)
 
 func cStringToGoString(ptr *byte) string {
 	if ptr == nil {
