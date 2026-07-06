@@ -60,3 +60,18 @@ func ExampleCanvasOps_Text() {
 	view := swiftui.Canvas(state, 64, 48)
 	_ = view
 }
+
+func ExampleNativeTable() {
+	selection := swiftui.NewIntState(0)
+	sortColumn := swiftui.NewIntState(0)
+	sortAscending := swiftui.NewBoolState(true)
+	view := swiftui.NativeTable(selection, sortColumn, sortAscending,
+		[][]string{
+			{"Clean", "0.42"},
+			{"Steered", "0.73"},
+		},
+		swiftui.NativeTableColumn("Run", 160),
+		swiftui.NativeTableColumn("Score", 80),
+	)
+	_ = view
+}

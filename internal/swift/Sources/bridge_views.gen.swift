@@ -508,6 +508,136 @@ struct BridgedScrollViewReaderView: View {
     }
 }
 
+private struct NativeTableSpec: Decodable {
+    struct Column: Decodable {
+        let Title: String
+        let Width: Double
+    }
+    let columns: [Column]
+    let rows: [[String]]
+}
+
+private struct BridgedNativeTableView: NSViewRepresentable {
+    let spec: NativeTableSpec
+    let selection: BridgedIntState
+    let sortColumn: BridgedIntState
+    let sortAscending: BridgedBoolState
+
+    func makeCoordinator() -> Coordinator {
+        Coordinator(selection: selection, sortColumn: sortColumn, sortAscending: sortAscending)
+    }
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let table = NSTableView()
+        table.delegate = context.coordinator
+        table.dataSource = context.coordinator
+        table.usesAlternatingRowBackgroundColors = true
+        table.allowsColumnResizing = true
+        table.allowsMultipleSelection = false
+        table.headerView = NSTableHeaderView()
+
+        let scroll = NSScrollView()
+        scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = true
+        scroll.documentView = table
+        context.coordinator.configure(table, spec: spec)
+        return scroll
+    }
+
+    func updateNSView(_ scroll: NSScrollView, context: Context) {
+        guard let table = scroll.documentView as? NSTableView else { return }
+        context.coordinator.configure(table, spec: spec)
+        let selected = selection.value - 1
+        if selected >= 0, selected < context.coordinator.rows.count, table.selectedRow != selected {
+            table.selectRowIndexes(IndexSet(integer: selected), byExtendingSelection: false)
+        } else if selection.value == 0, table.selectedRow != -1 {
+            table.deselectAll(nil)
+        }
+    }
+
+    final class Coordinator: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+        var rows: [[String]] = []
+        let selection: BridgedIntState
+        let sortColumn: BridgedIntState
+        let sortAscending: BridgedBoolState
+
+        init(selection: BridgedIntState, sortColumn: BridgedIntState, sortAscending: BridgedBoolState) {
+            self.selection = selection
+            self.sortColumn = sortColumn
+            self.sortAscending = sortAscending
+        }
+
+        func configure(_ table: NSTableView, spec: NativeTableSpec) {
+            rows = spec.rows
+            while table.tableColumns.count > spec.columns.count {
+                table.removeTableColumn(table.tableColumns.last!)
+            }
+            for i in 0..<spec.columns.count {
+                let id = NSUserInterfaceItemIdentifier("c\(i)")
+                let column: NSTableColumn
+                if i < table.tableColumns.count {
+                    column = table.tableColumns[i]
+                } else {
+                    column = NSTableColumn(identifier: id)
+                    table.addTableColumn(column)
+                }
+                column.identifier = id
+                column.title = spec.columns[i].Title
+                if spec.columns[i].Width > 0 {
+                    column.width = spec.columns[i].Width
+                }
+                column.sortDescriptorPrototype = NSSortDescriptor(key: id.rawValue, ascending: true)
+            }
+            table.reloadData()
+        }
+
+        func numberOfRows(in tableView: NSTableView) -> Int {
+            rows.count
+        }
+
+        func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+            let id = NSUserInterfaceItemIdentifier("cell")
+            let text: NSTextField
+            if let reused = tableView.makeView(withIdentifier: id, owner: self) as? NSTextField {
+                text = reused
+            } else {
+                text = NSTextField(labelWithString: "")
+                text.identifier = id
+                text.lineBreakMode = .byTruncatingTail
+            }
+            let col = tableColumn.flatMap { Int($0.identifier.rawValue.dropFirst()) } ?? 0
+            text.stringValue = row < rows.count && col < rows[row].count ? rows[row][col] : ""
+            return text
+        }
+
+        func tableViewSelectionDidChange(_ notification: Notification) {
+            guard let table = notification.object as? NSTableView else { return }
+            selection.setAndBump(table.selectedRow >= 0 ? table.selectedRow + 1 : 0)
+        }
+
+        func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
+            guard let descriptor = tableView.sortDescriptors.first,
+                  let key = descriptor.key,
+                  key.first == "c",
+                  let col = Int(key.dropFirst()) else { return }
+            sortColumn.setAndBump(col + 1)
+            sortAscending.setAndBump(descriptor.ascending)
+        }
+    }
+}
+
+@_cdecl("SUINativeTable")
+public func SUINativeTable(_ specPtr: UnsafePointer<CChar>, _ selectionRef: UnsafeMutableRawPointer, _ sortColumnRef: UnsafeMutableRawPointer, _ sortAscendingRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let specText = String(cString: specPtr)
+    let data = specText.data(using: .utf8) ?? Data()
+    let spec = (try? JSONDecoder().decode(NativeTableSpec.self, from: data)) ?? NativeTableSpec(columns: [], rows: [])
+    let selection = Unmanaged<BridgedIntState>.fromOpaque(selectionRef).takeUnretainedValue()
+    let sortColumn = Unmanaged<BridgedIntState>.fromOpaque(sortColumnRef).takeUnretainedValue()
+    let sortAscending = Unmanaged<BridgedBoolState>.fromOpaque(sortAscendingRef).takeUnretainedValue()
+    let view = AnyView(BridgedNativeTableView(spec: spec, selection: selection, sortColumn: sortColumn, sortAscending: sortAscending))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 // MARK: - Additional containers
 
 @_cdecl("SUIZStack")

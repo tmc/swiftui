@@ -280,6 +280,7 @@ var (
 	_SUISectionExpanded                     func(*byte, uintptr, uintptr) uintptr
 	_SUIDisclosureGroupView                 func(uintptr, uintptr, uintptr) uintptr
 	_SUISectionExpandedView                 func(uintptr, uintptr, uintptr) uintptr
+	_SUINativeTable                         func(*byte, uintptr, uintptr, uintptr) uintptr
 	_SUITabView                             func(*uintptr, int32) uintptr
 	_SUIButton                              func(*byte, uintptr) uintptr
 	_SUIButtonView                          func(uintptr, uintptr) uintptr
@@ -657,6 +658,7 @@ func init() {
 	tryRegisterLibFunc(&_SUISectionExpanded, libHandle, "SUISectionExpanded")
 	tryRegisterLibFunc(&_SUIDisclosureGroupView, libHandle, "SUIDisclosureGroupView")
 	tryRegisterLibFunc(&_SUISectionExpandedView, libHandle, "SUISectionExpandedView")
+	tryRegisterLibFunc(&_SUINativeTable, libHandle, "SUINativeTable")
 	tryRegisterLibFunc(&_SUITabView, libHandle, "SUITabView")
 	tryRegisterLibFunc(&_SUIButton, libHandle, "SUIButton")
 	tryRegisterLibFunc(&_SUIButtonView, libHandle, "SUIButtonView")
@@ -1079,6 +1081,9 @@ func setUnavailableStubs() {
 	}
 	if _SUISectionExpandedView == nil {
 		_SUISectionExpandedView = func(uintptr, uintptr, uintptr) uintptr { stub("SUISectionExpandedView"); return 0 }
+	}
+	if _SUINativeTable == nil {
+		_SUINativeTable = func(*byte, uintptr, uintptr, uintptr) uintptr { stub("SUINativeTable"); return 0 }
 	}
 	if _SUITabView == nil {
 		_SUITabView = func(*uintptr, int32) uintptr { stub("SUITabView"); return 0 }

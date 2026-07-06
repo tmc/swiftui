@@ -107,10 +107,10 @@
 //     borrowed SceneActions are supported, but the runtime is still
 //     AppKit-owned rather than a direct SwiftUI App/Scene graph
 //   - table/outline data surfaces: the public API combines curated Go models
-//     with a native-backed additive table/outline layer, including ordered
-//     selection state, row-state summaries, and TableColumnLayoutSnapshot
-//     capture/restore, but native SwiftUI Table and OutlineGroup parity is
-//     still incomplete
+//     with native-backed NativeTable plus curated Go layout helpers. NativeTable
+//     covers string data, row selection, sortable headers, and column resizing;
+//     the older Table helper remains an equal-width layout convenience.
+//     OutlineGroup parity is still incomplete.
 //   - custom layout: the supported surface is the constrained Go-side layout
 //     model with PlacementHint/TaggedWithPlacement fixed-key placement metadata
 //     and placement presets rather than SwiftUI's protocol-heavy Layout and

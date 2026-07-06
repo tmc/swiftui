@@ -3,6 +3,7 @@
 package swiftui
 
 import (
+	"encoding/json"
 	"fmt"
 	"runtime"
 	"unsafe"
@@ -1187,6 +1188,37 @@ func Table(rows int, columns ...TableColumnSpec) View {
 		children = append(children, tableBodyRow(row, columns))
 	}
 	return VStackSpaced(0, children...)
+}
+
+// NativeTableColumnSpec describes one NativeTable column.
+type NativeTableColumnSpec struct {
+	Title string
+	Width float64
+}
+
+// NativeTableColumn constructs a native table column specification.
+func NativeTableColumn(title string, width float64) NativeTableColumnSpec {
+	return NativeTableColumnSpec{Title: title, Width: width}
+}
+
+type nativeTableSpec struct {
+	Columns []NativeTableColumnSpec `json:"columns"`
+	Rows    [][]string              `json:"rows"`
+}
+
+// NativeTable shows string rows in a native-backed table with selection and sort state.
+// Selection and sortColumn are one-based; zero means none.
+func NativeTable(selection, sortColumn *IntState, sortAscending *BoolState, rows [][]string, columns ...NativeTableColumnSpec) View {
+	spec := nativeTableSpec{
+		Columns: append([]NativeTableColumnSpec(nil), columns...),
+		Rows:    append([][]string(nil), rows...),
+	}
+	data, _ := json.Marshal(spec)
+	var ptr uintptr
+	withCString(string(data), func(specC *byte) {
+		ptr = _SUINativeTable(specC, selection.ptr, sortColumn.ptr, sortAscending.ptr)
+	})
+	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
 func tableHeaderRow(columns []TableColumnSpec) View {
