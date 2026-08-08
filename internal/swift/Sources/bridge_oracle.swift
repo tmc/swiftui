@@ -42,4 +42,12 @@ public func SUIAccessibilityIdentifier(_ viewRef: UnsafeMutableRawPointer, _ ide
     let view = AnyView(base.accessibilityIdentifier(identifier))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
+
+// SUIOracleHostingView adapts a bridge-owned AnyView to AppKit's host for an
+// interaction-test control. It is available only in the tagged test bridge.
+@_cdecl("SUIOracleHostingView")
+public func SUIOracleHostingView(_ viewRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let view = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    return Unmanaged.passRetained(NSHostingView(rootView: view)).toOpaque()
+}
 #endif
