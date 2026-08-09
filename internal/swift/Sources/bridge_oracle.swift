@@ -75,7 +75,7 @@ private struct SUIIdentityBreakLeaf: View {
     @State private var serial = SUIIdentityCounter.take()
 
     var body: some View {
-        Text("identity-break-\(serial)")
+        Text("identity-\(serial)")
     }
 }
 
