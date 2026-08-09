@@ -50,4 +50,42 @@ public func SUIOracleHostingView(_ viewRef: UnsafeMutableRawPointer) -> UnsafeMu
     let view = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
     return Unmanaged.passRetained(NSHostingView(rootView: view)).toOpaque()
 }
+
+// SUIIdentityNew initializes an AnyView storage slot with a stateful leaf.
+// It is a test fixture for observing SwiftUI identity across direct rootView
+// replacement. Consumer builds never contain it.
+private enum SUIIdentityCounter {
+    nonisolated(unsafe) static var next = 0
+
+    static func take() -> Int {
+        next += 1
+        return next
+    }
+}
+
+private struct SUIIdentityLeaf: View {
+    @State private var serial = SUIIdentityCounter.take()
+
+    var body: some View {
+        Text("identity-\(serial)")
+    }
+}
+
+private struct SUIIdentityBreakLeaf: View {
+    @State private var serial = SUIIdentityCounter.take()
+
+    var body: some View {
+        Text("identity-break-\(serial)")
+    }
+}
+
+@_cdecl("SUIIdentityNew")
+public func SUIIdentityNew(_ storage: UnsafeMutableRawPointer) {
+    storage.assumingMemoryBound(to: AnyView.self).initialize(to: AnyView(SUIIdentityLeaf()))
+}
+
+@_cdecl("SUIIdentityBreakNew")
+public func SUIIdentityBreakNew(_ storage: UnsafeMutableRawPointer) {
+    storage.assumingMemoryBound(to: AnyView.self).initialize(to: AnyView(SUIIdentityBreakLeaf()))
+}
 #endif
