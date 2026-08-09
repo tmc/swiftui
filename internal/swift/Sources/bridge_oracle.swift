@@ -88,4 +88,14 @@ public func SUIIdentityNew(_ storage: UnsafeMutableRawPointer) {
 public func SUIIdentityBreakNew(_ storage: UnsafeMutableRawPointer) {
     storage.assumingMemoryBound(to: AnyView.self).initialize(to: AnyView(SUIIdentityBreakLeaf()))
 }
+
+// SUIIdentityForEachNew is a compiled-Swift control for T23. It isolates the
+// test harness from the hand-built ForEach content closure by constructing the
+// same stateful leaf beneath ForEach entirely in Swift.
+@_cdecl("SUIIdentityForEachNew")
+public func SUIIdentityForEachNew(_ storage: UnsafeMutableRawPointer, _ count: Int64) {
+    storage.assumingMemoryBound(to: AnyView.self).initialize(to: AnyView(ForEach(0..<Int(count)) { _ in
+        SUIIdentityLeaf()
+    }))
+}
 #endif
