@@ -61,6 +61,10 @@ private enum SUIIdentityCounter {
         next += 1
         return next
     }
+
+    static func reset(to value: Int) {
+        next = value
+    }
 }
 
 private struct SUIIdentityLeaf: View {
@@ -89,12 +93,35 @@ public func SUIIdentityBreakNew(_ storage: UnsafeMutableRawPointer) {
     storage.assumingMemoryBound(to: AnyView.self).initialize(to: AnyView(SUIIdentityBreakLeaf()))
 }
 
+// SUIIdentityResetCounter makes the serial fixture deterministic for identity
+// controls that compare a persistent tree with an independently built tree.
+@_cdecl("SUIIdentityResetCounter")
+public func SUIIdentityResetCounter(_ value: Int64) {
+    SUIIdentityCounter.reset(to: Int(value))
+}
+
 // SUIIdentityForEachNew is a compiled-Swift control for T23. It isolates the
 // test harness from the hand-built ForEach content closure by constructing the
 // same stateful leaf beneath ForEach entirely in Swift.
 @_cdecl("SUIIdentityForEachNew")
 public func SUIIdentityForEachNew(_ storage: UnsafeMutableRawPointer, _ count: Int64) {
     storage.assumingMemoryBound(to: AnyView.self).initialize(to: AnyView(ForEach(0..<Int(count)) { _ in
+        SUIIdentityLeaf()
+    }))
+}
+
+// SUIIntSelfKeyPath returns a compiler-created KeyPath<Int, Int> for T29's
+// direct-ABI control. The caller owns the returned reference.
+@_cdecl("SUIIntSelfKeyPath")
+public func SUIIntSelfKeyPath() -> UnsafeMutableRawPointer {
+    let keyPath: KeyPath<Int, Int> = \.self
+    return Unmanaged.passRetained(keyPath as AnyObject).toOpaque()
+}
+
+@_cdecl("SUIIdentityKeyedForEachNew")
+public func SUIIdentityKeyedForEachNew(_ storage: UnsafeMutableRawPointer, _ reverse: Int32) {
+    let values = reverse == 0 ? [0, 1] : [1, 0]
+    storage.assumingMemoryBound(to: AnyView.self).initialize(to: AnyView(ForEach(values, id: \.self) { _ in
         SUIIdentityLeaf()
     }))
 }
