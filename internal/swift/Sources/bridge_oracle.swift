@@ -4,6 +4,7 @@
 
 #if SWIFTUI_ORACLE
 import Foundation
+import Observation
 import SwiftUI
 
 // SUIBoxAnyView packages an AnyView value constructed outside the bridge for
@@ -124,5 +125,96 @@ public func SUIIdentityKeyedForEachNew(_ storage: UnsafeMutableRawPointer, _ rev
     storage.assumingMemoryBound(to: AnyView.self).initialize(to: AnyView(ForEach(values, id: \.self) { _ in
         SUIIdentityLeaf()
     }))
+}
+
+// SUIObservationModel and its leaf are a compiled-control for T31. The
+// @Observable macro supplies the registrar and property access instrumentation
+// that the direct probe must eventually reproduce without this fixture.
+@MainActor @Observable
+private final class SUIObservationModel {
+    var value = 0
+
+    func registrarAddress() -> UnsafeMutableRawPointer {
+        withUnsafePointer(to: _$observationRegistrar) {
+            UnsafeMutableRawPointer(mutating: $0)
+        }
+    }
+
+    func valueAddress() -> UnsafeMutableRawPointer {
+        withUnsafeMutablePointer(to: &_value) {
+            UnsafeMutableRawPointer($0)
+        }
+    }
+}
+
+private struct SUIObservationLeaf: View {
+    let model: SUIObservationModel
+
+    var body: some View {
+        Text("observation-\(model.value)")
+    }
+}
+
+private struct SUIObservationBreakLeaf: View {
+    let model: SUIObservationModel
+
+    var body: some View {
+        // Keep the model alive but do not read its observed property.
+        Text("observation-0")
+    }
+}
+
+@MainActor @_cdecl("SUIObservationNew")
+public func SUIObservationNew(_ storage: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let model = SUIObservationModel()
+    storage.assumingMemoryBound(to: AnyView.self).initialize(to: AnyView(SUIObservationLeaf(model: model)))
+    return Unmanaged.passRetained(model).toOpaque()
+}
+
+@MainActor @_cdecl("SUIObservationViewForExisting")
+public func SUIObservationViewForExisting(_ storage: UnsafeMutableRawPointer, _ raw: UnsafeMutableRawPointer) {
+    let model = Unmanaged<SUIObservationModel>.fromOpaque(raw).takeUnretainedValue()
+    storage.assumingMemoryBound(to: AnyView.self).initialize(to: AnyView(SUIObservationLeaf(model: model)))
+}
+
+@MainActor @_cdecl("SUIObservationBreakNew")
+public func SUIObservationBreakNew(_ storage: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let model = SUIObservationModel()
+    storage.assumingMemoryBound(to: AnyView.self).initialize(to: AnyView(SUIObservationBreakLeaf(model: model)))
+    return Unmanaged.passRetained(model).toOpaque()
+}
+
+@MainActor @_cdecl("SUIObservationSet")
+public func SUIObservationSet(_ raw: UnsafeMutableRawPointer, _ value: Int64) {
+    Unmanaged<SUIObservationModel>.fromOpaque(raw).takeUnretainedValue().value = Int(value)
+}
+
+// The remaining exports are fixture-only ABI observables for T31. They expose
+// the macro-generated layout without implementing any part of the Go path.
+@MainActor @_cdecl("SUIObservationMetadata")
+public func SUIObservationMetadata() -> UnsafeRawPointer {
+    unsafeBitCast(SUIObservationModel.self, to: UnsafeRawPointer.self)
+}
+
+@MainActor @_cdecl("SUIObservationValueKeyPath")
+public func SUIObservationValueKeyPath() -> UnsafeMutableRawPointer {
+    Unmanaged.passRetained(\SUIObservationModel.value as AnyObject).toOpaque()
+}
+
+@MainActor @_cdecl("SUIObservationRegistrarAddress")
+public func SUIObservationRegistrarAddress(_ raw: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let model = Unmanaged<SUIObservationModel>.fromOpaque(raw).takeUnretainedValue()
+    return model.registrarAddress()
+}
+
+@MainActor @_cdecl("SUIObservationValueAddress")
+public func SUIObservationValueAddress(_ raw: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let model = Unmanaged<SUIObservationModel>.fromOpaque(raw).takeUnretainedValue()
+    return model.valueAddress()
+}
+
+@MainActor @_cdecl("SUIObservationRegistrarSize")
+public func SUIObservationRegistrarSize() -> Int {
+    MemoryLayout<ObservationRegistrar>.stride
 }
 #endif
