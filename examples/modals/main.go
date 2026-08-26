@@ -84,7 +84,7 @@ func main() {
 				showFullScreen.Set(1)
 			}).ButtonStyle(swiftui.ButtonStyleBorderedProminent).
 				ControlSize(swiftui.ControlSizeLarge).
-				Help("Present a full-screen modal").
+				Help("Present a full-screen modal (a sheet on macOS)").
 				FullScreenCover(showFullScreen, fullScreenContent(showFullScreen)),
 
 			swiftui.Divider(),

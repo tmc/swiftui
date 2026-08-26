@@ -1465,6 +1465,7 @@ func (v View) PopoverPresented(state *BoolState, content Viewable) View {
 }
 
 // FullScreenCover presents a full-screen modal when the IntState is nonzero.
+// On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v View) FullScreenCover(state *IntState, content Viewable) View {
 	ptr := _SUIViewFullScreenCover(v.ptr, state.ptr, content.viewPtr())
 	runtime.KeepAlive(content)
@@ -1473,6 +1474,7 @@ func (v View) FullScreenCover(state *IntState, content Viewable) View {
 }
 
 // FullScreenCoverPresented presents a full-screen modal while the BoolState is true.
+// On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v View) FullScreenCoverPresented(state *BoolState, content Viewable) View {
 	ptr := _SUIViewFullScreenCoverBool(v.ptr, state.ptr, content.viewPtr())
 	runtime.KeepAlive(content)
@@ -2432,6 +2434,7 @@ func (v ShapeView) PopoverPresented(state *BoolState, content Viewable) ShapeVie
 }
 
 // FullScreenCover presents a full-screen modal when the IntState is nonzero.
+// On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v ShapeView) FullScreenCover(state *IntState, content Viewable) ShapeView {
 	ptr := _SUIViewFullScreenCover(v.View.ptr, state.ptr, content.viewPtr())
 	runtime.KeepAlive(content)
@@ -2440,6 +2443,7 @@ func (v ShapeView) FullScreenCover(state *IntState, content Viewable) ShapeView 
 }
 
 // FullScreenCoverPresented presents a full-screen modal while the BoolState is true.
+// On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v ShapeView) FullScreenCoverPresented(state *BoolState, content Viewable) ShapeView {
 	ptr := _SUIViewFullScreenCoverBool(v.View.ptr, state.ptr, content.viewPtr())
 	runtime.KeepAlive(content)
@@ -3417,6 +3421,7 @@ func (v TextView) PopoverPresented(state *BoolState, content Viewable) TextView 
 }
 
 // FullScreenCover presents a full-screen modal when the IntState is nonzero.
+// On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v TextView) FullScreenCover(state *IntState, content Viewable) TextView {
 	ptr := _SUIViewFullScreenCover(v.View.ptr, state.ptr, content.viewPtr())
 	runtime.KeepAlive(content)
@@ -3425,6 +3430,7 @@ func (v TextView) FullScreenCover(state *IntState, content Viewable) TextView {
 }
 
 // FullScreenCoverPresented presents a full-screen modal while the BoolState is true.
+// On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v TextView) FullScreenCoverPresented(state *BoolState, content Viewable) TextView {
 	ptr := _SUIViewFullScreenCoverBool(v.View.ptr, state.ptr, content.viewPtr())
 	runtime.KeepAlive(content)
