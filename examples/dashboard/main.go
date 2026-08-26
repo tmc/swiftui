@@ -18,6 +18,7 @@ import (
 	"math"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/tmc/swiftui"
@@ -30,8 +31,13 @@ const maxHistory = 10
 var (
 	mu          sync.Mutex
 	heapHistory []float64
-	autoRefresh = true
-	refreshRate = 2.0 // seconds
+	ballast     [][]byte
+
+	chartTicks atomic.Int64
+
+	// UI state read from both view builders and the sampler goroutine.
+	autoRefreshState *swiftui.IntState
+	refreshRateState *swiftui.FloatState
 )
 
 func main() {
@@ -44,8 +50,8 @@ func main() {
 
 	// State for controls tab.
 	spawnCount := swiftui.NewIntState(10)
-	autoRefreshState := swiftui.NewIntState(1)
-	refreshRateState := swiftui.NewFloatState(2.0)
+	autoRefreshState = swiftui.NewIntState(1)
+	refreshRateState = swiftui.NewFloatState(2.0)
 	lastUpdate := swiftui.NewIntState(0)
 
 	// Read initial stats.
@@ -63,10 +69,8 @@ func main() {
 	// Background data goroutine.
 	go func() {
 		for {
-			mu.Lock()
-			rate := refreshRate
-			running := autoRefresh
-			mu.Unlock()
+			rate := refreshRateState.Get()
+			running := autoRefreshState.Get() != 0
 
 			if running {
 				var m runtime.MemStats
@@ -86,7 +90,7 @@ func main() {
 				}
 				mu.Unlock()
 
-				chartVersion.Set(chartVersion.Get() + 1)
+				chartVersion.Set(int(chartTicks.Add(1)))
 			}
 
 			time.Sleep(time.Duration(rate*1000) * time.Millisecond)
@@ -146,7 +150,7 @@ func overviewTab(goroutines, heapMB, sysMB, numGC, chartVersion, autoRefreshStat
 				swiftui.DynamicView(chartVersion, func(_ int) swiftui.View {
 					return heapChart(125)
 				}),
-			).MaxFrame(-1, 0),
+			).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 			swiftui.HStackSpaced(12,
 				swiftui.GroupBox("Runtime Signals",
@@ -158,13 +162,13 @@ func overviewTab(goroutines, heapMB, sysMB, numGC, chartVersion, autoRefreshStat
 							numGC.Get(),
 						)
 					}),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				swiftui.GroupBox("Session",
 					swiftui.DynamicView(chartVersion, func(_ int) swiftui.View {
 						return sessionPanel(autoRefreshState.Get() != 0, lastUpdate.Get())
 					}),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			),
 		).Padding(24),
 	).TabItem("Overview", "gauge.with.dots.needle.33percent")
@@ -192,7 +196,7 @@ func metricCard(icon string, label string, state *swiftui.IntState, r, g, b floa
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.5)).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(10)
 }
 
@@ -268,7 +272,7 @@ func sessionPanel(autoRefresh bool, lastUpdate int) swiftui.View {
 	trend, tr, tg, tb := heapTrend()
 
 	return swiftui.VStackSpaced(8,
-		noteRow("clock.arrow.circlepath", "Cadence", fmt.Sprintf("Every %.1fs", refreshRate), 0.35, 0.65, 1.0),
+		noteRow("clock.arrow.circlepath", "Cadence", fmt.Sprintf("Every %.1fs", refreshRateState.Get()), 0.35, 0.65, 1.0),
 		noteRow(modeIcon, "Mode", modeLabel, modeColor[0], modeColor[1], modeColor[2]),
 		noteRow("clock", "Last Sample", lastSample, 0.6, 0.6, 0.75),
 		noteRow("chart.line.uptrend.xyaxis", "Trend", trend, tr, tg, tb),
@@ -361,10 +365,10 @@ func heapChart(maxHeight float64) swiftui.View {
 			swiftui.Text(fmt.Sprintf("%d", i+1)).
 				Font(swiftui.FontCaption2).
 				ForegroundStyleNamed("tertiary"),
-		).MaxFrame(-1, 0))
+		).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset))
 	}
 	return swiftui.HStackSpaced(4, columns...).
-		MaxFrame(-1, 0).
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).
 		Padding(12)
 }
 
@@ -402,10 +406,10 @@ func detailsTab(goroutines, heapMB, sysMB, numGC, chartVersion, lastUpdate *swif
 							infoRow("OS / Arch", runtime.GOOS+"/"+runtime.GOARCH),
 							infoRow("CPUs", fmt.Sprintf("%d", runtime.NumCPU())),
 							infoRow("Goroutines", fmt.Sprintf("%d", goroutines.Get())),
-							infoRow("Refresh", fmt.Sprintf("%.1fs", refreshRate)),
+							infoRow("Refresh", fmt.Sprintf("%.1fs", refreshRateState.Get())),
 						).Padding(10)
 					}),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 				swiftui.GroupBox("Pressure Signals",
 					swiftui.DynamicView(chartVersion, func(_ int) swiftui.View {
 						return runtimeSignalsPanel(
@@ -415,7 +419,7 @@ func detailsTab(goroutines, heapMB, sysMB, numGC, chartVersion, lastUpdate *swif
 							numGC.Get(),
 						)
 					}),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			),
 
 			swiftui.HStackSpaced(12,
@@ -432,7 +436,7 @@ func detailsTab(goroutines, heapMB, sysMB, numGC, chartVersion, lastUpdate *swif
 							infoRow("Stack Sys", fmtBytes(ms.StackSys)),
 						).Padding(10)
 					}),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 				swiftui.GroupBox("Garbage Collection",
 					swiftui.DynamicView(chartVersion, func(_ int) swiftui.View {
 						var ms runtime.MemStats
@@ -450,7 +454,7 @@ func detailsTab(goroutines, heapMB, sysMB, numGC, chartVersion, lastUpdate *swif
 							infoRow("Next GC Goal", fmtBytes(ms.NextGC)),
 						).Padding(10)
 					}),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			),
 
 			swiftui.GroupBox("Environment",
@@ -460,7 +464,7 @@ func detailsTab(goroutines, heapMB, sysMB, numGC, chartVersion, lastUpdate *swif
 					infoRow("Update Loop", "Background sampler + goroutine-safe state"),
 					infoRow("Primary Signals", "Heap, scheduler load, system bytes, GC"),
 				).Padding(10),
-			).MaxFrame(-1, 0),
+			).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 		).Padding(24),
 	).TabItem("Details", "list.bullet.rectangle")
 }
@@ -526,7 +530,20 @@ func controlsTab(spawnCount *swiftui.IntState, autoRefreshState *swiftui.IntStat
 							ButtonStyle(swiftui.ButtonStyleBorderedProminent).
 							ControlSize(swiftui.ControlSizeLarge),
 						swiftui.Button("Allocate 10 MB", func() {
-							_ = make([]byte, 10<<20)
+							b := make([]byte, 10<<20)
+							for i := range b { // force the pages resident
+								b[i] = byte(i)
+							}
+							mu.Lock()
+							ballast = append(ballast, b)
+							mu.Unlock()
+						}).
+							ButtonStyle(swiftui.ButtonStyleBordered),
+						swiftui.Button("Release Ballast", func() {
+							mu.Lock()
+							ballast = nil
+							mu.Unlock()
+							runtime.GC()
 						}).
 							ButtonStyle(swiftui.ButtonStyleBordered),
 						swiftui.Stepper("Spawn Count", spawnCount, 1, 100, func() {}),
@@ -540,20 +557,12 @@ func controlsTab(spawnCount *swiftui.IntState, autoRefreshState *swiftui.IntStat
 						}).
 							ButtonStyle(swiftui.ButtonStyleBordered),
 					).Padding(10),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				swiftui.GroupBox("Refresh Loop",
 					swiftui.VStackSpaced(12,
-						swiftui.Toggle("Auto-Refresh", autoRefreshState, func() {
-							mu.Lock()
-							autoRefresh = autoRefreshState.Get() != 0
-							mu.Unlock()
-						}),
-						swiftui.FloatSlider("Refresh Rate (s)", refreshRateState, 0.5, 5.0, func() {
-							mu.Lock()
-							refreshRate = refreshRateState.Get()
-							mu.Unlock()
-						}),
+						swiftui.Toggle("Auto-Refresh", autoRefreshState, func() {}),
+						swiftui.FloatSlider("Refresh Rate (s)", refreshRateState, 0.5, 5.0, func() {}),
 						swiftui.DynamicView(autoRefreshState, func(v int) swiftui.View {
 							mode := "Paused"
 							if v != 0 {
@@ -566,7 +575,7 @@ func controlsTab(spawnCount *swiftui.IntState, autoRefreshState *swiftui.IntStat
 							).Padding(10)
 						}),
 					).Padding(10),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			),
 
 			swiftui.GroupBox("Suggested Checks",
@@ -575,7 +584,7 @@ func controlsTab(spawnCount *swiftui.IntState, autoRefreshState *swiftui.IntStat
 					infoRow("2", "Allocate memory and watch Heap Pressure grow in Overview."),
 					infoRow("3", "Spawn workers and confirm Scheduler Load reacts immediately."),
 				).Padding(10),
-			).MaxFrame(-1, 0),
+			).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 		).Padding(24),
 	).TabItem("Controls", "slider.horizontal.3")
 }

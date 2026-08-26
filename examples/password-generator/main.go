@@ -252,7 +252,7 @@ func main() {
 						swiftui.TextFromString(password).
 							Font(swiftui.FontSystemDesign(18, swiftui.WeightMedium, swiftui.DesignMonospaced)).
 							AsView().
-							MaxFrame(-1, 0).
+							MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).
 							Padding(8),
 						swiftui.SecureField("Password", password, func() {}),
 						swiftui.HStackSpaced(12,
@@ -271,7 +271,7 @@ func main() {
 							swiftui.Spacer(),
 						),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// -- Configuration --
 				swiftui.Form(
@@ -326,12 +326,12 @@ func main() {
 								bars[i] = swiftui.RoundedRectangle(3).
 									Fill(swiftui.RGBA(cr, cg, cb, 1.0)).
 									Frame(112, 8).
-									AsView().MaxFrame(-1, 0)
+									AsView().MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 							} else {
 								bars[i] = swiftui.RoundedRectangle(3).
 									Fill(swiftui.RGBA(0.7, 0.7, 0.7, 0.3)).
 									Frame(112, 8).
-									AsView().MaxFrame(-1, 0)
+									AsView().MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 							}
 						}
 
@@ -362,7 +362,7 @@ func main() {
 							),
 						)
 					}).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// -- History --
 				swiftui.GroupBox("History",
@@ -395,7 +395,7 @@ func main() {
 						}
 						return swiftui.List(rows...)
 					}).Frame(500, 150),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			).Padding(20),
 		),
 	}}}); err != nil {

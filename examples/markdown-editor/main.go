@@ -46,14 +46,14 @@ func main() {
 			swiftui.HStack(
 				// Left: editor
 				swiftui.TextEditor(content).
-					MaxFrame(-1, -1).
+					MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity).
 					Font(swiftui.FontBody),
 				swiftui.Divider(),
 				// Right: preview
 				swiftui.DynamicView(version, func(_ int) swiftui.View {
 					return renderPreview(content.Get())
-				}).MaxFrame(-1, -1),
-			).MaxFrame(-1, -1),
+				}).MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity),
+			).MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity),
 		).Padding(0),
 	}}}); err != nil {
 		log.Fatal(err)
@@ -80,7 +80,7 @@ func renderPreview(text string) swiftui.View {
 	}
 	return swiftui.ScrollView(
 		swiftui.VStackSpaced(4, views...).
-			MaxFrame(-1, 0).
+			MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).
 			Padding(12),
 	)
 }

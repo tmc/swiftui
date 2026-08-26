@@ -52,7 +52,7 @@ func main() {
 						transitionDemo("Scale", swiftui.TransitionScale, scaleScene),
 						transitionDemo("Push", swiftui.TransitionPush, pushScene),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// Progress bar with animated state
 				swiftui.GroupBox("Animated Progress",
@@ -77,7 +77,7 @@ func main() {
 							}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
 						),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// Curve-controlled state changes
 				swiftui.GroupBox("Animation Curves",
@@ -94,7 +94,7 @@ func main() {
 							curveButton("Bouncy", curveScene, swiftui.AnimationBouncy),
 						),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// Transform-driven scenes
 				swiftui.GroupBox("Transform Presets",
@@ -111,7 +111,7 @@ func main() {
 							sceneButton("Burst", transformScene, 4),
 						),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// Layered cards
 				swiftui.GroupBox("Layered Cards",
@@ -127,7 +127,7 @@ func main() {
 							sceneButton("Spotlight", stackScene, 3),
 						),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// Banners
 				swiftui.GroupBox("Live Banners",
@@ -143,7 +143,7 @@ func main() {
 							sceneButton("Offline", bannerScene, 3),
 						),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// Scene cycling demo
 				swiftui.GroupBox("Scene Cycling",
@@ -165,7 +165,7 @@ func main() {
 							}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
 						),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			).Padding(24),
 		)}}}); err != nil {
 		log.Fatal(err)
@@ -259,7 +259,7 @@ func curveView(v int) swiftui.View {
 				Stroke(swiftui.RGBA(p.r, p.g, p.b, 0.30), 1.2).
 				AsView(),
 		).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func transformView(v int) swiftui.View {
@@ -321,7 +321,7 @@ func transformView(v int) swiftui.View {
 		Offset(p.x, p.y).
 		Opacity(p.opacity).
 		Shadow(swiftui.RGBA(0, 0, 0, 0.24), p.shadow, 0, 10).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func stackView(v int) swiftui.View {
@@ -385,7 +385,7 @@ func stackView(v int) swiftui.View {
 		layers = append(layers, card)
 	}
 
-	return swiftui.ZStack(layers...).Frame(360, 190).MaxFrame(-1, 0)
+	return swiftui.ZStack(layers...).Frame(360, 190).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func bannerView(v int) swiftui.View {
@@ -437,7 +437,7 @@ func bannerView(v int) swiftui.View {
 				AsView(),
 		).
 		Shadow(swiftui.RGBA(0, 0, 0, 0.14), 12, 0, 6).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func sceneView(v int) swiftui.View {
@@ -466,7 +466,7 @@ func sceneView(v int) swiftui.View {
 			ForegroundStyleNamed("secondary"),
 	).Padding(20).
 		Frame(220, 120).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func abs(x int) int {

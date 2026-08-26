@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/tmc/swiftui"
 	swcharts "github.com/tmc/swiftui/charts"
@@ -181,6 +182,7 @@ func main() {
 	windowWidth := benchviewWidth(len(inputs))
 
 	updateTick := swiftui.NewIntState(0)
+	var updateTicks atomic.Int64
 	status := swiftui.NewStringState(initialStatus(inputs))
 	liveCount := swiftui.NewIntState(0)
 	inputCount := swiftui.NewIntState(len(inputs))
@@ -219,7 +221,7 @@ func main() {
 	}
 	rebuild := func() {
 		setView(buildComparisonWithOptions(inputs, getOptions()))
-		updateTick.Set(updateTick.Get() + 1)
+		updateTick.Set(int(updateTicks.Add(1)))
 	}
 	applyOptions := func() {
 		opts, err := parseAnalysisOptions(
@@ -274,7 +276,7 @@ func main() {
 		}
 		setView(buildComparisonWithOptions(inputs, getOptions()))
 		status.Set("Reloaded")
-		updateTick.Set(updateTick.Get() + 1)
+		updateTick.Set(int(updateTicks.Add(1)))
 	}
 
 	if streamIndex >= 0 {
@@ -316,7 +318,7 @@ func main() {
 	}
 
 	bumpDisplay := func() {
-		updateTick.Set(updateTick.Get() + 1)
+		updateTick.Set(int(updateTicks.Add(1)))
 	}
 	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Benchview",
@@ -619,7 +621,7 @@ func benchDashboardTab(
 							Background(swiftui.RGBA(1, 1, 1, 0.06)).
 							CornerRadius(999),
 					),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			),
 			metaStrip(updateTick, inputCount, sourceSummary, status, liveCount, streamSummary),
 
@@ -733,7 +735,7 @@ func overviewStrip(view comparisonView, prefs displayPrefs) swiftui.View {
 		Padding(10).
 		Background(swiftui.RGBA(1, 1, 1, 0.03)).
 		CornerRadius(10).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func metaStrip(
@@ -818,7 +820,7 @@ func summaryStrip(view comparisonView) swiftui.View {
 				swiftui.Spacer(),
 			),
 		).Padding(10),
-	).MaxFrame(-1, 0)
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func currentDisplayPrefs(
@@ -845,7 +847,7 @@ func changeOverview(view comparisonView) swiftui.View {
 					Font(swiftui.FontCaption).
 					ForegroundStyleNamed("secondary"),
 			).Padding(10),
-		).MaxFrame(-1, 0)
+		).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 	}
 	return swiftui.GroupBox("Change",
 		swiftui.VStackSpaced(6,
@@ -861,7 +863,7 @@ func changeOverview(view comparisonView) swiftui.View {
 			),
 			stackedChangeBar(view.Improved, view.Regressed, view.Unchanged, 560),
 		).Padding(10),
-	).MaxFrame(-1, 0)
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func highlightOverview(view comparisonView) swiftui.View {
@@ -875,7 +877,7 @@ func highlightOverview(view comparisonView) swiftui.View {
 					swiftui.Spacer(),
 				),
 			).Padding(10),
-		).MaxFrame(-1, 0)
+		).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 	}
 	lines := make([]swiftui.Viewable, 0, len(view.Highlights)+1)
 	lines = append(lines,
@@ -891,7 +893,7 @@ func highlightOverview(view comparisonView) swiftui.View {
 	}
 	return swiftui.GroupBox("Highlights",
 		swiftui.VStackSpaced(5, lines...).Padding(10),
-	).MaxFrame(-1, 0)
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func renderTables(view comparisonView, prefs displayPrefs) swiftui.View {
@@ -904,7 +906,7 @@ func renderTables(view comparisonView, prefs displayPrefs) swiftui.View {
 					Font(swiftui.FontCaption).
 					ForegroundStyleNamed("secondary"),
 			).Padding(16),
-		).MaxFrame(-1, 0)
+		).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 	}
 
 	groups := make([]swiftui.Viewable, 0, len(view.Tables))
@@ -939,7 +941,7 @@ func renderTables(view comparisonView, prefs displayPrefs) swiftui.View {
 		}
 		groups = append(groups, swiftui.GroupBox(tableGroupTitle(displayTable),
 			swiftui.VStackSpaced(6, rows...).Padding(10),
-		).MaxFrame(-1, 0))
+		).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset))
 	}
 	return swiftui.VStackSpaced(12, groups...)
 }
@@ -1019,7 +1021,7 @@ func summaryRow(table tableView) swiftui.View {
 			Font(swiftui.FontCaption).
 			FontWeight(swiftui.WeightSemibold).
 			ForegroundStyleNamed("secondary").
-			MaxFrame(-1, 0),
+			MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 	}
 	width := valueColumnWidth(len(table.Configs))
 	for _, cell := range table.Summary.Cells {
@@ -1057,7 +1059,7 @@ func optionsPopover(
 					labeledField("Alpha", alphaInput),
 					labeledField("Confidence", confidenceInput),
 					swiftui.PickerSegmented("View", formatMode, segmentedOptions("Dashboard", "Text", "CSV"), func() {}).
-						MaxFrame(-1, 0),
+						MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 					swiftui.HStackSpaced(8,
 						swiftui.Button("Apply", onApplyOptions).
 							Padding(8).
@@ -1140,7 +1142,7 @@ func labeledField(label string, state *swiftui.StringState) swiftui.View {
 			swiftui.Spacer(),
 		),
 		swiftui.TextField(label, state, func() {}).
-			MaxFrame(-1, 0),
+			MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 	)
 }
 
@@ -1152,7 +1154,7 @@ func headerText(label string, width float64) swiftui.View {
 	if width > 0 {
 		return view.Frame(width, 0).AsView()
 	}
-	return view.MaxFrame(-1, 0).AsView()
+	return view.MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).AsView()
 }
 
 func monoText(value string, width float64) swiftui.View {
@@ -1240,9 +1242,9 @@ func stringCard(icon, label, value, note string, r, g, b float64) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.42)).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(12).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func intCard(icon, label string, state *swiftui.IntState, note string, r, g, b float64) swiftui.View {
@@ -1273,9 +1275,9 @@ func intCard(icon, label string, state *swiftui.IntState, note string, r, g, b f
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.42)).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(12).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func stateStringCard(icon, label string, state *swiftui.StringState, note string, r, g, b float64) swiftui.View {
@@ -1306,9 +1308,9 @@ func stateStringCard(icon, label string, state *swiftui.StringState, note string
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.42)).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(12).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func changeColor(change int) (float64, float64, float64) {
@@ -1690,11 +1692,11 @@ func benchmarkCell(table tableView, row rowView, prefs displayPrefs) swiftui.Vie
 			)
 		}
 	}
-	views := []swiftui.Viewable{title.MaxFrame(-1, 0)}
+	views := []swiftui.Viewable{title.MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)}
 	if table.HasComparisons {
 		views = append(views, outcomePill(row.Change))
 	}
-	return swiftui.HStackSpaced(10, views...).MaxFrame(-1, 0)
+	return swiftui.HStackSpaced(10, views...).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func settingsLine(label, value string) swiftui.View {
@@ -1842,7 +1844,7 @@ func highlightCard(highlight highlightView) swiftui.View {
 	).Padding(10).
 		Background(swiftui.RGBA(r, g, b, 0.12)).
 		CornerRadius(12).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func modeSummary(view comparisonView) string {
@@ -2029,7 +2031,7 @@ func previewPanel(view comparisonView) swiftui.View {
 				Font(swiftui.FontCaption).
 				LineLimit(0),
 		).Padding(12),
-	).MaxFrame(-1, 0)
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func errorPanel(message string) swiftui.View {
@@ -2042,7 +2044,7 @@ func errorPanel(message string) swiftui.View {
 				Font(swiftui.FontCaption).
 				ForegroundStyleNamed("secondary"),
 		).Padding(12),
-	).MaxFrame(-1, 0)
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func summaryScaler(table *analysisTable) benchunit.Scaler {

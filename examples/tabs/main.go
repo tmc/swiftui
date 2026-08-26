@@ -72,14 +72,14 @@ func homeTab() swiftui.View {
 						flowRow("2", "Bridge through purego", "State updates cross into Swift without cgo."),
 						flowRow("3", "Render in SwiftUI", "macOS layout, animation, and controls stay native."),
 					).Padding(10),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 				swiftui.GroupBox("Active Surfaces",
 					swiftui.VStackSpaced(10,
 						infoRow("Overview", "High-level status and quick context"),
 						infoRow("Preferences", "Controls that reshape the current workspace"),
 						infoRow("About", "Purpose, constraints, and provenance"),
 					).Padding(10),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			),
 
 			swiftui.GroupBox("Architecture Snapshot",
@@ -90,7 +90,7 @@ func homeTab() swiftui.View {
 					architectureArrow(),
 					architectureStep("SwiftUI", "Native rendering"),
 				).Padding(12),
-			).MaxFrame(-1, 0),
+			).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 		).Padding(24),
 	).TabItem("Home", "square.grid.2x2.fill")
 }
@@ -121,7 +121,7 @@ func settingsTab(darkMode, fontSize, compactMode, notifications *swiftui.IntStat
 						swiftui.Toggle("Compact density", compactMode, func() {}),
 						infoRow("Preview", previewSummary(darkMode, fontSize, compactMode)),
 					).Padding(10),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				swiftui.GroupBox("Behavior",
 					swiftui.VStackSpaced(12,
@@ -130,7 +130,7 @@ func settingsTab(darkMode, fontSize, compactMode, notifications *swiftui.IntStat
 						infoRow("Sync", "Local-first with remote replay"),
 						infoRow("Keyboard", "Command palette + tab navigation"),
 					).Padding(10),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			),
 
 			swiftui.GroupBox("Current Selection",
@@ -140,7 +140,7 @@ func settingsTab(darkMode, fontSize, compactMode, notifications *swiftui.IntStat
 					infoRow("Density", onOffLabel(compactMode.Get() != 0, "Compact", "Comfortable")),
 					infoRow("Notifications", onOffLabel(notifications.Get() != 0, "Enabled", "Muted")),
 				).Padding(10),
-			).MaxFrame(-1, 0),
+			).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 		).Padding(24),
 	).TabItem("Settings", "slider.horizontal.3")
 }
@@ -184,7 +184,8 @@ func summaryCard(icon, label, value, note string, r, g, b float64) swiftui.View 
 		swiftui.HStack(
 			swiftui.Image(icon).
 				ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
-				ImageScale(swiftui.ImageScaleSmall),
+				ImageScale(swiftui.ImageScaleSmall).
+				AccessibilityHidden(true),
 			swiftui.Spacer(),
 		),
 		swiftui.HStack(
@@ -206,8 +207,10 @@ func summaryCard(icon, label, value, note string, r, g, b float64) swiftui.View 
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.45)).
-		CornerRadius(10)
+		BackgroundStyle("regularMaterial").
+		CornerRadius(10).
+		AccessibilityLabel(label).
+		AccessibilityValue(fmt.Sprintf("%s, %s", value, note))
 }
 
 func flowRow(step, title, body string) swiftui.View {
@@ -230,8 +233,9 @@ func flowRow(step, title, body string) swiftui.View {
 					ForegroundStyleNamed("secondary"),
 				swiftui.Spacer(),
 			),
-		).MaxFrame(-1, 0),
-	)
+		).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
+	).AccessibilityLabel(fmt.Sprintf("Step %s: %s", step, title)).
+		AccessibilityValue(body)
 }
 
 func architectureStep(title, body string) swiftui.View {
@@ -242,13 +246,16 @@ func architectureStep(title, body string) swiftui.View {
 		swiftui.Text(body).
 			Font(swiftui.FontCaption).
 			ForegroundStyleNamed("secondary"),
-	).MaxFrame(-1, 0)
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).
+		AccessibilityLabel(title).
+		AccessibilityValue(body)
 }
 
 func architectureArrow() swiftui.View {
 	return swiftui.Image("arrow.right").
 		ForegroundStyleNamed("tertiary").
-		ImageScale(swiftui.ImageScaleSmall)
+		ImageScale(swiftui.ImageScaleSmall).
+		AccessibilityHidden(true)
 }
 
 func aboutPillar(title, body string) swiftui.View {
@@ -260,8 +267,10 @@ func aboutPillar(title, body string) swiftui.View {
 			Font(swiftui.FontCaption).
 			ForegroundStyleNamed("secondary"),
 	).Padding(12).
-		Background(swiftui.RGBA(0.2, 0.2, 0.25, 0.32)).
-		CornerRadius(10)
+		BackgroundStyle("thinMaterial").
+		CornerRadius(10).
+		AccessibilityLabel(title).
+		AccessibilityValue(body)
 }
 
 func previewSummary(darkMode, fontSize, compactMode *swiftui.IntState) string {
@@ -284,5 +293,6 @@ func infoRow(label, value string) swiftui.View {
 		swiftui.Spacer(),
 		swiftui.Text(value).
 			FontWeight(swiftui.WeightMedium),
-	)
+	).AccessibilityLabel(label).
+		AccessibilityValue(value)
 }

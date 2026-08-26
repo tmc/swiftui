@@ -19,6 +19,7 @@ import (
 	"math/rand"
 	"runtime"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/tmc/swiftui"
@@ -197,6 +198,7 @@ func main() {
 	}()
 
 	// Visualizer goroutine.
+	var vizTicks atomic.Int64
 	go func() {
 		ticker := time.NewTicker(200 * time.Millisecond)
 		defer ticker.Stop()
@@ -205,13 +207,13 @@ func main() {
 				for i := range vizBars {
 					vizBars[i].Set(0.05)
 				}
-				vizTick.Set(vizTick.Get() + 1)
+				vizTick.Set(int(vizTicks.Add(1)))
 				continue
 			}
 			for i := range vizBars {
 				vizBars[i].Set(0.1 + rand.Float64()*0.9)
 			}
-			vizTick.Set(vizTick.Get() + 1)
+			vizTick.Set(int(vizTicks.Add(1)))
 		}
 	}()
 
@@ -312,7 +314,7 @@ func main() {
 						}).ButtonStyle(swiftui.ButtonStyleBordered),
 					),
 				).Padding(10),
-			).MaxFrame(-1, 0),
+			).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 		)
 	}
 
@@ -332,7 +334,7 @@ func main() {
 							ForegroundStyleNamed("secondary"),
 						swiftui.Spacer(),
 					),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			),
 			swiftui.DynamicView(trackState, func(_ int) swiftui.View {
 				t, ok := currentTrackInfo()
@@ -381,9 +383,9 @@ func main() {
 								queuePopoverState.Set(1)
 							}).ButtonStyle(swiftui.ButtonStyleBordered),
 						),
-					).MaxFrame(-1, 0),
+					).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 				).Padding(14).
-					Background(swiftui.RGBA(0.18, 0.19, 0.23, 0.7)).
+					BackgroundStyle("regularMaterial").
 					CornerRadius(16)
 			}),
 			swiftui.HStackSpaced(12,
@@ -425,7 +427,7 @@ func main() {
 						}
 						return swiftui.VStackSpaced(8, rows...).Padding(10)
 					}),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 				swiftui.GroupBox("Playback",
 					swiftui.VStackSpaced(10,
 						infoLine("State", playbackStateLabel(playingState.Get())),
@@ -433,7 +435,7 @@ func main() {
 						infoLine("Visualizer", "8 animated bars"),
 						infoLine("Sheet", "Detailed now-playing surface"),
 					).Padding(10),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			),
 			swiftui.HStackSpaced(12, playlistCards...),
 		).Padding(20),
@@ -648,7 +650,9 @@ func musicBadge(label, value string) swiftui.View {
 			FontWeight(swiftui.WeightSemibold),
 	).Padding(8).
 		Background(swiftui.RGBA(1, 1, 1, 0.05)).
-		CornerRadius(8)
+		CornerRadius(8).
+		AccessibilityLabel(label).
+		AccessibilityValue(value)
 }
 
 func musicStatCard(label, value, note string) swiftui.View {
@@ -672,8 +676,10 @@ func musicStatCard(label, value, note string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(swiftui.RGBA(0.18, 0.19, 0.23, 0.62)).
-		CornerRadius(10)
+		BackgroundStyle("regularMaterial").
+		CornerRadius(10).
+		AccessibilityLabel(label).
+		AccessibilityValue(fmt.Sprintf("%s, %s", value, note))
 }
 
 func playbackStateLabel(v int) string {
@@ -699,5 +705,6 @@ func infoLine(label, value string) swiftui.View {
 		swiftui.Text(value).
 			Font(swiftui.FontCaption).
 			FontWeight(swiftui.WeightMedium),
-	)
+	).AccessibilityLabel(label).
+		AccessibilityValue(value)
 }

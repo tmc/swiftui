@@ -65,36 +65,36 @@ func main() {
 				return summaryBar(n)
 			}),
 			swiftui.GroupBox("Items",
-				swiftui.ScrollView(
-					swiftui.DynamicView(count, func(n int) swiftui.View {
-						if n == 0 {
-							return swiftui.VStackSpaced(8,
-								swiftui.Spacer(),
-								swiftui.Image("tray").
-									ForegroundStyleNamed("secondary").
-									ImageScale(swiftui.ImageScaleLarge),
-								swiftui.Text("Nothing queued").
-									Font(swiftui.FontBody).
-									ForegroundStyleNamed("secondary"),
-								swiftui.Text("Add a task above to repopulate the list.").
-									Font(swiftui.FontCaption).
-									ForegroundStyleNamed("tertiary"),
-								swiftui.Spacer(),
-							).Padding(36)
-						}
-						mu.Lock()
-						snapshot := make([]string, len(items))
-						copy(snapshot, items)
-						mu.Unlock()
+				// List gives the rows platform list styling and keyboard
+				// navigation; it scrolls on its own, so no ScrollView here.
+				swiftui.DynamicView(count, func(n int) swiftui.View {
+					if n == 0 {
+						return swiftui.VStackSpaced(8,
+							swiftui.Spacer(),
+							swiftui.Image("tray").
+								ForegroundStyleNamed("secondary").
+								ImageScale(swiftui.ImageScaleLarge),
+							swiftui.Text("Nothing queued").
+								Font(swiftui.FontBody).
+								ForegroundStyleNamed("secondary"),
+							swiftui.Text("Add a task above to repopulate the list.").
+								Font(swiftui.FontCaption).
+								ForegroundStyleNamed("tertiary"),
+							swiftui.Spacer(),
+						).Padding(36)
+					}
+					mu.Lock()
+					snapshot := make([]string, len(items))
+					copy(snapshot, items)
+					mu.Unlock()
 
-						rows := make([]swiftui.Viewable, 0, len(snapshot))
-						for i, item := range snapshot {
-							rows = append(rows, todoRow(i+1, item))
-						}
-						return swiftui.VStackSpaced(8, rows...).Padding(8)
-					}),
-				).Frame(440, 320),
-			).MaxFrame(-1, 0),
+					rows := make([]swiftui.Viewable, 0, len(snapshot))
+					for i, item := range snapshot {
+						rows = append(rows, todoRow(i+1, item))
+					}
+					return swiftui.List(rows...)
+				}).Frame(440, 320),
+			).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			swiftui.HStack(
 				swiftui.Text("Keep the list small and explicit. This example is about state, not data modeling.").
 					Font(swiftui.FontCaption).
@@ -141,7 +141,7 @@ func todoRow(index int, item string) swiftui.View {
 			Font(swiftui.FontBody),
 		swiftui.Spacer(),
 	).Padding(10).
-		Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.55)).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(10)
 }
 
@@ -160,7 +160,7 @@ func listStatCard(label, value string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.55)).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(10)
 }
 

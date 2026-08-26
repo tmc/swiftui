@@ -200,7 +200,7 @@ func main() {
 		).Padding(16),
 		swiftui.Divider(),
 		// Board columns
-		swiftui.HStackSpaced(12, cols...).Padding(12).MaxFrame(-1, -1),
+		swiftui.HStackSpaced(12, cols...).Padding(12).MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity),
 		swiftui.Divider(),
 		// Stats footer
 		statsView,
@@ -284,7 +284,7 @@ func buildColumn(col int, hc [3]float64, versions [3]*swiftui.IntState, sheetSta
 	return swiftui.VStack(
 		header,
 		cardList,
-	).MaxFrame(-1, -1)
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity)
 }
 
 func buildCard(card Card, col, idx int, versions [3]*swiftui.IntState) swiftui.View {

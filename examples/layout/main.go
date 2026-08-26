@@ -38,12 +38,12 @@ func main() {
 						statCard("Monthly Revenue", "$9.8k", "Month to date", "banknote.fill", 0.28, 0.78, 0.44),
 					),
 					swiftui.HStackSpaced(12,
-						trafficPanel().MaxFrame(-1, 0),
-						checklistPanel().MaxFrame(-1, 0),
+						trafficPanel().MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
+						checklistPanel().MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 					),
 					swiftui.HStackSpaced(12,
-						activityPanel().MaxFrame(-1, 0),
-						actionsPanel().MaxFrame(-1, 0),
+						activityPanel().MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
+						actionsPanel().MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 					),
 				).Padding(16),
 			),
@@ -111,7 +111,7 @@ func statCard(title, value, note, icon string, r, g, b float64) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		MaxFrame(-1, 0).
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).
 		Background(swiftui.RGBA(0.11, 0.13, 0.16, 0.92)).
 		CornerRadius(16).
 		Shadow(swiftui.RGBA(0, 0, 0, 0.10), 10, 0, 4)
@@ -146,7 +146,7 @@ func panelMetric(label, value string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(8).
-		MaxFrame(-1, 0).
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).
 		Background(swiftui.RGBA(1, 1, 1, 0.04)).
 		CornerRadius(12)
 }
@@ -225,7 +225,7 @@ func actionButton(title string) swiftui.View {
 	return swiftui.Button(title, func() {}).
 		ButtonStyle(swiftui.ButtonStyleBordered).
 		ControlSize(swiftui.ControlSizeRegular).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func panel(title string, content swiftui.View) swiftui.View {
@@ -238,7 +238,7 @@ func panel(title string, content swiftui.View) swiftui.View {
 		),
 		content,
 	).Padding(12).
-		MaxFrame(-1, 0).
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).
 		Background(swiftui.RGBA(0.10, 0.12, 0.15, 0.92)).
 		CornerRadius(18).
 		Shadow(swiftui.RGBA(0, 0, 0, 0.08), 10, 0, 4)

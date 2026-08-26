@@ -137,21 +137,21 @@ func main() {
 		return swiftui.Button(l, func() { c.inputDigit(l) }).
 			ControlSize(swiftui.ControlSizeLarge).
 			ButtonStyle(swiftui.ButtonStyleBordered).
-			MaxFrame(-1, 0)
+			MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 	}
 	opBtn := func(label string) swiftui.View {
 		l := label
 		return swiftui.Button(l, func() { c.inputOp(l) }).
 			ControlSize(swiftui.ControlSizeLarge).
 			ButtonStyle(swiftui.ButtonStyleBorderedProminent).
-			MaxFrame(-1, 0)
+			MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 	}
 	funcBtn := func(label string, action func()) swiftui.View {
 		return swiftui.Button(label, action).
 			ControlSize(swiftui.ControlSizeLarge).
 			ButtonStyle(swiftui.ButtonStyleBordered).
 			ForegroundStyleNamed("secondary").
-			MaxFrame(-1, 0)
+			MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 	}
 	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Calculator",
@@ -172,7 +172,7 @@ func main() {
 							ForegroundStyleNamed("secondary"),
 						swiftui.Spacer(),
 					),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			),
 
 			swiftui.VStackSpaced(8,
@@ -190,7 +190,7 @@ func main() {
 						MonospacedDigit(),
 				),
 			).Padding(16).
-				Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.55)).
+				BackgroundStyle("regularMaterial").
 				CornerRadius(18),
 
 			swiftui.VStackSpaced(8,
@@ -217,12 +217,12 @@ func main() {
 					swiftui.Button(".", func() { c.inputDot() }).
 						ControlSize(swiftui.ControlSizeLarge).
 						ButtonStyle(swiftui.ButtonStyleBordered).
-						MaxFrame(-1, 0),
+						MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 					swiftui.Button("=", func() { c.evaluate() }).
 						ControlSize(swiftui.ControlSizeLarge).
 						ButtonStyle(swiftui.ButtonStyleBorderedProminent).
 						Tint(swiftui.RGBA(0.2, 0.6, 1.0, 1.0)).
-						MaxFrame(-1, 0),
+						MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 				),
 			),
 		).Padding(18),

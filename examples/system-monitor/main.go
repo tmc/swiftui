@@ -81,7 +81,7 @@ func main() {
 						circleGauge("Sys", sysPct, "cpu", 0.3, 0.7, 1.0),
 						circleGauge("GC", gcPct, "arrow.triangle.2.circlepath", 0.3, 0.8, 0.4),
 					).Padding(12),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// Detail cards
 				swiftui.GroupBox("Memory",
@@ -89,7 +89,7 @@ func main() {
 						metricRow("Heap Alloc", "memorychip.fill", heapMB, "MB", 256),
 						metricRow("Sys Memory", "cpu", sysMB, "MB", 256),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				swiftui.GroupBox("Scheduling",
 					swiftui.VStackSpaced(12,
@@ -121,7 +121,7 @@ func main() {
 								MonospacedDigit(),
 						),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// Force GC button
 				swiftui.HStack(
@@ -148,55 +148,49 @@ func clamp(v float64) float64 {
 	return v
 }
 
-// gaugeView shows a goroutine count as a circular gauge with DynamicView.
+// gaugeView shows a goroutine count as a Gauge. Gauge takes a plain value, so
+// DynamicView rebuilds it whenever the count changes.
 func gaugeView(label string, state *swiftui.IntState, r, g, b float64) swiftui.View {
 	return swiftui.VStackSpaced(4,
 		swiftui.DynamicView(state, func(v int) swiftui.View {
 			pct := clamp(float64(v) / 50.0) // scale: 50 goroutines = full
-			return swiftui.ZStack(
-				swiftui.Circle().
-					Stroke(swiftui.RGBA(r, g, b, 0.15), 8).
-					Frame(64, 64).
-					AsView(),
-				swiftui.Circle().
-					Fill(swiftui.RGBA(r, g, b, pct*0.3)).
-					Frame(64, 64).
-					AsView(),
-				swiftui.VStack(
-					swiftui.Text(fmt.Sprintf("%d", v)).
-						Font(swiftui.FontTitle2).
-						FontWeight(swiftui.WeightBold).
-						MonospacedDigit().
-						ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)),
-				),
-			)
+			return swiftui.VStackSpaced(4,
+				swiftui.Gauge(pct, label).
+					Tint(swiftui.RGBA(r, g, b, 1.0)).
+					Frame(64, 0).
+					AccessibilityHidden(true),
+				swiftui.Text(fmt.Sprintf("%d", v)).
+					Font(swiftui.FontTitle2).
+					FontWeight(swiftui.WeightBold).
+					MonospacedDigit().
+					ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)),
+			).AccessibilityLabel(label).
+				AccessibilityValue(fmt.Sprintf("%d", v))
 		}),
 		swiftui.Text(label).
 			Font(swiftui.FontCaption2).
-			ForegroundStyleNamed("secondary"),
+			ForegroundStyleNamed("secondary").
+			AccessibilityHidden(true),
 	)
 }
 
-// circleGauge shows a float percentage as a circular gauge.
+// circleGauge shows a float percentage as a state-bound gauge.
 func circleGauge(label string, pct *swiftui.FloatState, icon string, r, g, b float64) swiftui.View {
 	return swiftui.VStackSpaced(4,
-		swiftui.ZStack(
-			swiftui.Circle().
-				Stroke(swiftui.RGBA(r, g, b, 0.15), 8).
-				Frame(64, 64).
-				AsView(),
-			swiftui.FloatGauge(label, pct, 0, 1).
-				Frame(0, 0), // hidden; drives the state
-			swiftui.VStack(
-				swiftui.Image(icon).
-					ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
-					ImageScale(swiftui.ImageScaleSmall),
-			),
-		),
+		swiftui.FloatGauge(label, pct, 0, 1).
+			Tint(swiftui.RGBA(r, g, b, 1.0)).
+			Frame(64, 0).
+			AccessibilityHidden(true),
+		swiftui.Image(icon).
+			ForegroundStyle(swiftui.RGBA(r, g, b, 1.0)).
+			ImageScale(swiftui.ImageScaleSmall).
+			AccessibilityHidden(true),
 		swiftui.Text(label).
 			Font(swiftui.FontCaption2).
-			ForegroundStyleNamed("secondary"),
-	)
+			ForegroundStyleNamed("secondary").
+			AccessibilityHidden(true),
+	).AccessibilityLabel(label).
+		AccessibilityValue(fmt.Sprintf("%.0f percent", pct.Get()*100))
 }
 
 // metricRow shows a labeled progress bar with a float value.
@@ -205,11 +199,13 @@ func metricRow(label, icon string, state *swiftui.FloatState, unit string, total
 		swiftui.Image(icon).
 			ForegroundStyleNamed("secondary").
 			ImageScale(swiftui.ImageScaleSmall).
-			Frame(16, 0),
+			Frame(16, 0).
+			AccessibilityHidden(true),
 		swiftui.Text(label).
 			Font(swiftui.FontBody).
 			Frame(90, 0),
 		swiftui.FloatProgressView(state, total).
 			Tint(swiftui.RGBA(0.35, 0.65, 1.0, 1.0)),
-	)
+	).AccessibilityLabel(label).
+		AccessibilityValue(fmt.Sprintf("%.1f of %.1f %s", state.Get(), total, unit))
 }

@@ -61,7 +61,7 @@ func main() {
 							ForegroundStyleNamed("secondary"),
 						swiftui.Spacer(),
 					),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			),
 			swiftui.ZStack(
 				swiftui.AnimatedDynamicFloatView(haloScale, swiftui.TransitionScale, func(scale float64) swiftui.View {

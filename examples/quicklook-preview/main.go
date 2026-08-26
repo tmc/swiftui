@@ -100,9 +100,9 @@ func main() {
 						).Padding(10),
 					).Frame(240, 0),
 					swiftui.GroupBox("Preview",
-						preview.MaxFrame(-1, -1),
-					).MaxFrame(-1, -1),
-				).MaxFrame(-1, -1),
+						preview.MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity),
+					).MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity),
 			).Padding(20),
 		}}}); err != nil {
 		log.Fatal(err)

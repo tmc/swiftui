@@ -81,7 +81,7 @@ func main() {
 							ForegroundStyleNamed("secondary"),
 						swiftui.Spacer(),
 					),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 				swiftui.DynamicView(running, func(state int) swiftui.View {
 					label := "Idle"
 					r, g, b := 0.55, 0.58, 0.62
@@ -128,7 +128,7 @@ func main() {
 						AsView()
 				}),
 			).Padding(16).
-				Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.45)).
+				BackgroundStyle("regularMaterial").
 				CornerRadius(18),
 
 			swiftui.HStackSpaced(12,
@@ -185,7 +185,7 @@ func timerStatCard(label, value string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.45)).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(14)
 }
 

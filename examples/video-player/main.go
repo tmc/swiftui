@@ -80,7 +80,7 @@ func main() {
 				),
 				swiftui.GroupBox("Player",
 					videoView.Frame(720, 420),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 				swiftui.HStackSpaced(12,
 					videoInfoCard("Source", sourceName),
 					videoInfoCard("Transport", "Native AVKit controls"),
@@ -114,6 +114,6 @@ func videoInfoCard(label, value string) swiftui.View {
 			swiftui.Spacer(),
 		),
 	).Padding(12).
-		Background(swiftui.RGBA(0.18, 0.19, 0.22, 0.6)).
+		BackgroundStyle("regularMaterial").
 		CornerRadius(10)
 }

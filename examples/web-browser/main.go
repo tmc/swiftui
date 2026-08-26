@@ -112,7 +112,7 @@ func main() {
 					}).ButtonStyle(swiftui.ButtonStyleBordered),
 				),
 			).Padding(16).
-				Background(swiftui.RGBA(0.16, 0.17, 0.19, 0.95)),
+				BackgroundStyle("bar"),
 			swiftui.Divider(),
 			swiftui.HStackSpaced(0,
 				swiftui.VStackSpaced(14,
@@ -123,25 +123,25 @@ func main() {
 							bookmarkButton("GitHub", "chevron.left.forwardslash.chevron.right", "https://github.com/tmc/swiftui", loadAddress),
 							bookmarkButton("Search Go FFI", "magnifyingglass", "purego ffi patterns", loadAddress),
 						).Padding(10),
-					).MaxFrame(-1, 0),
+					).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 					swiftui.GroupBox("Quick Notes",
 						swiftui.VStackSpaced(10,
 							infoLine("Navigation", "Home, reload, search"),
 							infoLine("Gestures", "Swipe + zoom"),
 							infoLine("Intent", "Host shell around the page"),
 						).Padding(10),
-					).MaxFrame(-1, 0),
+					).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 					swiftui.Spacer(),
 				).Padding(16).
 					Frame(260, 0).
-					Background(swiftui.RGBA(0.13, 0.14, 0.16, 1.0)),
+					BackgroundStyle("controlBackground"),
 				swiftui.Divider(),
 				webView.
 					WebViewBackForwardNavigationGestures(swiftui.WebViewBehaviorEnabled).
 					WebViewMagnificationGestures(swiftui.WebViewBehaviorEnabled).
 					WebViewContentBackground(swiftui.WebViewContentBackgroundHidden).
-					MaxFrame(-1, -1),
-			).MaxFrame(-1, -1),
+					MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity),
+			).MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity),
 			swiftui.Divider(),
 			swiftui.HStack(
 				swiftui.Text("Address").
@@ -153,7 +153,7 @@ func main() {
 					MonospacedDigit().
 					ForegroundStyleNamed("secondary"),
 			).Padding(10).
-				Background(swiftui.RGBA(0.14, 0.15, 0.17, 0.95)),
+				BackgroundStyle("bar"),
 		),
 	}}}); err != nil {
 		log.Fatal(err)

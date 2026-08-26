@@ -170,7 +170,7 @@ func playScreen(
 					Font(swiftui.FontTitle2).
 					FontWeight(swiftui.WeightSemibold).
 					AsView().
-					MaxFrame(-1, 0),
+					MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				swiftui.Spacer(),
 
@@ -228,7 +228,7 @@ func answerButton(
 		}()
 	}).ButtonStyle(swiftui.ButtonStyleBordered).
 		ControlSize(swiftui.ControlSizeLarge).
-		MaxFrame(-1, 0).
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).
 		Disabled(answered)
 
 	if answered && idx == correct {

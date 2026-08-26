@@ -17,6 +17,7 @@ import (
 	"math"
 	"runtime"
 	"sync"
+	"sync/atomic"
 
 	"github.com/tmc/swiftui"
 )
@@ -40,17 +41,18 @@ func main() {
 	aState := swiftui.NewFloatState(1.0)
 	colorState := swiftui.NewColorState(0.2, 0.5, 0.8, 1.0)
 	version := swiftui.NewIntState(0) // triggers DynamicView rebuilds
+	var versionTicks atomic.Int64
 
 	syncFromSliders := func() {
 		colorState.Set(rState.Get(), gState.Get(), bState.Get(), aState.Get())
-		version.Set(version.Get() + 1)
+		version.Set(int(versionTicks.Add(1)))
 	}
 	syncFromPicker := func() {
 		rState.Set(colorState.R())
 		gState.Set(colorState.G())
 		bState.Set(colorState.B())
 		aState.Set(colorState.A())
-		version.Set(version.Get() + 1)
+		version.Set(int(versionTicks.Add(1)))
 	}
 
 	leftColumn := swiftui.VStackSpaced(12,
@@ -81,7 +83,7 @@ func main() {
 				}),
 			).Padding(4),
 		),
-	).MaxFrame(-1, 0)
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 
 	rightColumn := swiftui.VStackSpaced(12,
 		// Complementary colors
@@ -103,7 +105,7 @@ func main() {
 					paletteMu.Lock()
 					palette = append(palette, savedColor{rState.Get(), gState.Get(), bState.Get()})
 					paletteMu.Unlock()
-					version.Set(version.Get() + 1)
+					version.Set(int(versionTicks.Add(1)))
 				}).ButtonStyle(swiftui.ButtonStyleBorderedProminent),
 				swiftui.DynamicView(version, func(_ int) swiftui.View {
 					paletteMu.Lock()
@@ -167,7 +169,7 @@ func main() {
 				)
 			}),
 		),
-	).MaxFrame(-1, 0)
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 	if err := swiftui.Run(swiftui.App{Windows: []swiftui.WindowConfig{{
 		Title:  "Color Laboratory",
 		Width:  800,

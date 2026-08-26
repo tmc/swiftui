@@ -144,7 +144,7 @@ func main() {
 				default:
 					return highlightsScreen()
 				}
-			}).MaxFrame(-1, -1),
+			}).MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity),
 		).
 			Padding(14).
 			BackgroundStyle("windowBackground"),
@@ -398,7 +398,7 @@ func headerStat(title, value string) swiftui.View {
 	).Padding(10).
 		BackgroundRoundedRect(swiftui.RGBA(0.12, 0.16, 0.22, 0.92), 12).
 		Border(swiftui.RGBA(0.82, 0.86, 0.92, 0.08), 1).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func section(title, subtitle string, cards ...swiftui.View) swiftui.View {
@@ -431,7 +431,7 @@ func featuredCard(title, summary, features string, body swiftui.View) swiftui.Vi
 		body,
 		cardMeta(features),
 	).Padding(14)).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func compactCard(title, summary, features string, body swiftui.View) swiftui.View {
@@ -440,7 +440,7 @@ func compactCard(title, summary, features string, body swiftui.View) swiftui.Vie
 		body,
 		cardMeta(features),
 	).Padding(12)).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 func cardSummary(text string) swiftui.View {
@@ -526,7 +526,7 @@ func plotBadge(label string) swiftui.View {
 				BackgroundRoundedRect(swiftui.RGBA(0.10, 0.13, 0.18, 0.86), 8),
 		),
 		swiftui.Spacer(),
-	).MaxFrame(-1, -1)
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity)
 }
 
 func annotation(text string) swiftui.View {

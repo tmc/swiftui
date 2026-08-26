@@ -130,7 +130,7 @@ func styledRow(style, description string) swiftui.Viewable {
 // styleCard wraps content in a labeled group box.
 func styleCard(title string, content swiftui.View) swiftui.View {
 	return swiftui.GroupBox(title, content).
-		MaxFrame(-1, 0)
+		MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset)
 }
 
 // materialCard demonstrates material background styles.
@@ -153,7 +153,7 @@ func materialCard(title string, bgR, bgG, bgB float64) swiftui.View {
 				Font(swiftui.FontCallout).
 				ForegroundStyleNamed("primary").
 				Padding(10).
-				MaxFrame(-1, 0).
+				MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).
 				BackgroundStyle(m.name).
 				CornerRadius(8),
 		)
@@ -162,7 +162,7 @@ func materialCard(title string, bgR, bgG, bgB float64) swiftui.View {
 	return swiftui.GroupBox(title,
 		swiftui.VStackSpaced(6, rows...).
 			Padding(4),
-	).MaxFrame(-1, 0).
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).
 		Background(swiftui.RGBA(bgR, bgG, bgB, 1.0)).
 		CornerRadius(12)
 }
@@ -199,7 +199,7 @@ func colorCard(title string, bgR, bgG, bgB float64) swiftui.View {
 	return swiftui.GroupBox(title,
 		swiftui.VStackSpaced(6, rows...).
 			Padding(4),
-	).MaxFrame(-1, 0).
+	).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset).
 		Background(swiftui.RGBA(bgR, bgG, bgB, 1.0)).
 		CornerRadius(12)
 }

@@ -389,7 +389,7 @@ func main() {
 				generalTab,
 				appearanceTab,
 				advancedTab,
-			).MaxFrame(-1, -1),
+			).MaxFrame(swiftui.FrameInfinity, swiftui.FrameInfinity),
 			swiftui.Divider(),
 			statusBar,
 		),

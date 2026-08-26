@@ -1,7 +1,7 @@
 //go:build darwin
 // +build darwin
 
-// Command menu-bar demonstrates modal presentations in SwiftUI from Go.
+// Command modals demonstrates modal presentations in SwiftUI from Go.
 //
 // It shows buttons that trigger six different modal types: Sheet, Alert,
 // ConfirmationDialog, Popover, FullScreenCover, and ContextMenu.
