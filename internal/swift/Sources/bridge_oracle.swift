@@ -36,6 +36,21 @@ public func SUIConditionalVStack(_ first: UnsafeMutableRawPointer, _ second: Uns
     return retainView(AnyView(VStack { content }))
 }
 
+// SUIGroup is a test-only render differential for swiftgo's runtime generic
+// Group implementation. Group is not a public tmc/swiftui bridge operation.
+@_cdecl("SUIGroup")
+public func SUIGroup(_ children: UnsafePointer<UnsafeMutableRawPointer>, _ count: Int32) -> UnsafeMutableRawPointer {
+    let views = (0..<Int(count)).map { i in
+        Unmanaged<Box<AnyView>>.fromOpaque(children[i]).takeUnretainedValue().value
+    }
+    let group = AnyView(Group {
+        ForEach(views.indices, id: \.self) { i in
+            views[i]
+        }
+    })
+    return Unmanaged.passRetained(Box(group)).toOpaque()
+}
+
 @_cdecl("SUIAccessibilityIdentifier")
 public func SUIAccessibilityIdentifier(_ viewRef: UnsafeMutableRawPointer, _ identifierPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
