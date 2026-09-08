@@ -3,9 +3,10 @@
 
 // Command accessibility demonstrates SwiftUI accessibility modifiers from Go.
 //
-// It showcases AccessibilityLabel, AccessibilityHint, and AccessibilityHidden
-// applied to interactive elements, images, and decorative views. Each section
-// explains what the modifier does and shows it in use.
+// It showcases AccessibilityLabel, AccessibilityHint, AccessibilityHidden, and
+// AccessibilityIdentifier applied to interactive elements, images, and
+// decorative views. Each section explains what the modifier does and shows it in
+// use.
 //
 // Usage:
 //
@@ -51,7 +52,7 @@ func main() {
 							ForegroundStyle(swiftui.RGBA(0.3, 0.6, 1.0, 1.0)).
 							AccessibilityLabel("Globe representing international content"),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// --- AccessibilityHint ---
 				swiftui.GroupBox("AccessibilityHint",
@@ -71,7 +72,7 @@ func main() {
 							AccessibilityLabel("Delete all items").
 							AccessibilityHint("Permanently removes all items from the list"),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// --- AccessibilityHidden ---
 				swiftui.GroupBox("AccessibilityHidden",
@@ -96,7 +97,7 @@ func main() {
 							Font(swiftui.FontCaption).
 							ForegroundStyleNamed("secondary"),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 
 				// --- Form with labeled controls ---
 				swiftui.GroupBox("Accessible Form Controls",
@@ -107,15 +108,18 @@ func main() {
 						swiftui.Divider().AccessibilityHidden(true),
 						swiftui.TextField("Enter your name", name, func() {}).
 							AccessibilityLabel("Full name").
-							AccessibilityHint("Type your first and last name"),
+							AccessibilityHint("Type your first and last name").
+							AccessibilityIdentifier("full-name-field"),
 						swiftui.Slider("Volume", volume, 0, 100, func() {}).
 							AccessibilityLabel("Volume control").
-							AccessibilityHint("Adjust the playback volume from 0 to 100"),
+							AccessibilityHint("Adjust the playback volume from 0 to 100").
+							AccessibilityIdentifier("volume-slider"),
 						swiftui.Label("Settings", "gear").
 							AccessibilityLabel("Application settings").
-							AccessibilityHint("Opens the settings panel"),
+							AccessibilityHint("Opens the settings panel").
+							AccessibilityIdentifier("settings-label"),
 					).Padding(8),
-				).MaxFrame(-1, 0),
+				).MaxFrame(swiftui.FrameInfinity, swiftui.FrameUnset),
 			).Padding(24),
 		)}}}); err != nil {
 		log.Fatal(err)

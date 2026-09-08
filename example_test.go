@@ -105,3 +105,9 @@ func ExampleView_OnScrollGeometryChange() {
 	})
 	_, _ = view, offset
 }
+
+func ExampleTextView_AccessibilityIdentifier() {
+	view := swiftui.Text("Build").
+		AccessibilityIdentifier("build-status")
+	_ = view
+}
