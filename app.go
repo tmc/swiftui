@@ -56,7 +56,7 @@ type MenuBarConfig struct {
 	Label        string  // Text shown next to the icon
 	SystemImage  string  // SF Symbol name for the icon
 	Width        float64 // Popover width
-	Height       float64 // Popover height
+	Height       float64 // Popover height; zero hugs the content like an NSMenu
 	OpenOnLaunch bool    // Show the popover immediately after app launch.
 	Content      View    // Popover content; a zero View installs a status item with no popover.
 }

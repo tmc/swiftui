@@ -15,6 +15,30 @@ nonisolated(unsafe) var _menuBarDelegate: SUIMenuBarAppDelegate?
 nonisolated(unsafe) var _statusItem: NSStatusItem?
 nonisolated(unsafe) var _popover: NSPopover?
 
+// suiMakeStatusItemPopover builds the status item's popover. A non-positive
+// height makes the popover hug its content the way an NSMenu does, instead of
+// pinning a fixed contentSize that clips or pads the card.
+@MainActor
+func suiMakeStatusItemPopover(width: Double, height: Double, content: AnyView) -> NSPopover {
+    let popover = NSPopover()
+    popover.behavior = .transient
+    let hugs = height <= 0
+    let hc: NSHostingController<AnyView>
+    if hugs {
+        hc = NSHostingController(rootView: AnyView(content.frame(width: width)))
+        if #available(macOS 13.0, *) {
+            hc.sizingOptions = [.preferredContentSize]
+        }
+        popover.contentSize = NSSize(width: width, height: max(1, hc.view.fittingSize.height))
+    } else {
+        hc = NSHostingController(rootView: AnyView(content.frame(minWidth: width, minHeight: height)))
+        popover.contentSize = NSSize(width: width, height: height)
+    }
+    popover.contentViewController = hc
+    return popover
+}
+
+
 // suiOnMainSync runs body on the main thread, returning its result. The app
 // run functions below always call it, so it is defined here (the default
 // surface) rather than in the converged-surface chunk to keep a default regen
@@ -149,11 +173,7 @@ func suiBuildStatusItem(delegate: SUIMenuBarAppDelegate, label: String, systemIm
 
     guard let content = content else { return }
 
-    let popover = NSPopover()
-    popover.contentSize = NSSize(width: width, height: height)
-    popover.behavior = .transient
-    let hc = NSHostingController(rootView: AnyView(content.frame(minWidth: width, minHeight: height)))
-    popover.contentViewController = hc
+    let popover = suiMakeStatusItemPopover(width: width, height: height, content: AnyView(content))
     _popover = popover
 
     if openOnLaunch {
@@ -1076,11 +1096,7 @@ private func SUIConfigureSceneMenuBar(_ scene: SUIScenePlanScene, _ view: AnyVie
     _statusItem = item
     suiApplyStatusItemButton(label: labelStr, systemImage: imageStr, monospacedDigits: false)
 
-    let popover = NSPopover()
-    popover.contentSize = NSSize(width: width, height: height)
-    popover.behavior = .transient
-    let hc = NSHostingController(rootView: AnyView(view.frame(minWidth: width, minHeight: height)))
-    popover.contentViewController = hc
+    let popover = suiMakeStatusItemPopover(width: width, height: height, content: AnyView(view))
     _popover = popover
 
     if scene.openOnLaunch ?? false {
