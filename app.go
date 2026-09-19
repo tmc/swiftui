@@ -40,6 +40,9 @@ type WindowConfig struct {
 	// or duplicate ID makes Run return ErrWindowID. It is ignored by the
 	// single-window runner. Identity is never derived from the mutable Title.
 	ID string
+	// OpenOnLaunch controls whether the window is shown when the app starts.
+	// Nil keeps the default, which is true for ordinary windows.
+	OpenOnLaunch *bool
 	// Resizable controls whether the user can resize the window. Nil keeps the
 	// default, which is resizable for a window and fixed for Settings. A window
 	// that is not resizable is pinned to Width by Height, so a panel keeps the
@@ -67,12 +70,13 @@ type SettingsConfig struct {
 	Root   View // The settings view.
 }
 
-// CommandGroup is a group of items in the application's menu bar. A group
-// whose title matches the application name is added to that application's
-// menu; other groups become top-level menus.
+// CommandGroup is a group of items in the application's menu bar. Set AppMenu
+// to put the group in macOS's application menu; other groups become top-level
+// menus.
 type CommandGroup struct {
-	Title string
-	Items []CommandItem
+	Title   string
+	AppMenu bool
+	Items   []CommandItem
 }
 
 // CommandItem is an application-menu command. Set Kind to "separator" for a
@@ -301,6 +305,9 @@ func runApp(app App) error {
 
 	for _, win := range app.Windows {
 		openOnLaunch := true
+		if win.OpenOnLaunch != nil {
+			openOnLaunch = *win.OpenOnLaunch
+		}
 		plan.Scenes = append(plan.Scenes, scenePlanScene{
 			Kind:           "window",
 			ID:             win.ID,
@@ -342,8 +349,9 @@ func runApp(app App) error {
 
 	for _, group := range app.Commands {
 		plan.Commands = append(plan.Commands, sceneCommandGroup{
-			Title: group.Title,
-			Items: commandItems(group.Items),
+			Title:   group.Title,
+			AppMenu: group.AppMenu,
+			Items:   commandItems(group.Items),
 		})
 	}
 
@@ -380,8 +388,9 @@ type scenePlan struct {
 }
 
 type sceneCommandGroup struct {
-	Title string             `json:"title"`
-	Items []sceneCommandItem `json:"items"`
+	Title   string             `json:"title"`
+	AppMenu bool               `json:"appMenu,omitempty"`
+	Items   []sceneCommandItem `json:"items"`
 }
 
 type sceneCommandItem struct {

@@ -85,8 +85,9 @@ func main() {
 			).Padding(16),
 		}},
 		Commands: []swiftui.CommandGroup{{
-			// Title matching the process name puts these in the app menu.
-			Title: appName(),
+			// AppMenu puts these items in the application's menu.
+			Title:   appName(),
+			AppMenu: true,
 			Items: []swiftui.CommandItem{{
 				Title: "About Scene Smoke",
 				Action: func() {

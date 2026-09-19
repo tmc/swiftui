@@ -248,6 +248,7 @@ var (
 	_SUILabel                               func(*byte, *byte) uintptr
 	_SUIProgressViewSpinning                func() uintptr
 	_SUIProgressViewLinear                  func(float64, float64) uintptr
+	_SUIProgressViewCircular                func(float64, float64) uintptr
 	_SUIEmptyView                           func() uintptr
 	_SUIColor                               func(float64, float64, float64, float64) uintptr
 	_SUILinearGradient                      func(float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64, float64) uintptr
@@ -632,6 +633,7 @@ func init() {
 	tryRegisterLibFunc(&_SUILabel, libHandle, "SUILabel")
 	tryRegisterLibFunc(&_SUIProgressViewSpinning, libHandle, "SUIProgressViewSpinning")
 	tryRegisterLibFunc(&_SUIProgressViewLinear, libHandle, "SUIProgressViewLinear")
+	tryRegisterLibFunc(&_SUIProgressViewCircular, libHandle, "SUIProgressViewCircular")
 	tryRegisterLibFunc(&_SUIEmptyView, libHandle, "SUIEmptyView")
 	tryRegisterLibFunc(&_SUIColor, libHandle, "SUIColor")
 	tryRegisterLibFunc(&_SUILinearGradient, libHandle, "SUILinearGradient")
@@ -1003,6 +1005,9 @@ func setUnavailableStubs() {
 	}
 	if _SUIProgressViewLinear == nil {
 		_SUIProgressViewLinear = func(float64, float64) uintptr { stub("SUIProgressViewLinear"); return 0 }
+	}
+	if _SUIProgressViewCircular == nil {
+		_SUIProgressViewCircular = func(float64, float64) uintptr { stub("SUIProgressViewCircular"); return 0 }
 	}
 	if _SUIEmptyView == nil {
 		_SUIEmptyView = func() uintptr { stub("SUIEmptyView"); return 0 }

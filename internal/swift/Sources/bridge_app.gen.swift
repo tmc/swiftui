@@ -389,6 +389,7 @@ struct SUIScenePlanPayload: Decodable {
 
 struct SUICommandGroup: Decodable {
     let title: String
+    let appMenu: Bool?
     let items: [SUICommandItem]
 }
 
@@ -593,18 +594,24 @@ private func suiSceneVisibleKey(_ id: String) -> String {
 
 @MainActor
 private func suiSceneShouldOpenOnLaunch(_ scene: SUIScenePlanScene) -> Bool {
+    // An explicit scene setting takes precedence over restored visibility.
+    // This lets secondary windows such as About remain closed on launch even
+    // after the user previously opened them.
+    if let openOnLaunch = scene.openOnLaunch {
+        return openOnLaunch
+    }
     let defaultOpenOnLaunch = scene.kind == "settings" ? false : true
-    if scene.openOnLaunch ?? defaultOpenOnLaunch {
+    if defaultOpenOnLaunch {
         return true
     }
     if !suiSceneShouldRestoreVisibility(scene) {
-        return scene.openOnLaunch ?? defaultOpenOnLaunch
+        return defaultOpenOnLaunch
     }
-    guard let id = scene.id else { return scene.openOnLaunch ?? defaultOpenOnLaunch }
+    guard let id = scene.id else { return defaultOpenOnLaunch }
     if UserDefaults.standard.object(forKey: suiSceneVisibleKey(id)) != nil {
         return UserDefaults.standard.bool(forKey: suiSceneVisibleKey(id))
     }
-    return scene.openOnLaunch ?? defaultOpenOnLaunch
+    return defaultOpenOnLaunch
 }
 
 @MainActor
@@ -939,12 +946,13 @@ func SUIInstallCommandMenus(_ delegate: SUISceneRunnerDelegate, includeSettings:
     )
     mainMenu.addItem(appMenuItem)
 
-    // Command menus from the scene plan. A group titled like the application
+    // Command menus from the scene plan. An explicitly marked app-menu group
     // goes into the application menu itself, above the standard items, rather
-    // than becoming another top-level menu; that is where macOS users expect
+    // than becoming another top-level menu; titles are not used for identity
+    // because the process name and bundle display name can differ.
     // About and Check for Updates to live.
     for group in commands {
-        if group.title == appName, let appMenu = appMenuItem.submenu {
+        if group.appMenu == true, let appMenu = appMenuItem.submenu {
             for child in SUIBuildMenuItems(group.items, coordinator: coordinator).reversed() {
                 appMenu.insertItem(child, at: 0)
             }
@@ -1197,13 +1205,9 @@ public func SUIRunScenePlan(_ planJSON: UnsafePointer<CChar>,
         app.delegate = delegate
         _sceneSettingsID = plan.scenes.first(where: { $0.kind == "settings" })?.id
         let commands = plan.commands ?? []
-        if commands.isEmpty {
-            if hasWindow {
-                SUIInstallAppMenu(delegate, includeSettings: hasSettings, includeWindowMenu: hasWindow)
-            }
-        } else {
-            SUIInstallCommandMenus(delegate, includeSettings: hasSettings, commands: commands, includeWindowMenu: hasWindow)
-        }
+        // A command-enabled app must remain alive after its windows close so
+        // application-menu actions can still run.
+        delegate.terminateAfterLastWindowClosedValue = !hasMenuBar && commands.isEmpty
 
         for scene in plan.scenes {
             guard scene.viewIndex >= 0 && scene.viewIndex < views.count else { continue }
@@ -1222,6 +1226,17 @@ public func SUIRunScenePlan(_ planJSON: UnsafePointer<CChar>,
             default:
                 continue
             }
+        }
+
+        // SwiftUI hosting can install its own default menu while creating the
+        // scene windows. Install the bridge menu after hosting is complete so
+        // the command groups are the menu AppKit presents.
+        if commands.isEmpty {
+            if hasWindow {
+                SUIInstallAppMenu(delegate, includeSettings: hasSettings, includeWindowMenu: hasWindow)
+            }
+        } else {
+            SUIInstallCommandMenus(delegate, includeSettings: hasSettings, commands: commands, includeWindowMenu: hasWindow)
         }
 
         app.activate()

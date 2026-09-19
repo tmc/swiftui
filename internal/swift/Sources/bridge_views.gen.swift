@@ -458,6 +458,15 @@ public func SUIProgressViewLinear(_ value: Double, _ total: Double) -> UnsafeMut
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
+@_cdecl("SUIProgressViewCircular")
+public func SUIProgressViewCircular(_ value: Double, _ total: Double) -> UnsafeMutableRawPointer {
+    let view = AnyView(
+        ProgressView(value: value, total: total)
+            .progressViewStyle(.circular)
+    )
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
 @_cdecl("SUIGroupBox")
 public func SUIGroupBox(_ labelPtr: UnsafePointer<CChar>, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
     let label = String(cString: labelPtr)

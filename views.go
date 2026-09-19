@@ -78,6 +78,12 @@ func ProgressLinear(value float64, total float64) View {
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
+// ProgressCircular creates a determinate circular progress indicator.
+func ProgressCircular(value float64, total float64) View {
+	ptr := _SUIProgressViewCircular(value, total)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
 // EmptyView creates an invisible empty view.
 func EmptyView() View {
 	ptr := _SUIEmptyView()
