@@ -51,6 +51,28 @@ type SettingsConfig struct {
 	Root   View // The settings view.
 }
 
+// CommandGroup is a group of items in the application's menu bar. A group
+// whose title matches the application name is added to that application's
+// menu; other groups become top-level menus.
+type CommandGroup struct {
+	Title string
+	Items []CommandItem
+}
+
+// CommandItem is an application-menu command. Set Kind to "separator" for a
+// separator. Children creates a submenu; otherwise Action is invoked when the
+// item is chosen. Enabled, when non-nil, controls whether the item is enabled.
+type CommandItem struct {
+	Kind              string
+	Title             string
+	ShortcutKey       string
+	ShortcutModifiers ShortcutModifier
+	SystemAction      string
+	Action            func()
+	Enabled           func() bool
+	Children          []CommandItem
+}
+
 // MenuBarConfig configures a menu bar (status bar) item and its popover.
 type MenuBarConfig struct {
 	Label        string  // Text shown next to the icon
@@ -105,6 +127,9 @@ type App struct {
 	// app menu (Cmd-,). A Settings scene is an adornment on a windowed or
 	// menu-bar app, not a surface of its own.
 	Settings *SettingsConfig
+	// Commands configures native application-menu commands. It is available
+	// on the scene runner path, which is used for multiple windows.
+	Commands []CommandGroup
 	// Policy overrides the Dock-icon and main-menu behavior. The zero value
 	// derives it from the configured surfaces; see ActivationPolicy.
 	Policy ActivationPolicy
@@ -295,6 +320,13 @@ func runApp(app App) error {
 		})
 	}
 
+	for _, group := range app.Commands {
+		plan.Commands = append(plan.Commands, sceneCommandGroup{
+			Title: group.Title,
+			Items: commandItems(group.Items),
+		})
+	}
+
 	planJSON, err := json.Marshal(plan)
 	if err != nil {
 		return err
@@ -314,15 +346,70 @@ func runApp(app App) error {
 }
 
 // scenePlan is the wire document decoded by the Swift SUIRunScenePlan bridge.
-// It carries the scenes the Go API exposes and the activation policy. The Swift
-// SUIScenePlanPayload struct also declares commands and lifecycle fields, which
-// this layer intentionally omits; both are optional on the wire.
+// It carries the scenes the Go API exposes, the application-menu commands, and
+// the activation policy. The Swift SUIScenePlanPayload struct also declares a
+// lifecycle field, which this layer intentionally omits; it is optional on the
+// wire.
 type scenePlan struct {
-	Scenes []scenePlanScene `json:"scenes"`
+	Scenes   []scenePlanScene    `json:"scenes"`
+	Commands []sceneCommandGroup `json:"commands,omitempty"`
 	// Policy mirrors App.Policy (ActivationPolicy as int32); 0 keeps the
 	// runner's auto default. Threaded so an explicit policy is honored on the
 	// scene path exactly as on the single-window path.
 	Policy int32 `json:"policy,omitempty"`
+}
+
+type sceneCommandGroup struct {
+	Title string             `json:"title"`
+	Items []sceneCommandItem `json:"items"`
+}
+
+type sceneCommandItem struct {
+	Kind              string             `json:"kind,omitempty"`
+	Title             string             `json:"title,omitempty"`
+	ShortcutKey       string             `json:"shortcutKey,omitempty"`
+	ShortcutModifiers uint64             `json:"shortcutModifiers,omitempty"`
+	SystemAction      string             `json:"systemAction,omitempty"`
+	ActionCallbackID  uintptr            `json:"actionCallbackID,omitempty"`
+	EnabledCallbackID uintptr            `json:"enabledCallbackID,omitempty"`
+	Children          []sceneCommandItem `json:"children,omitempty"`
+}
+
+// commandItems converts the public CommandItem tree to its wire form,
+// registering a callback for each action and enabled predicate.
+func commandItems(items []CommandItem) []sceneCommandItem {
+	if len(items) == 0 {
+		return nil
+	}
+	out := make([]sceneCommandItem, 0, len(items))
+	for _, item := range items {
+		wire := sceneCommandItem{
+			Kind:              item.Kind,
+			Title:             item.Title,
+			ShortcutKey:       item.ShortcutKey,
+			ShortcutModifiers: uint64(item.ShortcutModifiers),
+			SystemAction:      item.SystemAction,
+			Children:          commandItems(item.Children),
+		}
+		if item.Action != nil {
+			action := item.Action
+			wire.ActionCallbackID = registerCommandCallback(func() int32 {
+				action()
+				return 1
+			})
+		}
+		if item.Enabled != nil {
+			enabled := item.Enabled
+			wire.EnabledCallbackID = registerCommandCallback(func() int32 {
+				if enabled() {
+					return 1
+				}
+				return 0
+			})
+		}
+		out = append(out, wire)
+	}
+	return out
 }
 
 // scenePlanScene mirrors the Swift SUIScenePlanScene Decodable struct. Optional
