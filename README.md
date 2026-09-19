@@ -17,6 +17,22 @@ Auto-generated from Apple developer documentation via an internal tool called ap
 The vendored Swift bridge is loaded at runtime. If no prebuilt dylib is
 available, the package runs `swift build` in `internal/swift/` automatically.
 
+The embedded `internal/embeddedbridge/libSwiftUIBridge.dylib` is a universal
+binary. A plain `swift build` emits a single architecture, so rebuilding it by
+hand needs `--arch arm64 --arch x86_64`, taking the result from
+`.build/apple/Products/Release/` and confirming it with `lipo -info` before
+copying it into place. Check the new dylib's exported symbols against the old
+with `nm -gU`: symbols that go missing fall back to stubs at runtime rather
+than failing to load.
+
+TODO: the dylib-copying step in the generated `generate.go` cannot do this. Its
+`find` glob matches only a lowercase `release` path segment, so it never sees
+the universal output in `Release`, and `sort | tail` then selects `x86_64` from
+what remains — silently downgrading the embedded dylib to one non-native
+architecture. Fixing it means changing the template in appledocs
+(`internal/swiftbridge/overlay_templates.go`, which emits this step for every
+bridge, not just this one).
+
 ## Quick start
 
 ```go
