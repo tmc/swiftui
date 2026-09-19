@@ -927,15 +927,25 @@ func SUIInstallCommandMenus(_ delegate: SUISceneRunnerDelegate, includeSettings:
     let appName = ProcessInfo.processInfo.processName
     let mainMenu = NSMenu(title: appName)
 
-    mainMenu.addItem(suiBuildAppMenuItem(
+    let appMenuItem = suiBuildAppMenuItem(
         appName: appName,
         includeSettings: includeSettings,
         settingsTarget: delegate,
         settingsAction: #selector(SUISceneRunnerDelegate.openSettings(_:))
-    ))
+    )
+    mainMenu.addItem(appMenuItem)
 
-    // Command menus from the scene plan.
+    // Command menus from the scene plan. A group titled like the application
+    // goes into the application menu itself, above the standard items, rather
+    // than becoming another top-level menu; that is where macOS users expect
+    // About and Check for Updates to live.
     for group in commands {
+        if group.title == appName, let appMenu = appMenuItem.submenu {
+            for child in SUIBuildMenuItems(group.items, coordinator: coordinator).reversed() {
+                appMenu.insertItem(child, at: 0)
+            }
+            continue
+        }
         let headerItem = NSMenuItem()
         let submenu = NSMenu(title: group.title)
         submenu.delegate = coordinator
