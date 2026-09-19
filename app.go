@@ -40,6 +40,22 @@ type WindowConfig struct {
 	// or duplicate ID makes Run return ErrWindowID. It is ignored by the
 	// single-window runner. Identity is never derived from the mutable Title.
 	ID string
+	// Resizable controls whether the user can resize the window. Nil keeps the
+	// default, which is resizable for a window and fixed for Settings. A window
+	// that is not resizable is pinned to Width by Height, so a panel keeps the
+	// size it asks for.
+	Resizable *bool
+	// HiddenTitleBar hides the title bar and lets the root view draw through
+	// it, for a panel that supplies its own header.
+	HiddenTitleBar bool
+	// Utility makes the window a floating utility panel: a narrower title bar
+	// and a window that floats above the app's normal windows. Like every
+	// AppKit utility panel it hides while the application is not frontmost,
+	// and reappears when the application is activated again.
+	Utility bool
+	// Centered centers the window on screen each time it opens, instead of
+	// restoring the position the user last left it in.
+	Centered bool
 }
 
 // SettingsConfig configures the standard Settings window, opened from the app
@@ -286,13 +302,17 @@ func runApp(app App) error {
 	for _, win := range app.Windows {
 		openOnLaunch := true
 		plan.Scenes = append(plan.Scenes, scenePlanScene{
-			Kind:         "window",
-			ID:           win.ID,
-			Title:        win.Title,
-			Width:        win.Width,
-			Height:       win.Height,
-			OpenOnLaunch: &openOnLaunch,
-			ViewIndex:    addView(win.Root),
+			Kind:           "window",
+			ID:             win.ID,
+			Title:          win.Title,
+			Width:          win.Width,
+			Height:         win.Height,
+			OpenOnLaunch:   &openOnLaunch,
+			ViewIndex:      addView(win.Root),
+			Resizable:      win.Resizable,
+			HiddenTitleBar: win.HiddenTitleBar,
+			Utility:        win.Utility,
+			Centered:       win.Centered,
 		})
 	}
 
@@ -425,6 +445,13 @@ type scenePlanScene struct {
 	SystemImage  string  `json:"systemImage,omitempty"`
 	OpenOnLaunch *bool   `json:"openOnLaunch,omitempty"`
 	ViewIndex    int     `json:"viewIndex"`
+
+	// Window presentation. Resizable is a pointer because false is meaningful
+	// and the Swift runner supplies a kind-dependent default for nil.
+	Resizable      *bool `json:"resizable,omitempty"`
+	HiddenTitleBar bool  `json:"hiddenTitleBar,omitempty"`
+	Utility        bool  `json:"utility,omitempty"`
+	Centered       bool  `json:"centered,omitempty"`
 }
 
 // RunMenuBar is a convenience for a menu-bar-only app:

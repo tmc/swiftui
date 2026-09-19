@@ -424,6 +424,10 @@ struct SUIScenePlanScene: Decodable {
     let restoreVisibility: Bool?
     let actionCallbackID: UInt64?
     let viewIndex: Int
+    let resizable: Bool?
+    let hiddenTitleBar: Bool?
+    let utility: Bool?
+    let centered: Bool?
 }
 
 class SUISceneRunnerDelegate: NSObject, NSApplicationDelegate {
@@ -1052,21 +1056,54 @@ private func SUIInstallSceneWindow(_ scene: SUIScenePlanScene, _ view: AnyView, 
 
     let hc = NSHostingController(rootView: sized)
     hc.sizingOptions = []
-    let window = NSWindow(
-        contentRect: NSRect(x: 0, y: 0, width: width, height: height),
-        styleMask: isSettings ? [.titled, .closable, .miniaturizable] : [.titled, .closable, .resizable, .miniaturizable],
-        backing: .buffered, defer: false
-    )
+
+    // Settings is fixed size by default; every other window is resizable.
+    // An explicit Resizable overrides that either way.
+    let resizable = scene.resizable ?? !isSettings
+    let hidesTitleBar = scene.hiddenTitleBar ?? false
+    let isUtility = scene.utility ?? false
+
+    var styleMask: NSWindow.StyleMask = [.titled, .closable, .miniaturizable]
+    if resizable {
+        styleMask.insert(.resizable)
+    }
+    if hidesTitleBar {
+        styleMask.insert(.fullSizeContentView)
+    }
+    // .utilityWindow only means anything to an NSPanel.
+    if isUtility {
+        styleMask.insert(.utilityWindow)
+    }
+
+    let contentRect = NSRect(x: 0, y: 0, width: width, height: height)
+    let window: NSWindow = isUtility
+        ? NSPanel(contentRect: contentRect, styleMask: styleMask, backing: .buffered, defer: false)
+        : NSWindow(contentRect: contentRect, styleMask: styleMask, backing: .buffered, defer: false)
     window.identifier = NSUserInterfaceItemIdentifier(id)
     window.isReleasedWhenClosed = false
     window.title = title
     window.contentViewController = hc
     window.setContentSize(NSSize(width: width, height: height))
-    window.minSize = NSSize(width: 300, height: 200)
+    if hidesTitleBar {
+        window.titlebarAppearsTransparent = true
+        window.titleVisibility = .hidden
+    }
+    if resizable {
+        // Keep the old floor, but never above the size the scene asked for:
+        // a fixed 300x200 minimum silently inflated smaller panels.
+        window.minSize = NSSize(width: min(300, width), height: min(200, height))
+    } else {
+        let fixed = NSSize(width: width, height: height)
+        window.minSize = fixed
+        window.maxSize = fixed
+    }
     let delegate = SUISceneWindowDelegate(sceneID: id)
     _sceneWindowDelegates[id] = delegate
     window.delegate = delegate
-    if !window.setFrameUsingName(id) {
+    // A centered scene ignores the saved frame so it opens centered every time.
+    if scene.centered ?? false {
+        window.center()
+    } else if !window.setFrameUsingName(id) {
         window.center()
     }
 	_sceneWindows[id] = window
