@@ -2,17 +2,6 @@
 
 import AppKit
 import SwiftUI
-
-@MainActor
-private func pumpRunLoop(iterations: Int, interval: TimeInterval) {
-    guard iterations > 0, interval > 0 else {
-        return
-    }
-    for _ in 0..<iterations {
-        RunLoop.main.run(until: Date(timeIntervalSinceNow: interval))
-    }
-}
-
 @MainActor
 private func snapshotPNG(
     view: AnyView,
@@ -20,7 +9,6 @@ private func snapshotPNG(
     height: Double,
     scale: Double
 ) -> Data? {
-    let targetSize = NSSize(width: width, height: height)
     let renderScale = scale > 0 ? scale : 1
 
     _ = NSApplication.shared
@@ -36,57 +24,13 @@ private func snapshotPNG(
             alignment: .topLeading
         )
     )
-    let hostingView = NSHostingView(rootView: sized)
-    hostingView.frame = NSRect(origin: .zero, size: targetSize)
-    hostingView.autoresizingMask = [.width, .height]
 
-    let window = NSWindow(
-        contentRect: NSRect(origin: .zero, size: targetSize),
-        styleMask: [.borderless],
-        backing: .buffered,
-        defer: false
-    )
-    window.isOpaque = false
-    window.backgroundColor = .clear
-    window.hasShadow = false
-    window.ignoresMouseEvents = true
-    window.alphaValue = 0
-    window.setFrameOrigin(NSPoint(x: -10000, y: -10000))
-    window.contentView = hostingView
-
-    defer {
-        window.orderOut(nil)
-        window.contentView = nil
-    }
-
-    window.orderFront(nil)
-    hostingView.layoutSubtreeIfNeeded()
-    hostingView.displayIfNeeded()
-    window.displayIfNeeded()
-    pumpRunLoop(iterations: 3, interval: 0.02)
-    hostingView.layoutSubtreeIfNeeded()
-    hostingView.displayIfNeeded()
-    window.displayIfNeeded()
-
-    let pixelsWide = max(Int((width * renderScale).rounded(.up)), 1)
-    let pixelsHigh = max(Int((height * renderScale).rounded(.up)), 1)
-    guard let bitmap = NSBitmapImageRep(
-        bitmapDataPlanes: nil,
-        pixelsWide: pixelsWide,
-        pixelsHigh: pixelsHigh,
-        bitsPerSample: 8,
-        samplesPerPixel: 4,
-        hasAlpha: true,
-        isPlanar: false,
-        colorSpaceName: .deviceRGB,
-        bytesPerRow: 0,
-        bitsPerPixel: 0
-    ) else {
+    let renderer = ImageRenderer(content: sized)
+    renderer.scale = renderScale
+    guard let cgImage = renderer.cgImage else {
         return nil
     }
-    bitmap.size = targetSize
-    hostingView.cacheDisplay(in: hostingView.bounds, to: bitmap)
-    return bitmap.representation(using: .png, properties: [:])
+    return NSBitmapImageRep(cgImage: cgImage).representation(using: .png, properties: [:])
 }
 
 @_cdecl("SUIRenderPNG")
