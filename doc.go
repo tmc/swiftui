@@ -57,33 +57,42 @@
 //
 // To override the dylib path, set $LIBSWIFTUI_BRIDGE_PATH.
 //
-// Curated media helpers include PhotosPickerLazyFileHandle for deterministic
-// lazy file-backed assets used by sample selection state.
-//
-// Curated file-picking helpers include OpenPanel and SavePanel for concrete
-// NSOpenPanel/NSSavePanel-driven path selection.
-//
 // # Scenes
 //
 // Run is the single entry point for window, multi-window, menu-bar, and Settings
-// apps: it lowers the App's Windows, MenuBar, and Settings, together with
-// runner-owned command dispatch, into the current AppKit-owned scene runner, and
-// OpenWindow focuses or opens a configured window by its WindowConfig.ID at
-// runtime. Document scenes and custom command menus are runner capabilities not
-// yet surfaced as Go API.
-// Today that runner owns NSWindow, main-menu, NSPopover, and document-session
-// lifecycle directly, persists per-instance window frames and visibility,
-// supports multi-instance WindowGroup families with explicit restoration IDs
-// and WindowInstanceCount tracking while singleton Window scenes remain
-// explicit, exposes a concrete Settings window through the app menu, installs
-// standard system-backed File/Edit/Window commands plus custom command menus
-// for both windowed and menu-bar-only scene plans, presents runner-owned
-// OpenPanel-backed document open/save panels and
+// apps. It lowers the App's Windows, MenuBar, Settings, and Commands into the
+// current AppKit-owned scene runner, and OpenWindow focuses or opens a
+// configured window by its WindowConfig.ID at runtime. Document scenes remain a
+// runner capability not surfaced as Go API.
+//
+// The runner owns NSWindow, main-menu, NSPopover, and document-session
+// lifecycle directly. It persists per-instance window frames and visibility,
+// and supports multi-instance WindowGroup families with explicit restoration
+// IDs and WindowInstanceCount tracking, while singleton Window scenes remain
+// explicit. It exposes a concrete Settings window through the app menu, and
+// installs standard system-backed File/Edit/Window commands for both windowed
+// and menu-bar-only scene plans. It presents document open/save panels and
 // open/save/save-as/export/import/revert flows with dirty-close confirmation,
 // approved close callbacks, recent-document registration, persistent
-// recent-document restoration, last-path restoration, explicit recent-document
-// command menus, and injects scene availability into borrowed SceneActions
-// through the bridge callback channel.
+// recent-document restoration, last-path restoration, and explicit
+// recent-document command menus. Scene availability is injected into borrowed
+// SceneActions through the bridge callback channel.
+//
+// App.Commands installs native application-menu commands as CommandGroup
+// values holding CommandItem entries. An item carries a Title and an Action,
+// an optional Enabled func consulted for menu validation, a ShortcutKey with
+// ShortcutModifiers, or a SystemAction naming a standard selector; Children
+// makes it a submenu and Kind "separator" makes it a separator. Set
+// CommandGroup.AppMenu to put a group in the application menu above Settings
+// and Quit, rather than in a top-level menu of its own. Commands are served by
+// the scene runner, which Run selects once more than one window is configured.
+//
+// WindowConfig controls how each window is presented. Resizable pins the
+// window to its Width and Height when false, HiddenTitleBar lets the root view
+// draw through the title bar, Utility makes a floating panel that hides while
+// the application is not frontmost, Centered centers on every open instead of
+// restoring the last position, and OpenOnLaunch decides whether the window is
+// shown at startup.
 //
 // The package also includes additive Go-native helpers such as
 // ClipboardWriteString, OpenPanel, SavePanel, TableColumnLayoutSnapshot,
@@ -99,7 +108,7 @@
 //
 // # Current Parity Boundaries
 //
-// The current bridge is intentionally explicit about three remaining parity
+// The current bridge is intentionally explicit about four remaining parity
 // boundaries:
 //
 //   - scene/app structure: scene descriptors, multi-instance WindowGroup
@@ -115,12 +124,9 @@
 //     model with PlacementHint/TaggedWithPlacement fixed-key placement metadata
 //     and placement presets rather than SwiftUI's protocol-heavy Layout and
 //     LayoutValueKey
-//   - curated additive helpers: OpenPanel and PhotosPickerLazyFileHandle are
-//     explicit Go-native utilities rather than direct SwiftUI equivalents
+//   - curated additive helpers: the Go-native utilities above are explicit
+//     conveniences rather than direct SwiftUI equivalents
 //
 // Plain ScrollView offset observation is exposed through
 // View.OnScrollGeometryChange on macOS 15 or later.
-//
-// Those limits are intentional source-of-truth boundaries, not accidental
-// omissions in the generated catalog.
 package swiftui
