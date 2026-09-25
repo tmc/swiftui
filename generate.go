@@ -5,4 +5,4 @@ package swiftui
 // Set SWIFTUI_GENERATE_DYLIBS=1 to build a local Swift bridge dylib during generation.
 
 //go:generate applegen swift-bridge SwiftUI --output . --module github.com/tmc/swiftui --profile swiftui
-//go:generate bash -lc "set -euo pipefail; if [ \"${DOLLAR}{SWIFTUI_GENERATE_DYLIBS:-}\" = 1 ]; then cd internal/swift; swift build -c release --quiet --product SwiftUIBridge; dylib=${DOLLAR}(find .build -path '*/release/libSwiftUIBridge.dylib' -type f | sort | tail -n 1); test -n \"${DOLLAR}dylib\"; cp \"${DOLLAR}dylib\" ../embeddedbridge/libSwiftUIBridge.dylib; fi"
+//go:generate bash -lc "set -euo pipefail; if [ \"${DOLLAR}{SWIFTUI_GENERATE_DYLIBS:-}\" = 1 ]; then cd internal/swift; archs='--arch arm64 --arch x86_64'; swift build -c release --quiet --product SwiftUIBridge ${DOLLAR}archs; dylib=\"${DOLLAR}(swift build -c release --product SwiftUIBridge ${DOLLAR}archs --show-bin-path)/libSwiftUIBridge.dylib\"; test -f \"${DOLLAR}dylib\"; lipo -info \"${DOLLAR}dylib\" | grep -q arm64; lipo -info \"${DOLLAR}dylib\" | grep -q x86_64; cp \"${DOLLAR}dylib\" ../embeddedbridge/libSwiftUIBridge.dylib; fi"
