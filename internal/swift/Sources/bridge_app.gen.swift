@@ -950,7 +950,6 @@ func SUIInstallCommandMenus(_ delegate: SUISceneRunnerDelegate, includeSettings:
     // goes into the application menu itself, above the standard items, rather
     // than becoming another top-level menu; titles are not used for identity
     // because the process name and bundle display name can differ.
-    // About and Check for Updates to live.
     for group in commands {
         if group.appMenu == true, let appMenu = appMenuItem.submenu {
             for child in SUIBuildMenuItems(group.items, coordinator: coordinator).reversed() {
