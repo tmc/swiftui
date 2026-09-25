@@ -1,0 +1,53 @@
+name: Test
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Show toolchain
+        run: |
+          xcode-select -p
+          xcodebuild -version
+          go version
+          swift --version
+
+      - name: Check formatting
+        run: |
+          set -euo pipefail
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "gofmt needed on:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Build
+        run: go build ./...
+
+      - name: Vet
+        run: go vet ./...
+
+      # The bridge dylib is loaded at runtime, so this exercises the embedded
+      # payload as well as the Go code. Tests are not retried: a flake here is a
+      # real defect in the bridge's load or teardown path and should fail the
+      # run rather than be hidden.
+      - name: Test
+        run: go test -count=1 ./...
