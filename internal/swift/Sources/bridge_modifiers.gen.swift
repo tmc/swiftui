@@ -494,64 +494,37 @@ public func SUIViewOnTapGestureCount(_ viewRef: UnsafeMutableRawPointer,
 
 @_cdecl("SUIViewOnDragGesture")
 @MainActor
-public func SUIViewOnDragGesture(_ viewRef: UnsafeMutableRawPointer,
-                                 _ minimumDistance: Double,
-                                 _ callbackID: UInt) -> UnsafeMutableRawPointer {
+public func SUIViewOnDragGesture(_ viewRef: UnsafeMutableRawPointer, _ minimumDistance: Double, _ callbackID: UInt) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let id = callbackID
-    let view = AnyView(base.gesture(
-        DragGesture(minimumDistance: minimumDistance)
-            .onChanged { value in
-                _SUIDragCallback?(id, value.location.x, value.location.y, value.translation.width, value.translation.height, 0)
-            }
-            .onEnded { value in
-                _SUIDragCallback?(id, value.location.x, value.location.y, value.translation.width, value.translation.height, 1)
-            }
-    ))
+    let view = AnyView(base.gesture(DragGesture(minimumDistance: minimumDistance)
+        .onChanged { value in _SUIDragCallback?(callbackID, value.location.x, value.location.y, value.translation.width, value.translation.height, 0) }
+        .onEnded { value in _SUIDragCallback?(callbackID, value.location.x, value.location.y, value.translation.width, value.translation.height, 1) }))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
 @_cdecl("SUIViewOnMagnifyGesture")
 @MainActor
-public func SUIViewOnMagnifyGesture(_ viewRef: UnsafeMutableRawPointer,
-                                    _ minimumScaleDelta: Double,
-                                    _ callbackID: UInt) -> UnsafeMutableRawPointer {
+public func SUIViewOnMagnifyGesture(_ viewRef: UnsafeMutableRawPointer, _ minimumScaleDelta: Double, _ callbackID: UInt) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let id = callbackID
-    let view = AnyView(base.gesture(
-        MagnifyGesture(minimumScaleDelta: minimumScaleDelta)
-            .onChanged { value in
-                _SUIMagnifyCallback?(id, value.magnification, 0)
-            }
-            .onEnded { value in
-                _SUIMagnifyCallback?(id, value.magnification, 1)
-            }
-    ))
+    let view = AnyView(base.gesture(MagnifyGesture(minimumScaleDelta: minimumScaleDelta)
+        .onChanged { value in _SUIMagnifyCallback?(callbackID, value.magnification, 0) }
+        .onEnded { value in _SUIMagnifyCallback?(callbackID, value.magnification, 1) }))
     return Unmanaged.passRetained(Box(view)).toOpaque()
 }
 
 private struct SUIScrollGeometryValue: Equatable {
-    let offsetX: Double
-    let offsetY: Double
-    let contentW: Double
-    let contentH: Double
+    let offsetX: Double; let offsetY: Double; let contentW: Double; let contentH: Double
 }
 
 @_cdecl("SUIViewOnScrollGeometryChange")
 @MainActor
 public func SUIViewOnScrollGeometryChange(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let id = callbackID
     if #available(macOS 15.0, *) {
         let view = AnyView(base.onScrollGeometryChange(for: SUIScrollGeometryValue.self) { geo in
-            SUIScrollGeometryValue(
-                offsetX: geo.contentOffset.x,
-                offsetY: geo.contentOffset.y,
-                contentW: geo.contentSize.width,
-                contentH: geo.contentSize.height
-            )
+            SUIScrollGeometryValue(offsetX: geo.contentOffset.x, offsetY: geo.contentOffset.y, contentW: geo.contentSize.width, contentH: geo.contentSize.height)
         } action: { _, value in
-            _SUIScrollGeometryCallback?(id, value.offsetX, value.offsetY, value.contentW, value.contentH)
+            _SUIScrollGeometryCallback?(callbackID, value.offsetX, value.offsetY, value.contentW, value.contentH)
         })
         return Unmanaged.passRetained(Box(view)).toOpaque()
     }
@@ -1903,4 +1876,12 @@ public func SUIApplyModifiers(_ viewRef: UnsafeMutableRawPointer, _ bufPtr: Unsa
         reader.offset += plen
     }
     return retainDerivedView(from: viewRef, current)
+}
+
+@_cdecl("SUIAccessibilityIdentifier")
+public func SUIAccessibilityIdentifier(_ viewRef: UnsafeMutableRawPointer, _ identifier: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let id = String(cString: identifier)
+    let view = AnyView(base.accessibilityIdentifier(id))
+    return retainDerivedView(from: viewRef, view)
 }

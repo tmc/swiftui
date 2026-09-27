@@ -1376,9 +1376,6 @@ func (v View) AccessibilityRotorJSON(modelJSON string) View {
 
 // AccessibilityIdentifier sets the accessibility identifier for the view.
 func (v View) AccessibilityIdentifier(identifier string) View {
-	if _SUIAccessibilityIdentifier == nil {
-		return v
-	}
 	var ptr uintptr
 	withCString(identifier, func(identifierC *byte) {
 		ptr = _SUIAccessibilityIdentifier(v.ptr, identifierC)
@@ -2345,9 +2342,6 @@ func (v ShapeView) AccessibilityRotorJSON(modelJSON string) ShapeView {
 
 // AccessibilityIdentifier sets the accessibility identifier for the view.
 func (v ShapeView) AccessibilityIdentifier(identifier string) ShapeView {
-	if _SUIAccessibilityIdentifier == nil {
-		return v
-	}
 	var ptr uintptr
 	withCString(identifier, func(identifierC *byte) {
 		ptr = _SUIAccessibilityIdentifier(v.View.ptr, identifierC)
@@ -3332,9 +3326,6 @@ func (v TextView) AccessibilityRotorJSON(modelJSON string) TextView {
 
 // AccessibilityIdentifier sets the accessibility identifier for the view.
 func (v TextView) AccessibilityIdentifier(identifier string) TextView {
-	if _SUIAccessibilityIdentifier == nil {
-		return v
-	}
 	var ptr uintptr
 	withCString(identifier, func(identifierC *byte) {
 		ptr = _SUIAccessibilityIdentifier(v.View.ptr, identifierC)

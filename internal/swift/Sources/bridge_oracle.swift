@@ -51,13 +51,10 @@ public func SUIGroup(_ children: UnsafePointer<UnsafeMutableRawPointer>, _ count
     return Unmanaged.passRetained(Box(group)).toOpaque()
 }
 
-@_cdecl("SUIAccessibilityIdentifier")
-public func SUIAccessibilityIdentifier(_ viewRef: UnsafeMutableRawPointer, _ identifierPtr: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
-    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
-    let identifier = String(cString: identifierPtr)
-    let view = AnyView(base.accessibilityIdentifier(identifier))
-    return Unmanaged.passRetained(Box(view)).toOpaque()
-}
+// SUIAccessibilityIdentifier used to live here, because the generated bridge did
+// not export it. bridge_modifiers.gen.swift owns it now, in every build rather
+// than only the oracle one, so a second definition here would be an invalid
+// redeclaration.
 
 // SUIOracleHostingView adapts a bridge-owned AnyView to AppKit's host for an
 // interaction-test control. It is available only in the tagged test bridge.
