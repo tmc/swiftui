@@ -26,8 +26,11 @@ architectures, asks `swift build --show-bin-path` where the output landed, and
 asserts with `lipo -info` that both are present before installing it.
 
 When replacing the dylib by hand, check its exported symbols against the old
-one with `nm -gU`: symbols that go missing fall back to stubs at runtime rather
-than failing to load.
+one with `nm -gU`. A dropped symbol does not fail the load: the dylib still
+loads, `swiftui.Err()` stays nil, and the missing name is replaced by a stub
+that panics when it is called. `swiftui.MissingSymbols()` reports the names
+that were not found, so check it after loading rather than trusting a load
+that succeeded.
 
 ## Quick start
 
