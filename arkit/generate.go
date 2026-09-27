@@ -5,4 +5,4 @@ package arkit
 // Set SWIFTUI_GENERATE_DYLIBS=1 to build a local Swift bridge dylib during generation.
 
 //go:generate applegen swift-bridge ARKit --output . --module github.com/tmc/swiftui --profile swiftui
-//go:generate bash -lc "set -euo pipefail; if [ \"${DOLLAR}{SWIFTUI_GENERATE_DYLIBS:-}\" = 1 ]; then cd internal/swift; swift build -c release --quiet --product ARKitSwiftUIBridge; dylib=${DOLLAR}(find .build -path '*/release/libARKitSwiftUIBridge.dylib' -type f | sort | tail -n 1); test -n \"${DOLLAR}dylib\"; cp \"${DOLLAR}dylib\" ../embeddedbridge/libARKitSwiftUIBridge.dylib; fi"
+//go:generate bash -lc "set -euo pipefail; if [ \"${DOLLAR}{SWIFTUI_GENERATE_DYLIBS:-}\" = 1 ]; then cd internal/swift; archs='--arch arm64 --arch x86_64'; swift build -c release --quiet --product ARKitSwiftUIBridge ${DOLLAR}archs; dylib=\"${DOLLAR}(swift build -c release --product ARKitSwiftUIBridge ${DOLLAR}archs --show-bin-path)/libARKitSwiftUIBridge.dylib\"; test -f \"${DOLLAR}dylib\"; lipo -info \"${DOLLAR}dylib\" | grep -q arm64; lipo -info \"${DOLLAR}dylib\" | grep -q x86_64; cp \"${DOLLAR}dylib\" ../embeddedbridge/libARKitSwiftUIBridge.dylib; fi"
