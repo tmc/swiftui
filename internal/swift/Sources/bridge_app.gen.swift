@@ -255,6 +255,18 @@ public func SUIRunApp(_ policy: Int32,
                                openOnLaunch: openOnLaunch != 0)
         }
 
+        // Install the standard menus. Without them a window's text fields have
+        // no Edit menu, and the field editor's Select All, Copy, Paste, Cut and
+        // Undo are reached through that menu's key equivalents, so Cmd-A and its
+        // neighbours do nothing. SwiftUI's hosting can install its own menu
+        // while creating windows, so install after the surfaces are built. This
+        // entry point is only chosen when there is no Settings scene, and a
+        // menu-bar-only app has no windows to list.
+        SUIInstallDefaultMenus(includeSettings: false,
+                               settingsTarget: nil,
+                               settingsAction: nil,
+                               includeWindowMenu: hasWindow)
+
         app.activate()
         app.run()
     }
