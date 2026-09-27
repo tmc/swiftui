@@ -118,7 +118,7 @@ func setUnavailableStubs() {
 		if loadErr != nil {
 			panic("charts3d: " + name + ": " + loadErr.Error())
 		}
-		panic("charts3d: " + name + ": dylib not loaded")
+		panic("charts3d: " + name + ": symbol not found in bridge dylib")
 	}
 	if _CHBuildChart3D == nil {
 		_CHBuildChart3D = func(*byte, int32) uintptr { stub("CHBuildChart3D"); return 0 }

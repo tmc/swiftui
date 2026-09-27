@@ -103,7 +103,7 @@ func setExtraUnavailableStubs() {
 		if loadErr != nil {
 			panic("charts: " + name + ": " + loadErr.Error())
 		}
-		panic("charts: " + name + ": dylib not loaded")
+		panic("charts: " + name + ": symbol not found in bridge dylib")
 	}
 	if _CHStateCreateNumber == nil {
 		_CHStateCreateNumber = func(float64) uintptr { stub("CHStateCreateNumber"); return 0 }
