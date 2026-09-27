@@ -85,7 +85,9 @@
 // makes it a submenu and Kind "separator" makes it a separator. Set
 // CommandGroup.AppMenu to put a group in the application menu above Settings
 // and Quit, rather than in a top-level menu of its own. Commands are served by
-// the scene runner, which Run selects once more than one window is configured.
+// the scene runner, so an App that sets them takes the scene path even with a
+// single window, as does a window that sets any WindowConfig presentation
+// option below.
 //
 // WindowConfig controls how each window is presented. Resizable pins the
 // window to its Width and Height when false, HiddenTitleBar lets the root view
@@ -95,10 +97,11 @@
 // shown at startup.
 //
 // The package also includes additive Go-native helpers such as
-// ClipboardWriteString, OpenPanel, SavePanel, TableColumnLayoutSnapshot,
-// PlacementHint/TaggedWithPlacement, and PhotosPickerLazyFileHandle. Those are
-// explicit curated utilities rather than claims of one-for-one SwiftUI API
-// parity.
+// ClipboardWriteString, OpenPanel, SavePanel, PlacementHint/TaggedWithPlacement,
+// TableColumnLayoutSnapshot, which drives capture/restore of NativeTable column
+// widths, and PhotosPickerLazyFileHandle, which hands sample selection state a
+// deterministic lazy file-backed asset. Those are explicit curated utilities
+// rather than claims of one-for-one SwiftUI API parity.
 //
 // This is intentionally narrower than SwiftUI's full App/Scene environment
 // model. OpenWindowAction, app command menus, and document-session file
