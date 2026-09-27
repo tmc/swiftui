@@ -217,13 +217,28 @@ func Run(app App) error {
 	appState.running = true
 	appState.mu.Unlock()
 
-	// The scene runner is required whenever a single AppKit window is not enough:
-	// more than one window, or a Settings scene. The simple case keeps the
-	// _SUIRunApp fast path byte-for-byte.
-	if len(app.Windows) > 1 || app.Settings != nil {
+	// The scene runner is required whenever the 12-parameter _SUIRunApp entry
+	// cannot carry the whole App: more than one window, a Settings scene,
+	// application menus, or a window that asks for a presentation option. An App
+	// that asks for none of those keeps the _SUIRunApp fast path byte-for-byte.
+	if len(app.Windows) > 1 || app.Settings != nil || len(app.Commands) > 0 || (len(app.Windows) == 1 && app.Windows[0].needsSceneRunner()) {
 		return runApp(app)
 	}
 	return runAppSimple(app)
+}
+
+// defaultWindowID names a single window that declares no ID of its own. The
+// scene runner keys windows by ID; validateWindowIDs guarantees that a window
+// without an ID is the only window and that there is no Settings scene, so this
+// name cannot collide.
+const defaultWindowID = "main"
+
+// needsSceneRunner reports whether the window asks for presentation options that
+// only the scene runner can apply. runAppSimple reads just Root, Title, Width and
+// Height, so any of these would otherwise be silently dropped.
+func (win WindowConfig) needsSceneRunner() bool {
+	return win.OpenOnLaunch != nil || win.Resizable != nil ||
+		win.HiddenTitleBar || win.Utility || win.Centered
 }
 
 // validateWindowIDs enforces the multi-window identity invariant: when OpenWindow
@@ -308,9 +323,16 @@ func runApp(app App) error {
 		if win.OpenOnLaunch != nil {
 			openOnLaunch = *win.OpenOnLaunch
 		}
+		// A lone window needs no explicit ID, because validateWindowIDs only
+		// demands one when OpenWindow must be able to address a window. The scene
+		// runner keys windows by ID and skips a scene that has none, so name it.
+		id := win.ID
+		if id == "" {
+			id = defaultWindowID
+		}
 		plan.Scenes = append(plan.Scenes, scenePlanScene{
 			Kind:           "window",
-			ID:             win.ID,
+			ID:             id,
 			Title:          win.Title,
 			Width:          win.Width,
 			Height:         win.Height,
