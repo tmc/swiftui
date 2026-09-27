@@ -192,7 +192,7 @@ func setUnavailableStubs() {
 		if loadErr != nil {
 			panic("localauth: " + name + ": " + loadErr.Error())
 		}
-		panic("localauth: " + name + ": dylib not loaded")
+		panic("localauth: " + name + ": symbol not found in bridge dylib")
 	}
 	if _LAS_LocalAuthViewCreate == nil {
 		_LAS_LocalAuthViewCreate = func(*byte) uintptr { stub("LAS_LocalAuthViewCreate"); return 0 }

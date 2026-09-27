@@ -194,7 +194,7 @@ func setUnavailableStubs() {
 		if loadErr != nil {
 			panic("scenekit: " + name + ": " + loadErr.Error())
 		}
-		panic("scenekit: " + name + ": dylib not loaded")
+		panic("scenekit: " + name + ": symbol not found in bridge dylib")
 	}
 	if _SKS_SceneViewCreate == nil {
 		_SKS_SceneViewCreate = func(uintptr) uintptr { stub("SKS_SceneViewCreate"); return 0 }

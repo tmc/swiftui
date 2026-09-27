@@ -192,7 +192,7 @@ func setUnavailableStubs() {
 		if loadErr != nil {
 			panic("workoutkit: " + name + ": " + loadErr.Error())
 		}
-		panic("workoutkit: " + name + ": dylib not loaded")
+		panic("workoutkit: " + name + ": symbol not found in bridge dylib")
 	}
 	if _WKS_WorkoutPreview == nil {
 		_WKS_WorkoutPreview = func(uintptr) uintptr { stub("WKS_WorkoutPreview"); return 0 }

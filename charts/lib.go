@@ -183,7 +183,7 @@ func setUnavailableStubs() {
 		if loadErr != nil {
 			panic("charts: " + name + ": " + loadErr.Error())
 		}
-		panic("charts: " + name + ": dylib not loaded")
+		panic("charts: " + name + ": symbol not found in bridge dylib")
 	}
 	if _CHBuildChart == nil {
 		_CHBuildChart = func(*byte, int32) uintptr { stub("CHBuildChart"); return 0 }

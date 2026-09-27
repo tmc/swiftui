@@ -192,7 +192,7 @@ func setUnavailableStubs() {
 		if loadErr != nil {
 			panic("translation: " + name + ": " + loadErr.Error())
 		}
-		panic("translation: " + name + ": dylib not loaded")
+		panic("translation: " + name + ": symbol not found in bridge dylib")
 	}
 	if _TRS_TranslationPresentation == nil {
 		_TRS_TranslationPresentation = func(uintptr, *byte) uintptr { stub("TRS_TranslationPresentation"); return 0 }

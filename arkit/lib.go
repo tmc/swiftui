@@ -192,7 +192,7 @@ func setUnavailableStubs() {
 		if loadErr != nil {
 			panic("arkit: " + name + ": " + loadErr.Error())
 		}
-		panic("arkit: " + name + ": dylib not loaded")
+		panic("arkit: " + name + ": symbol not found in bridge dylib")
 	}
 	if _ARS_ARViewCreate == nil {
 		_ARS_ARViewCreate = func() uintptr { stub("ARS_ARViewCreate"); return 0 }

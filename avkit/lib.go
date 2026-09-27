@@ -194,7 +194,7 @@ func setUnavailableStubs() {
 		if loadErr != nil {
 			panic("avkit: " + name + ": " + loadErr.Error())
 		}
-		panic("avkit: " + name + ": dylib not loaded")
+		panic("avkit: " + name + ": symbol not found in bridge dylib")
 	}
 	if _AVS_VideoPlayerCreate == nil {
 		_AVS_VideoPlayerCreate = func(uintptr) uintptr { stub("AVS_VideoPlayerCreate"); return 0 }

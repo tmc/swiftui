@@ -196,7 +196,7 @@ func setUnavailableStubs() {
 		if loadErr != nil {
 			panic("spritekit: " + name + ": " + loadErr.Error())
 		}
-		panic("spritekit: " + name + ": dylib not loaded")
+		panic("spritekit: " + name + ": symbol not found in bridge dylib")
 	}
 	if _SPS_SpriteViewCreate == nil {
 		_SPS_SpriteViewCreate = func(uintptr) uintptr { stub("SPS_SpriteViewCreate"); return 0 }

@@ -192,7 +192,7 @@ func setUnavailableStubs() {
 		if loadErr != nil {
 			panic("quicklook: " + name + ": " + loadErr.Error())
 		}
-		panic("quicklook: " + name + ": dylib not loaded")
+		panic("quicklook: " + name + ": symbol not found in bridge dylib")
 	}
 	if _QLS_QuickLookPreview == nil {
 		_QLS_QuickLookPreview = func(uintptr, *byte) uintptr { stub("QLS_QuickLookPreview"); return 0 }
