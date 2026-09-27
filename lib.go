@@ -963,15 +963,16 @@ func init() {
 }
 
 func setUnavailableStubs() {
-	// stub panics when a bridge entry point is called but the SwiftUI bridge is
-	// not available. It surfaces the underlying load error first and keeps the
-	// raw C symbol (name) out of the user-facing message; the symbol is only
-	// appended as a parenthetical hint for bug reports (N11).
+	// stub panics when a bridge entry point is called but no implementation was
+	// registered for it. If the dylib failed to load, every symbol is missing and
+	// the load error is the useful message. Otherwise the dylib loaded and only
+	// this symbol is absent, which means the dylib is older than the bindings;
+	// say that instead of blaming the load (N11). MissingSymbols lists them all.
 	stub := func(name string) {
 		if loadErr != nil {
 			panic("swiftui: SwiftUI bridge unavailable: " + loadErr.Error() + " (symbol " + name + ")")
 		}
-		panic("swiftui: SwiftUI bridge not loaded; check swiftui.Err() before use (symbol " + name + ")")
+		panic("swiftui: " + name + ": symbol not found in bridge dylib")
 	}
 	if _SUIText == nil {
 		_SUIText = func(*byte) uintptr { stub("SUIText"); return 0 }
