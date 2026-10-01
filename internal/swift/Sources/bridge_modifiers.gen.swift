@@ -1878,6 +1878,26 @@ public func SUIApplyModifiers(_ viewRef: UnsafeMutableRawPointer, _ bufPtr: Unsa
     return retainDerivedView(from: viewRef, current)
 }
 
+@_cdecl("SUIViewIDString")
+public func SUIViewIDString(_ viewRef: UnsafeMutableRawPointer, _ id: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    let view = AnyView(base.id(String(cString: id)))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@_cdecl("SUIViewOnScrollUserActivity")
+public func SUIViewOnScrollUserActivity(_ viewRef: UnsafeMutableRawPointer, _ callbackID: UInt) -> UnsafeMutableRawPointer {
+    let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value
+    if #available(macOS 15.0, *) {
+        let view = AnyView(base.onScrollPhaseChange { _, phase in
+            let active = phase == .tracking || phase == .interacting || phase == .decelerating
+            _SUIBoolCallback?(callbackID, active ? 1 : 0)
+        })
+        return Unmanaged.passRetained(Box(view)).toOpaque()
+    }
+    return Unmanaged.passRetained(Box(base)).toOpaque()
+}
+
 @_cdecl("SUIAccessibilityIdentifier")
 public func SUIAccessibilityIdentifier(_ viewRef: UnsafeMutableRawPointer, _ identifier: UnsafePointer<CChar>) -> UnsafeMutableRawPointer {
     let base = Unmanaged<Box<AnyView>>.fromOpaque(viewRef).takeUnretainedValue().value

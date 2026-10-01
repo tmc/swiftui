@@ -2354,3 +2354,65 @@ struct BridgedPickerMenu: View {
         .pickerStyle(.menu)
     }
 }
+
+@_cdecl("SUIScrollViewPosition")
+@MainActor
+public func SUIScrollViewPosition(_ yRef: UnsafeMutableRawPointer, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let requested = Unmanaged<BridgedFloatState>.fromOpaque(yRef).takeUnretainedValue()
+    let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let view: AnyView
+    if #available(macOS 15.0, *) {
+        view = AnyView(BridgedScrollViewPositionView(requested: requested, content: content))
+    } else {
+        view = content
+    }
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@available(macOS 15.0, *)
+@MainActor
+struct BridgedScrollViewPositionView: View {
+    var requested: BridgedFloatState
+    let content: AnyView
+    @State private var position = ScrollPosition()
+
+    var body: some View {
+        content.scrollPosition($position)
+            .onAppear { apply() }
+            .onChange(of: requested.gen) { _, _ in apply() }
+    }
+
+    private func apply() {
+        if requested.value.isFinite && requested.value >= 0 {
+            position.scrollTo(y: requested.value)
+        }
+    }
+}
+
+@_cdecl("SUIScrollViewStringReader")
+@MainActor
+public func SUIScrollViewStringReader(_ positionRef: UnsafeMutableRawPointer, _ anchor: Int32, _ contentRef: UnsafeMutableRawPointer) -> UnsafeMutableRawPointer {
+    let position = Unmanaged<BridgedStringState>.fromOpaque(positionRef).takeUnretainedValue()
+    let content = Unmanaged<Box<AnyView>>.fromOpaque(contentRef).takeUnretainedValue().value
+    let view = AnyView(BridgedScrollViewStringReaderView(position: position, anchor: suiScrollAnchorUnitPoint(anchor), content: content))
+    return Unmanaged.passRetained(Box(view)).toOpaque()
+}
+
+@MainActor
+struct BridgedScrollViewStringReaderView: View {
+    var position: BridgedStringState
+    let anchor: UnitPoint
+    let content: AnyView
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            content
+                .onAppear {
+                    if !position.value.isEmpty { proxy.scrollTo(position.value, anchor: anchor) }
+                }
+                .onChange(of: position.gen) { _, _ in
+                    if !position.value.isEmpty { proxy.scrollTo(position.value, anchor: anchor) }
+                }
+        }
+    }
+}

@@ -4,9 +4,14 @@ package swiftui_test
 
 import (
 	"fmt"
+	"runtime"
 
 	"github.com/tmc/swiftui"
 )
+
+// SwiftUI constructors require the process main thread. Go runs package init
+// there; keeping it locked also keeps runnable examples on that thread.
+func init() { runtime.LockOSThread() }
 
 // Example wires a reactive state value to a Button and a DynamicView: tapping
 // the button mutates the state, and the DynamicView rebuilds from the new value
@@ -25,6 +30,7 @@ func Example() {
 
 	_ = view
 }
+
 
 func ExampleClipboardWriteString() {
 	_ = swiftui.ClipboardWriteString("token")
@@ -110,4 +116,38 @@ func ExampleTextView_AccessibilityIdentifier() {
 	view := swiftui.Text("Build").
 		AccessibilityIdentifier("build-status")
 	_ = view
+}
+
+// ExampleScrollViewPosition requests a content offset on the main thread.
+func ExampleScrollViewPosition() {
+	y := swiftui.NewFloatState(-1)
+	content := swiftui.ScrollView(swiftui.Text("Scrollback"))
+	_ = swiftui.ScrollViewPosition(y, content)
+	y.Set(48)
+	fmt.Println(y.Get())
+	// Output: 48
+}
+
+// ExampleScrollViewStringReader uses a string key without integer truncation.
+func ExampleScrollViewStringReader() {
+	position := swiftui.NewStringState("")
+	row := swiftui.Text("Message").IDString("4294967297")
+	_ = swiftui.ScrollViewStringReader(position, swiftui.ScrollAnchorBottom, swiftui.ScrollView(row))
+	position.Set("4294967297")
+	fmt.Println(position.Get())
+	// Output: 4294967297
+}
+
+func ExampleView_IDString() {
+	key := "18446744073709551615"
+	_ = swiftui.Text("Message").AsView().IDString(key)
+	fmt.Println(key)
+	// Output: 18446744073709551615
+}
+
+func ExampleView_OnScrollUserActivity() {
+	active := swiftui.NewBoolState(false)
+	_ = swiftui.ScrollView(swiftui.Text("Scrollback")).OnScrollUserActivity(active.Set)
+	fmt.Println(active.Get())
+	// Output: false
 }

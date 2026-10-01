@@ -884,6 +884,7 @@ func (v View) Focusable(focusable bool) View {
 // Focused binds keyboard focus to a BoolState for explicit focus control.
 func (v View) Focused(state *BoolState) View {
 	ptr := _SUIViewFocused(v.ptr, state.ptr)
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -984,6 +985,7 @@ func (v View) Searchable(query *StringState, prompt string) View {
 	withCString(prompt, func(promptC *byte) {
 		ptr = _SUIViewSearchable(v.ptr, query.ptr, promptC)
 	})
+	runtime.KeepAlive(query)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -1012,6 +1014,16 @@ func (v View) Tag(tag int32) View {
 // ID assigns a stable integer identity for ScrollViewReader scroll targets.
 func (v View) ID(id int) View {
 	ptr := _SUIViewID(v.ptr, int32(id))
+	runtime.KeepAlive(v.retained)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// IDString assigns a stable string identity for ScrollViewStringReader scroll targets.
+func (v View) IDString(id string) View {
+	var ptr uintptr
+	withCString(id, func(idC *byte) {
+		ptr = _SUIViewIDString(v.ptr, idC)
+	})
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -1140,6 +1152,17 @@ func (v View) DropDestinationFileURL(action func(string) bool) View {
 	return ret
 }
 
+// OnScrollUserActivity reports user scroll tracking, interaction, and deceleration on macOS 15 or later. Idle and programmatic animation report false. Earlier systems leave content unchanged and do not invoke the callback.
+func (v View) OnScrollUserActivity(action func(bool)) View {
+	actionID := registerBoolCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnScrollUserActivity(v.ptr, actionID)
+	ret := View{ptr: ptr, retained: newRetained(ptr)}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.retained)
+	return ret
+}
+
 // OnHover adds a hover callback. The callback fires when hover state changes.
 func (v View) OnHover(action func()) View {
 	actionID := registerCallback(action)
@@ -1220,6 +1243,7 @@ func (v View) SafeAreaInset(edge Edge, spacing float64, content Viewable) View {
 // Sheet presents a modal sheet when the IntState is nonzero.
 func (v View) Sheet(state *IntState, content Viewable) View {
 	ptr := _SUIViewSheet(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
@@ -1233,6 +1257,7 @@ func (v View) Alert(title string, message string, state *IntState) View {
 			ptr = _SUIViewAlert(v.ptr, titleC, messageC, state.ptr)
 		})
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -1243,6 +1268,7 @@ func (v View) ConfirmationDialog(title string, state *IntState, actions Viewable
 	withCString(title, func(titleC *byte) {
 		ptr = _SUIViewConfirmationDialog(v.ptr, titleC, state.ptr, actions.viewPtr())
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(actions)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
@@ -1251,6 +1277,7 @@ func (v View) ConfirmationDialog(title string, state *IntState, actions Viewable
 // SheetPresented presents a modal sheet while the BoolState is true.
 func (v View) SheetPresented(state *BoolState, content Viewable) View {
 	ptr := _SUIViewSheetBool(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
@@ -1264,6 +1291,7 @@ func (v View) AlertPresented(title string, message string, state *BoolState) Vie
 			ptr = _SUIViewAlertBool(v.ptr, titleC, messageC, state.ptr)
 		})
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -1274,6 +1302,7 @@ func (v View) ConfirmationDialogPresented(title string, state *BoolState, action
 	withCString(title, func(titleC *byte) {
 		ptr = _SUIViewConfirmationDialogBool(v.ptr, titleC, state.ptr, actions.viewPtr())
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(actions)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
@@ -1448,6 +1477,7 @@ func (v View) WebViewTextSelection(enabled bool) View {
 // Popover presents a popover when the IntState is nonzero.
 func (v View) Popover(state *IntState, content Viewable) View {
 	ptr := _SUIViewPopover(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
@@ -1456,6 +1486,7 @@ func (v View) Popover(state *IntState, content Viewable) View {
 // PopoverPresented presents a popover while the BoolState is true.
 func (v View) PopoverPresented(state *BoolState, content Viewable) View {
 	ptr := _SUIViewPopoverBool(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
@@ -1465,6 +1496,7 @@ func (v View) PopoverPresented(state *BoolState, content Viewable) View {
 // On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v View) FullScreenCover(state *IntState, content Viewable) View {
 	ptr := _SUIViewFullScreenCover(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
@@ -1474,6 +1506,7 @@ func (v View) FullScreenCover(state *IntState, content Viewable) View {
 // On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v View) FullScreenCoverPresented(state *BoolState, content Viewable) View {
 	ptr := _SUIViewFullScreenCoverBool(v.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.retained)
 	return View{ptr: ptr, retained: newRetained(ptr)}
@@ -1850,6 +1883,7 @@ func (v ShapeView) Focusable(focusable bool) ShapeView {
 // Focused binds keyboard focus to a BoolState for explicit focus control.
 func (v ShapeView) Focused(state *BoolState) ShapeView {
 	ptr := _SUIViewFocused(v.View.ptr, state.ptr)
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -1950,6 +1984,7 @@ func (v ShapeView) Searchable(query *StringState, prompt string) ShapeView {
 	withCString(prompt, func(promptC *byte) {
 		ptr = _SUIViewSearchable(v.View.ptr, query.ptr, promptC)
 	})
+	runtime.KeepAlive(query)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -1978,6 +2013,16 @@ func (v ShapeView) Tag(tag int32) ShapeView {
 // ID assigns a stable integer identity for ScrollViewReader scroll targets.
 func (v ShapeView) ID(id int) ShapeView {
 	ptr := _SUIViewID(v.View.ptr, int32(id))
+	runtime.KeepAlive(v.View.retained)
+	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// IDString assigns a stable string identity for ScrollViewStringReader scroll targets.
+func (v ShapeView) IDString(id string) ShapeView {
+	var ptr uintptr
+	withCString(id, func(idC *byte) {
+		ptr = _SUIViewIDString(v.View.ptr, idC)
+	})
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -2106,6 +2151,17 @@ func (v ShapeView) DropDestinationFileURL(action func(string) bool) ShapeView {
 	return ret
 }
 
+// OnScrollUserActivity reports user scroll tracking, interaction, and deceleration on macOS 15 or later. Idle and programmatic animation report false. Earlier systems leave content unchanged and do not invoke the callback.
+func (v ShapeView) OnScrollUserActivity(action func(bool)) ShapeView {
+	actionID := registerBoolCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnScrollUserActivity(v.View.ptr, actionID)
+	ret := ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
 // OnHover adds a hover callback. The callback fires when hover state changes.
 func (v ShapeView) OnHover(action func()) ShapeView {
 	actionID := registerCallback(action)
@@ -2186,6 +2242,7 @@ func (v ShapeView) SafeAreaInset(edge Edge, spacing float64, content Viewable) S
 // Sheet presents a modal sheet when the IntState is nonzero.
 func (v ShapeView) Sheet(state *IntState, content Viewable) ShapeView {
 	ptr := _SUIViewSheet(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -2199,6 +2256,7 @@ func (v ShapeView) Alert(title string, message string, state *IntState) ShapeVie
 			ptr = _SUIViewAlert(v.View.ptr, titleC, messageC, state.ptr)
 		})
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -2209,6 +2267,7 @@ func (v ShapeView) ConfirmationDialog(title string, state *IntState, actions Vie
 	withCString(title, func(titleC *byte) {
 		ptr = _SUIViewConfirmationDialog(v.View.ptr, titleC, state.ptr, actions.viewPtr())
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(actions)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -2217,6 +2276,7 @@ func (v ShapeView) ConfirmationDialog(title string, state *IntState, actions Vie
 // SheetPresented presents a modal sheet while the BoolState is true.
 func (v ShapeView) SheetPresented(state *BoolState, content Viewable) ShapeView {
 	ptr := _SUIViewSheetBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -2230,6 +2290,7 @@ func (v ShapeView) AlertPresented(title string, message string, state *BoolState
 			ptr = _SUIViewAlertBool(v.View.ptr, titleC, messageC, state.ptr)
 		})
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -2240,6 +2301,7 @@ func (v ShapeView) ConfirmationDialogPresented(title string, state *BoolState, a
 	withCString(title, func(titleC *byte) {
 		ptr = _SUIViewConfirmationDialogBool(v.View.ptr, titleC, state.ptr, actions.viewPtr())
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(actions)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -2414,6 +2476,7 @@ func (v ShapeView) WebViewTextSelection(enabled bool) ShapeView {
 // Popover presents a popover when the IntState is nonzero.
 func (v ShapeView) Popover(state *IntState, content Viewable) ShapeView {
 	ptr := _SUIViewPopover(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -2422,6 +2485,7 @@ func (v ShapeView) Popover(state *IntState, content Viewable) ShapeView {
 // PopoverPresented presents a popover while the BoolState is true.
 func (v ShapeView) PopoverPresented(state *BoolState, content Viewable) ShapeView {
 	ptr := _SUIViewPopoverBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -2431,6 +2495,7 @@ func (v ShapeView) PopoverPresented(state *BoolState, content Viewable) ShapeVie
 // On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v ShapeView) FullScreenCover(state *IntState, content Viewable) ShapeView {
 	ptr := _SUIViewFullScreenCover(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -2440,6 +2505,7 @@ func (v ShapeView) FullScreenCover(state *IntState, content Viewable) ShapeView 
 // On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v ShapeView) FullScreenCoverPresented(state *BoolState, content Viewable) ShapeView {
 	ptr := _SUIViewFullScreenCoverBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return ShapeView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -2834,6 +2900,7 @@ func (v TextView) Focusable(focusable bool) TextView {
 // Focused binds keyboard focus to a BoolState for explicit focus control.
 func (v TextView) Focused(state *BoolState) TextView {
 	ptr := _SUIViewFocused(v.View.ptr, state.ptr)
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -2934,6 +3001,7 @@ func (v TextView) Searchable(query *StringState, prompt string) TextView {
 	withCString(prompt, func(promptC *byte) {
 		ptr = _SUIViewSearchable(v.View.ptr, query.ptr, promptC)
 	})
+	runtime.KeepAlive(query)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -2962,6 +3030,16 @@ func (v TextView) Tag(tag int32) TextView {
 // ID assigns a stable integer identity for ScrollViewReader scroll targets.
 func (v TextView) ID(id int) TextView {
 	ptr := _SUIViewID(v.View.ptr, int32(id))
+	runtime.KeepAlive(v.View.retained)
+	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+}
+
+// IDString assigns a stable string identity for ScrollViewStringReader scroll targets.
+func (v TextView) IDString(id string) TextView {
+	var ptr uintptr
+	withCString(id, func(idC *byte) {
+		ptr = _SUIViewIDString(v.View.ptr, idC)
+	})
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -3090,6 +3168,17 @@ func (v TextView) DropDestinationFileURL(action func(string) bool) TextView {
 	return ret
 }
 
+// OnScrollUserActivity reports user scroll tracking, interaction, and deceleration on macOS 15 or later. Idle and programmatic animation report false. Earlier systems leave content unchanged and do not invoke the callback.
+func (v TextView) OnScrollUserActivity(action func(bool)) TextView {
+	actionID := registerBoolCallback(action)
+	var ptr uintptr
+	ptr = _SUIViewOnScrollUserActivity(v.View.ptr, actionID)
+	ret := TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
+	ret.retained.addCallbackID(actionID)
+	runtime.KeepAlive(v.View.retained)
+	return ret
+}
+
 // OnHover adds a hover callback. The callback fires when hover state changes.
 func (v TextView) OnHover(action func()) TextView {
 	actionID := registerCallback(action)
@@ -3170,6 +3259,7 @@ func (v TextView) SafeAreaInset(edge Edge, spacing float64, content Viewable) Te
 // Sheet presents a modal sheet when the IntState is nonzero.
 func (v TextView) Sheet(state *IntState, content Viewable) TextView {
 	ptr := _SUIViewSheet(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -3183,6 +3273,7 @@ func (v TextView) Alert(title string, message string, state *IntState) TextView 
 			ptr = _SUIViewAlert(v.View.ptr, titleC, messageC, state.ptr)
 		})
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -3193,6 +3284,7 @@ func (v TextView) ConfirmationDialog(title string, state *IntState, actions View
 	withCString(title, func(titleC *byte) {
 		ptr = _SUIViewConfirmationDialog(v.View.ptr, titleC, state.ptr, actions.viewPtr())
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(actions)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -3201,6 +3293,7 @@ func (v TextView) ConfirmationDialog(title string, state *IntState, actions View
 // SheetPresented presents a modal sheet while the BoolState is true.
 func (v TextView) SheetPresented(state *BoolState, content Viewable) TextView {
 	ptr := _SUIViewSheetBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -3214,6 +3307,7 @@ func (v TextView) AlertPresented(title string, message string, state *BoolState)
 			ptr = _SUIViewAlertBool(v.View.ptr, titleC, messageC, state.ptr)
 		})
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
@@ -3224,6 +3318,7 @@ func (v TextView) ConfirmationDialogPresented(title string, state *BoolState, ac
 	withCString(title, func(titleC *byte) {
 		ptr = _SUIViewConfirmationDialogBool(v.View.ptr, titleC, state.ptr, actions.viewPtr())
 	})
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(actions)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -3398,6 +3493,7 @@ func (v TextView) WebViewTextSelection(enabled bool) TextView {
 // Popover presents a popover when the IntState is nonzero.
 func (v TextView) Popover(state *IntState, content Viewable) TextView {
 	ptr := _SUIViewPopover(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -3406,6 +3502,7 @@ func (v TextView) Popover(state *IntState, content Viewable) TextView {
 // PopoverPresented presents a popover while the BoolState is true.
 func (v TextView) PopoverPresented(state *BoolState, content Viewable) TextView {
 	ptr := _SUIViewPopoverBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -3415,6 +3512,7 @@ func (v TextView) PopoverPresented(state *BoolState, content Viewable) TextView 
 // On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v TextView) FullScreenCover(state *IntState, content Viewable) TextView {
 	ptr := _SUIViewFullScreenCover(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
@@ -3424,6 +3522,7 @@ func (v TextView) FullScreenCover(state *IntState, content Viewable) TextView {
 // On macOS, where fullScreenCover does not exist, it presents a sheet instead.
 func (v TextView) FullScreenCoverPresented(state *BoolState, content Viewable) TextView {
 	ptr := _SUIViewFullScreenCoverBool(v.View.ptr, state.ptr, content.viewPtr())
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(v.View.retained)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}

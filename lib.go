@@ -271,6 +271,8 @@ var (
 	_SUIGroupBox                            func(*byte, uintptr) uintptr
 	_SUIScrollView                          func(uintptr) uintptr
 	_SUIScrollViewReader                    func(uintptr, int32, uintptr) uintptr
+	_SUIScrollViewPosition                  func(uintptr, uintptr) uintptr
+	_SUIScrollViewStringReader              func(uintptr, int32, uintptr) uintptr
 	_SUIZStack                              func(*uintptr, int32) uintptr
 	_SUILazyVStack                          func(*uintptr, int32) uintptr
 	_SUILazyHStack                          func(*uintptr, int32) uintptr
@@ -401,6 +403,7 @@ var (
 	_SUIViewSubmitLabel                          func(uintptr, int32) uintptr
 	_SUIViewTag                                  func(uintptr, int32) uintptr
 	_SUIViewID                                   func(uintptr, int32) uintptr
+	_SUIViewIDString                             func(uintptr, *byte) uintptr
 	_SUIViewDefaultScrollAnchor                  func(uintptr, int32) uintptr
 	_SUIViewScrollTargetBehavior                 func(uintptr, int32) uintptr
 	_SUIViewScrollTargetLayout                   func(uintptr) uintptr
@@ -416,6 +419,7 @@ var (
 	_SUIViewDropDestinationText                  func(uintptr, uintptr) uintptr
 	_SUIViewDropDestinationURL                   func(uintptr, uintptr) uintptr
 	_SUIViewDropDestinationFileURL               func(uintptr, uintptr) uintptr
+	_SUIViewOnScrollUserActivity                 func(uintptr, uintptr) uintptr
 	_SUIViewOnHover                              func(uintptr, uintptr) uintptr
 	_SUIViewOnHoverPhase                         func(uintptr, uintptr) uintptr
 	_SUIViewOnHoverLocation                      func(uintptr, uintptr) uintptr
@@ -656,6 +660,8 @@ func init() {
 	tryRegisterLibFunc(&_SUIGroupBox, libHandle, "SUIGroupBox")
 	tryRegisterLibFunc(&_SUIScrollView, libHandle, "SUIScrollView")
 	tryRegisterLibFunc(&_SUIScrollViewReader, libHandle, "SUIScrollViewReader")
+	tryRegisterLibFunc(&_SUIScrollViewPosition, libHandle, "SUIScrollViewPosition")
+	tryRegisterLibFunc(&_SUIScrollViewStringReader, libHandle, "SUIScrollViewStringReader")
 	tryRegisterLibFunc(&_SUIZStack, libHandle, "SUIZStack")
 	tryRegisterLibFunc(&_SUILazyVStack, libHandle, "SUILazyVStack")
 	tryRegisterLibFunc(&_SUILazyHStack, libHandle, "SUILazyHStack")
@@ -786,6 +792,7 @@ func init() {
 	tryRegisterLibFunc(&_SUIViewSubmitLabel, libHandle, "SUIViewSubmitLabel")
 	tryRegisterLibFunc(&_SUIViewTag, libHandle, "SUIViewTag")
 	tryRegisterLibFunc(&_SUIViewID, libHandle, "SUIViewID")
+	tryRegisterLibFunc(&_SUIViewIDString, libHandle, "SUIViewIDString")
 	tryRegisterLibFunc(&_SUIViewDefaultScrollAnchor, libHandle, "SUIViewDefaultScrollAnchor")
 	tryRegisterLibFunc(&_SUIViewScrollTargetBehavior, libHandle, "SUIViewScrollTargetBehavior")
 	tryRegisterLibFunc(&_SUIViewScrollTargetLayout, libHandle, "SUIViewScrollTargetLayout")
@@ -801,6 +808,7 @@ func init() {
 	tryRegisterLibFunc(&_SUIViewDropDestinationText, libHandle, "SUIViewDropDestinationText")
 	tryRegisterLibFunc(&_SUIViewDropDestinationURL, libHandle, "SUIViewDropDestinationURL")
 	tryRegisterLibFunc(&_SUIViewDropDestinationFileURL, libHandle, "SUIViewDropDestinationFileURL")
+	tryRegisterLibFunc(&_SUIViewOnScrollUserActivity, libHandle, "SUIViewOnScrollUserActivity")
 	tryRegisterLibFunc(&_SUIViewOnHover, libHandle, "SUIViewOnHover")
 	tryRegisterLibFunc(&_SUIViewOnHoverPhase, libHandle, "SUIViewOnHoverPhase")
 	tryRegisterLibFunc(&_SUIViewOnHoverLocation, libHandle, "SUIViewOnHoverLocation")
@@ -1081,6 +1089,12 @@ func setUnavailableStubs() {
 	}
 	if _SUIScrollViewReader == nil {
 		_SUIScrollViewReader = func(uintptr, int32, uintptr) uintptr { stub("SUIScrollViewReader"); return 0 }
+	}
+	if _SUIScrollViewPosition == nil {
+		_SUIScrollViewPosition = func(uintptr, uintptr) uintptr { stub("SUIScrollViewPosition"); return 0 }
+	}
+	if _SUIScrollViewStringReader == nil {
+		_SUIScrollViewStringReader = func(uintptr, int32, uintptr) uintptr { stub("SUIScrollViewStringReader"); return 0 }
 	}
 	if _SUIZStack == nil {
 		_SUIZStack = func(*uintptr, int32) uintptr { stub("SUIZStack"); return 0 }
@@ -1418,6 +1432,9 @@ func setUnavailableStubs() {
 	if _SUIViewID == nil {
 		_SUIViewID = func(uintptr, int32) uintptr { stub("SUIViewID"); return 0 }
 	}
+	if _SUIViewIDString == nil {
+		_SUIViewIDString = func(uintptr, *byte) uintptr { stub("SUIViewIDString"); return 0 }
+	}
 	if _SUIViewDefaultScrollAnchor == nil {
 		_SUIViewDefaultScrollAnchor = func(uintptr, int32) uintptr { stub("SUIViewDefaultScrollAnchor"); return 0 }
 	}
@@ -1462,6 +1479,9 @@ func setUnavailableStubs() {
 	}
 	if _SUIViewDropDestinationFileURL == nil {
 		_SUIViewDropDestinationFileURL = func(uintptr, uintptr) uintptr { stub("SUIViewDropDestinationFileURL"); return 0 }
+	}
+	if _SUIViewOnScrollUserActivity == nil {
+		_SUIViewOnScrollUserActivity = func(uintptr, uintptr) uintptr { stub("SUIViewOnScrollUserActivity"); return 0 }
 	}
 	if _SUIViewOnHover == nil {
 		_SUIViewOnHover = func(uintptr, uintptr) uintptr { stub("SUIViewOnHover"); return 0 }

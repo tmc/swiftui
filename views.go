@@ -269,6 +269,23 @@ func ScrollView(content Viewable) View {
 // ScrollViewReader wraps content with IntState-backed programmatic scrolling. Tag descendants with ID; position 0 means no scroll target.
 func ScrollViewReader(position *IntState, anchor ScrollAnchor, content Viewable) View {
 	ptr := _SUIScrollViewReader(position.ptr, int32(anchor), content.viewPtr())
+	runtime.KeepAlive(position)
+	runtime.KeepAlive(content)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScrollViewPosition adds point-based scrolling to an existing ScrollView on macOS 15 or later. Each y.Set requests a vertical content offset, even when unchanged; negative or non-finite values leave the user position alone. Earlier systems leave content unchanged. Observe actual offsets with OnScrollGeometryChange. Call Set on the main thread.
+func ScrollViewPosition(y *FloatState, content Viewable) View {
+	ptr := _SUIScrollViewPosition(y.ptr, content.viewPtr())
+	runtime.KeepAlive(y)
+	runtime.KeepAlive(content)
+	return View{ptr: ptr, retained: newRetained(ptr)}
+}
+
+// ScrollViewStringReader scrolls to descendants tagged with IDString. Each position.Set requests scrolling even when unchanged; an empty string leaves the user position alone. Call Set on the main thread.
+func ScrollViewStringReader(position *StringState, anchor ScrollAnchor, content Viewable) View {
+	ptr := _SUIScrollViewStringReader(position.ptr, int32(anchor), content.viewPtr())
+	runtime.KeepAlive(position)
 	runtime.KeepAlive(content)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -373,6 +390,7 @@ func SectionExpanded(header string, expanded *BoolState, content Viewable) View 
 	withCString(header, func(headerC *byte) {
 		ptr = _SUISectionExpanded(headerC, expanded.ptr, content.viewPtr())
 	})
+	runtime.KeepAlive(expanded)
 	runtime.KeepAlive(content)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -381,6 +399,7 @@ func SectionExpanded(header string, expanded *BoolState, content Viewable) View 
 func DisclosureGroupView(label Viewable, expanded *BoolState, content Viewable) View {
 	ptr := _SUIDisclosureGroupView(label.viewPtr(), expanded.ptr, content.viewPtr())
 	runtime.KeepAlive(label)
+	runtime.KeepAlive(expanded)
 	runtime.KeepAlive(content)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -389,6 +408,7 @@ func DisclosureGroupView(label Viewable, expanded *BoolState, content Viewable) 
 func SectionExpandedView(header Viewable, expanded *BoolState, content Viewable) View {
 	ptr := _SUISectionExpandedView(header.viewPtr(), expanded.ptr, content.viewPtr())
 	runtime.KeepAlive(header)
+	runtime.KeepAlive(expanded)
 	runtime.KeepAlive(content)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
@@ -462,6 +482,7 @@ func PasteButton(label string, state *StringState) View {
 	withCString(label, func(labelC *byte) {
 		ptr = _SUIPasteButton(labelC, state.ptr)
 	})
+	runtime.KeepAlive(state)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -533,6 +554,7 @@ func Toggle(label string, state *IntState, onChange func()) View {
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -545,6 +567,7 @@ func TextField(placeholder string, state *StringState, onSubmit func()) View {
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onSubmitID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -559,6 +582,7 @@ func TextFieldCallbacks(placeholder string, state *StringState, onChange func(),
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
 	ret.retained.addCallbackID(onSubmitID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -571,6 +595,7 @@ func TextFieldSelection(placeholder string, state *StringState, selection *TextS
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onSubmitID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -585,6 +610,7 @@ func TextFieldCallbacksSelection(placeholder string, state *StringState, selecti
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
 	ret.retained.addCallbackID(onSubmitID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -597,6 +623,7 @@ func SecureField(placeholder string, state *StringState, onSubmit func()) View {
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onSubmitID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -611,6 +638,7 @@ func SecureFieldCallbacks(placeholder string, state *StringState, onChange func(
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
 	ret.retained.addCallbackID(onSubmitID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -623,6 +651,7 @@ func SecureFieldSelection(placeholder string, state *StringState, selection *Tex
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onSubmitID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -637,12 +666,14 @@ func SecureFieldCallbacksSelection(placeholder string, state *StringState, selec
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
 	ret.retained.addCallbackID(onSubmitID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
 // TextEditor creates a multiline text editor bound to a StringState.
 func TextEditor(state *StringState) View {
 	ptr := _SUITextEditor(state.ptr)
+	runtime.KeepAlive(state)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -653,12 +684,14 @@ func TextEditorOnChange(state *StringState, onChange func()) View {
 	ptr = _SUITextEditorOnChange(state.ptr, onChangeID)
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
 // TextEditorSelection creates a multiline text editor bound to a StringState plus explicit UTF-16 selection state.
 func TextEditorSelection(state *StringState, selection *TextSelectionState) View {
 	ptr := _SUITextEditorSelection(state.ptr, selection.ptr)
+	runtime.KeepAlive(state)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -669,6 +702,7 @@ func TextEditorOnChangeSelection(state *StringState, selection *TextSelectionSta
 	ptr = _SUITextEditorOnChangeSelection(state.ptr, selection.ptr, onChangeID)
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -681,6 +715,7 @@ func Slider(label string, state *IntState, min float64, max float64, onChange fu
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -735,6 +770,7 @@ func PickerSegmented(label string, state *IntState, options Viewable, onChange f
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(options)
 	return ret
 }
@@ -748,6 +784,7 @@ func Stepper(label string, state *IntState, min int, max int, onChange func()) V
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -758,6 +795,7 @@ func DynamicView(state *IntState, builder func(value int) View) View {
 	ptr = _SUIDynamicView(state.ptr, builderID)
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(builderID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -768,6 +806,7 @@ func AnimatedDynamicView(state *IntState, transition Transition, builder func(va
 	ptr = _SUIAnimatedDynamicView(state.ptr, int32(transition), builderID)
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(builderID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -778,6 +817,7 @@ func DynamicBoolView(state *BoolState, builder func(value bool) View) View {
 	ptr = _SUIDynamicBoolView(state.ptr, builderID)
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(builderID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -788,6 +828,7 @@ func AnimatedDynamicBoolView(state *BoolState, transition Transition, builder fu
 	ptr = _SUIAnimatedDynamicBoolView(state.ptr, int32(transition), builderID)
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(builderID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -798,6 +839,7 @@ func DynamicFloatView(state *FloatState, builder func(value float64) View) View 
 	ptr = _SUIDynamicFloatView(state.ptr, builderID)
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(builderID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -808,6 +850,7 @@ func AnimatedDynamicFloatView(state *FloatState, transition Transition, builder 
 	ptr = _SUIAnimatedDynamicFloatView(state.ptr, int32(transition), builderID)
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(builderID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -838,6 +881,7 @@ func NavigationSplitViewTriple(sidebar Viewable, content Viewable, detail Viewab
 // NavigationSplitViewVisibility presents sidebar and detail content with IntState-backed column visibility.
 func NavigationSplitViewVisibility(visibility *IntState, sidebar Viewable, detail Viewable) View {
 	ptr := _SUINavigationSplitViewVisibility(visibility.ptr, sidebar.viewPtr(), detail.viewPtr())
+	runtime.KeepAlive(visibility)
 	runtime.KeepAlive(sidebar)
 	runtime.KeepAlive(detail)
 	return View{ptr: ptr, retained: newRetained(ptr)}
@@ -846,6 +890,7 @@ func NavigationSplitViewVisibility(visibility *IntState, sidebar Viewable, detai
 // NavigationSplitViewTripleVisibility presents three columns with IntState-backed column visibility.
 func NavigationSplitViewTripleVisibility(visibility *IntState, sidebar Viewable, content Viewable, detail Viewable) View {
 	ptr := _SUINavigationSplitViewTripleVisibility(visibility.ptr, sidebar.viewPtr(), content.viewPtr(), detail.viewPtr())
+	runtime.KeepAlive(visibility)
 	runtime.KeepAlive(sidebar)
 	runtime.KeepAlive(content)
 	runtime.KeepAlive(detail)
@@ -889,6 +934,7 @@ func PickerMenu(label string, state *IntState, options Viewable, onChange func()
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(state)
 	runtime.KeepAlive(options)
 	return ret
 }
@@ -912,6 +958,7 @@ func ColorPicker(label string, state *ColorState, onChange func()) View {
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -924,6 +971,7 @@ func DatePicker(label string, state *DateState, onChange func()) View {
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -944,6 +992,7 @@ func DatePickerOptions(label string, state *DateState, min float64, max float64,
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -956,6 +1005,7 @@ func FloatSlider(label string, state *FloatState, min float64, max float64, onCh
 	})
 	ret := View{ptr: ptr, retained: newRetained(ptr)}
 	ret.retained.addCallbackID(onChangeID)
+	runtime.KeepAlive(state)
 	return ret
 }
 
@@ -965,12 +1015,14 @@ func FloatGauge(label string, state *FloatState, min float64, max float64) View 
 	withCString(label, func(labelC *byte) {
 		ptr = _SUIFloatGauge(labelC, state.ptr, min, max)
 	})
+	runtime.KeepAlive(state)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
 // FloatProgressView displays a progress bar bound to a FloatState.
 func FloatProgressView(state *FloatState, total float64) View {
 	ptr := _SUIFloatProgressView(state.ptr, total)
+	runtime.KeepAlive(state)
 	return View{ptr: ptr, retained: newRetained(ptr)}
 }
 
@@ -1035,12 +1087,14 @@ func Label(text string, systemImage string) TextView {
 // TextFrom creates a text view that reactively displays an IntState value.
 func TextFrom(state *IntState) TextView {
 	ptr := _SUITextFromState(state.ptr)
+	runtime.KeepAlive(state)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
 
 // TextFromString creates a text view that reactively displays a StringState value.
 func TextFromString(state *StringState) TextView {
 	ptr := _SUITextFromStringState(state.ptr)
+	runtime.KeepAlive(state)
 	return TextView{View: View{ptr: ptr, retained: newRetained(ptr)}}
 }
 
